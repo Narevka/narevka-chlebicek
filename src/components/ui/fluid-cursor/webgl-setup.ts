@@ -1,6 +1,18 @@
 
 import { compileShader, MaterialClass as Material, ProgramClass as Program } from './webgl-classes';
-import { baseVertexShader, copyShader, clearShader, splatShader, advectionShader, divergenceShader, curlShader, vorticityShader, pressureShader, gradientSubtractShader, displayShaderSource } from './shaders';
+import {
+  baseVertexShader,
+  copyShader,
+  clearShader,
+  splatShader,
+  advectionShader,
+  divergenceShader,
+  curlShader,
+  vorticityShader,
+  pressureShader,
+  gradientSubtractShader,
+  displayShaderSource
+} from './shaders';
 import { getWebGLContext } from './webgl-utils';
 import { createBlit } from './renderer';
 import { Config } from './types';
