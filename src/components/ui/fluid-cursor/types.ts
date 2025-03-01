@@ -17,7 +17,7 @@ export interface SplashCursorProps {
 }
 
 export interface WebGLContext {
-  gl: WebGLRenderingContext;
+  gl: WebGLRenderingContext | WebGL2RenderingContext;
   ext: {
     formatRGBA: { internalFormat: number; format: number };
     formatRG: { internalFormat: number; format: number };

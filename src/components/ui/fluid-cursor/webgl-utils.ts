@@ -1,6 +1,16 @@
 
 import { WebGLContext, FBO, DoubleFBO, Resolution } from './types';
 
+// Define WebGL2 constants that TypeScript doesn't recognize
+interface WebGL2Constants {
+  HALF_FLOAT: number;
+  RGBA16F: number;
+  RG16F: number;
+  RG: number;
+  R16F: number;
+  RED: number;
+}
+
 export function getWebGLContext(canvas: HTMLCanvasElement): WebGLContext {
   const params = {
     alpha: true,
@@ -10,7 +20,7 @@ export function getWebGLContext(canvas: HTMLCanvasElement): WebGLContext {
     preserveDrawingBuffer: false,
   };
   
-  let gl = canvas.getContext("webgl2", params) as WebGLRenderingContext | null;
+  let gl = canvas.getContext("webgl2", params) as WebGL2RenderingContext | null;
   const isWebGL2 = !!gl;
   
   if (!isWebGL2)
@@ -27,17 +37,25 @@ export function getWebGLContext(canvas: HTMLCanvasElement): WebGLContext {
   let supportLinearFiltering;
   
   if (isWebGL2) {
-    gl.getExtension("EXT_color_buffer_float");
-    supportLinearFiltering = gl.getExtension("OES_texture_float_linear");
+    (gl as WebGL2RenderingContext).getExtension("EXT_color_buffer_float");
+    supportLinearFiltering = (gl as WebGL2RenderingContext).getExtension("OES_texture_float_linear");
   } else {
-    halfFloat = gl.getExtension("OES_texture_half_float");
-    supportLinearFiltering = gl.getExtension("OES_texture_half_float_linear");
+    halfFloat = (gl as WebGLRenderingContext).getExtension("OES_texture_half_float");
+    supportLinearFiltering = (gl as WebGLRenderingContext).getExtension("OES_texture_half_float_linear");
   }
   
   gl.clearColor(0.0, 0.0, 0.0, 1.0);
   
+  // WebGL2 constants
+  const HALF_FLOAT = isWebGL2 ? (gl as WebGL2RenderingContext).HALF_FLOAT : null;
+  const RGBA16F = isWebGL2 ? (gl as WebGL2RenderingContext).RGBA16F : null;
+  const RG16F = isWebGL2 ? (gl as WebGL2RenderingContext).RG16F : null;
+  const RG = isWebGL2 ? (gl as WebGL2RenderingContext).RG : null;
+  const R16F = isWebGL2 ? (gl as WebGL2RenderingContext).R16F : null;
+  const RED = isWebGL2 ? (gl as WebGL2RenderingContext).RED : null;
+  
   const halfFloatTexType = isWebGL2
-    ? gl.HALF_FLOAT
+    ? HALF_FLOAT
     : halfFloat && (halfFloat as any).HALF_FLOAT_OES;
   
   let formatRGBA;
@@ -46,17 +64,17 @@ export function getWebGLContext(canvas: HTMLCanvasElement): WebGLContext {
 
   if (isWebGL2) {
     formatRGBA = getSupportedFormat(
-      gl,
-      gl.RGBA16F,
+      gl as WebGLRenderingContext,
+      RGBA16F!,
       gl.RGBA,
       halfFloatTexType
     );
-    formatRG = getSupportedFormat(gl, gl.RG16F, gl.RG, halfFloatTexType);
-    formatR = getSupportedFormat(gl, gl.R16F, gl.RED, halfFloatTexType);
+    formatRG = getSupportedFormat(gl as WebGLRenderingContext, RG16F!, RG!, halfFloatTexType);
+    formatR = getSupportedFormat(gl as WebGLRenderingContext, R16F!, RED!, halfFloatTexType);
   } else {
-    formatRGBA = getSupportedFormat(gl, gl.RGBA, gl.RGBA, halfFloatTexType);
-    formatRG = getSupportedFormat(gl, gl.RGBA, gl.RGBA, halfFloatTexType);
-    formatR = getSupportedFormat(gl, gl.RGBA, gl.RGBA, halfFloatTexType);
+    formatRGBA = getSupportedFormat(gl as WebGLRenderingContext, gl.RGBA, gl.RGBA, halfFloatTexType);
+    formatRG = getSupportedFormat(gl as WebGLRenderingContext, gl.RGBA, gl.RGBA, halfFloatTexType);
+    formatR = getSupportedFormat(gl as WebGLRenderingContext, gl.RGBA, gl.RGBA, halfFloatTexType);
   }
 
   return {
@@ -72,19 +90,27 @@ export function getWebGLContext(canvas: HTMLCanvasElement): WebGLContext {
 }
 
 export function getSupportedFormat(
-  gl: WebGLRenderingContext,
+  gl: WebGLRenderingContext | WebGL2RenderingContext,
   internalFormat: number,
   format: number,
   type: number
 ) {
   if (!supportRenderTextureFormat(gl, internalFormat, format, type)) {
-    switch (internalFormat) {
-      case gl.R16F:
-        return getSupportedFormat(gl, gl.RG16F, gl.RG, type);
-      case gl.RG16F:
-        return getSupportedFormat(gl, gl.RGBA16F, gl.RGBA, type);
-      default:
-        return null;
+    // Check if we're using WebGL2
+    const isWebGL2 = !!(gl as WebGL2RenderingContext).HALF_FLOAT;
+    
+    if (isWebGL2) {
+      const gl2 = gl as WebGL2RenderingContext;
+      switch (internalFormat) {
+        case gl2.R16F:
+          return getSupportedFormat(gl, gl2.RG16F, gl2.RG, type);
+        case gl2.RG16F:
+          return getSupportedFormat(gl, gl2.RGBA16F, gl.RGBA, type);
+        default:
+          return null;
+      }
+    } else {
+      return null;
     }
   }
   return {
@@ -94,7 +120,7 @@ export function getSupportedFormat(
 }
 
 export function supportRenderTextureFormat(
-  gl: WebGLRenderingContext,
+  gl: WebGLRenderingContext | WebGL2RenderingContext,
   internalFormat: number,
   format: number,
   type: number
@@ -131,7 +157,7 @@ export function supportRenderTextureFormat(
   return status === gl.FRAMEBUFFER_COMPLETE;
 }
 
-export function getResolution(resolution: number, gl: WebGLRenderingContext): Resolution {
+export function getResolution(resolution: number, gl: WebGLRenderingContext | WebGL2RenderingContext): Resolution {
   let aspectRatio = gl.drawingBufferWidth / gl.drawingBufferHeight;
   if (aspectRatio < 1) aspectRatio = 1.0 / aspectRatio;
   
@@ -145,7 +171,7 @@ export function getResolution(resolution: number, gl: WebGLRenderingContext): Re
 }
 
 export function createFBO(
-  gl: WebGLRenderingContext,
+  gl: WebGLRenderingContext | WebGL2RenderingContext,
   w: number,
   h: number,
   internalFormat: number,
@@ -203,7 +229,7 @@ export function createFBO(
 }
 
 export function createDoubleFBO(
-  gl: WebGLRenderingContext,
+  gl: WebGLRenderingContext | WebGL2RenderingContext,
   w: number,
   h: number,
   internalFormat: number,
@@ -240,7 +266,7 @@ export function createDoubleFBO(
 }
 
 export function resizeFBO(
-  gl: WebGLRenderingContext,
+  gl: WebGLRenderingContext | WebGL2RenderingContext,
   copyProgram: any,
   target: FBO,
   w: number,
@@ -259,7 +285,7 @@ export function resizeFBO(
 }
 
 export function resizeDoubleFBO(
-  gl: WebGLRenderingContext,
+  gl: WebGLRenderingContext | WebGL2RenderingContext,
   copyProgram: any,
   target: DoubleFBO,
   w: number,
