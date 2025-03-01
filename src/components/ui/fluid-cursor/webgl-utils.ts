@@ -110,7 +110,10 @@ export function getWebGLContext(canvas: HTMLCanvasElement): { gl: WebGLRendering
   const halfFloat = gl.getExtension("OES_texture_half_float");
   const supportLinearFiltering = gl.getExtension("OES_texture_half_float_linear");
   if (halfFloat) {
-    ext.halfFloatTexType = halfFloat.HALF_FLOAT_OES;
+    // Fix: Using a type compatible with WebGLRenderingContext
+    // The number 36193 corresponds to halfFloat.HALF_FLOAT_OES
+    // We need to use the correct type that TypeScript expects
+    ext.halfFloatTexType = halfFloat.HALF_FLOAT_OES as unknown as number;
     ext.supportLinearFiltering = !!supportLinearFiltering;
   }
 
