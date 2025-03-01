@@ -4,6 +4,7 @@ import { TypewriterEffectSmooth } from "@/components/ui/typewriter-effect";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/AuthContext";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { SplashCursor } from "@/components/ui/splash-cursor";
 
 const Index = () => {
   const { user } = useAuth();
@@ -32,6 +33,7 @@ const Index = () => {
   if (isMobile) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-white px-4">
+        <SplashCursor />
         <div className="max-w-3xl w-full space-y-8 text-center">
           <p className="text-neutral-600 dark:text-neutral-200 text-base mb-2">
             The road to freedom starts from here
@@ -59,6 +61,7 @@ const Index = () => {
   // Desktop layout (minimal version with just buttons)
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-white">
+      <SplashCursor />
       <div className="max-w-md w-full space-y-8 text-center">
         <div className="flex flex-col space-y-4">
           <Button asChild className="w-64 h-12 mx-auto bg-black text-white rounded-md">
