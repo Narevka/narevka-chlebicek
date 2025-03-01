@@ -1,6 +1,5 @@
-
 import { PointerPrototype } from './types';
-import { HSVtoRGB } from './webgl-utils';
+import { HSVtoRGB } from './math-utils';
 
 export function createPointerPrototype(): PointerPrototype {
   return {

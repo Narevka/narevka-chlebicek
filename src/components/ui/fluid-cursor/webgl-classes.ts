@@ -1,4 +1,5 @@
-import { hashCode } from './webgl-utils';
+
+import { hashCode } from './math-utils';
 import { Material, Program } from './types';
 
 export function compileShader(

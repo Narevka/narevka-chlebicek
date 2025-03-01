@@ -1,10 +1,11 @@
 
 import { compileShader, createProgram, MaterialClass as Material, ProgramClass as Program } from './webgl-classes';
 import { baseVertexShader, copyShader, clearShader, splatShader, advectionShader, divergenceShader, curlShader, vorticityShader, pressureShader, gradientSubtractShader, displayShaderSource } from './shaders';
-import { getWebGLContext, scaleByPixelRatio, wrap } from './webgl-utils';
+import { getWebGLContext, scaleByPixelRatio } from './webgl-utils';
+import { wrap } from './math-utils';
 import { SplashCursorProps, PointerPrototype } from './types';
 import { createConfig } from './config';
-import { createPointerPrototype, updatePointerDownData, updatePointerMoveData, updatePointerUpData, generateColor, correctDeltaX, correctDeltaY } from './pointer';
+import { createPointerPrototype, updatePointerDownData, updatePointerMoveData, updatePointerUpData, generateColor } from './pointer';
 import { createBlit, render } from './renderer';
 import { splatPointer, clickSplat } from './splat';
 import { step } from './simulation';
