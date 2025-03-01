@@ -1,31 +1,15 @@
+
 import { Link } from "react-router-dom";
 import { TypewriterEffectSmooth } from "@/components/ui/typewriter-effect";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/AuthContext";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { SplashCursor } from "@/components/ui/splash-cursor";
 import { StickyScroll } from "@/components/ui/sticky-scroll-reveal";
-import React, { useState, useEffect, Suspense } from "react";
-import { ErrorBoundary } from "react-error-boundary";
-
-const SplashCursor = React.lazy(() => import("@/components/ui/splash-cursor").then(module => ({
-  default: module.SplashCursor || (() => null) // Fallback to null component if SplashCursor doesn't exist
-})).catch(() => ({
-  default: () => null // Silently handle any loading errors
-})));
 
 const Index = () => {
   const { user } = useAuth();
   const isMobile = useIsMobile();
-  const [isLoading, setIsLoading] = useState(true);
-  
-  useEffect(() => {
-    // Set loading to false after component mounts
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 500);
-    
-    return () => clearTimeout(timer);
-  }, []);
   
   const words = [
     {
@@ -46,6 +30,7 @@ const Index = () => {
     },
   ];
 
+  // Content for the sticky scroll component with 4 items
   const stickyScrollContent = [
     {
       title: "Collaborative Editing",
@@ -95,66 +80,25 @@ const Index = () => {
     },
   ];
 
-  const renderFallbackLayout = () => (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-black px-4">
-      <ErrorBoundary FallbackComponent={() => null}>
-        <Suspense fallback={null}>
-          <SplashCursor />
-        </Suspense>
-      </ErrorBoundary>
-      
-      <div className="max-w-3xl w-full space-y-8 text-center">
-        <p className="text-neutral-400 text-base mb-2">
-          The road to freedom starts from here
-        </p>
-        
-        <TypewriterEffectSmooth words={words} />
-        
-        <div className="flex flex-col sm:flex-row sm:justify-center space-y-4 sm:space-y-0 sm:space-x-4 mt-8">
-          <Button asChild className="w-full sm:w-40 h-12 bg-white text-black rounded-md">
-            <Link to="/auth">
-              Join now
-            </Link>
-          </Button>
-          <Button asChild variant="outline" className="w-full sm:w-40 h-12 rounded-md border-2 border-white text-white">
-            <Link to="/auth" state={{ isSignUp: true }}>
-              Signup
-            </Link>
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-
-  const ErrorFallback = () => renderFallbackLayout();
-
+  // Mobile layout
   if (isMobile) {
-    return renderFallbackLayout();
-  }
-  
-  if (isLoading) {
-    return renderFallbackLayout();
-  }
-  
-  return (
-    <ErrorBoundary FallbackComponent={ErrorFallback}>
-      <div className="h-screen w-full overflow-hidden">
-        <ErrorBoundary FallbackComponent={() => null}>
-          <Suspense fallback={null}>
-            <SplashCursor />
-          </Suspense>
-        </ErrorBoundary>
-        
-        <div className="h-full w-full">
-          <StickyScroll content={stickyScrollContent} />
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-black px-4">
+        <SplashCursor />
+        <div className="max-w-3xl w-full space-y-8 text-center">
+          <p className="text-neutral-400 text-base mb-2">
+            The road to freedom starts from here
+          </p>
           
-          <div className="fixed bottom-10 left-0 w-full flex justify-center gap-6 z-10">
-            <Button asChild className="w-40 h-12 bg-white text-black rounded-md">
+          <TypewriterEffectSmooth words={words} />
+          
+          <div className="flex flex-col space-y-4 mt-8">
+            <Button asChild className="w-full h-12 bg-white text-black rounded-md">
               <Link to="/auth">
                 Join now
               </Link>
             </Button>
-            <Button asChild variant="outline" className="w-40 h-12 rounded-md border-2 border-white text-white">
+            <Button asChild variant="outline" className="w-full h-12 rounded-md border-2 border-white text-white">
               <Link to="/auth" state={{ isSignUp: true }}>
                 Signup
               </Link>
@@ -162,7 +106,32 @@ const Index = () => {
           </div>
         </div>
       </div>
-    </ErrorBoundary>
+    );
+  }
+  
+  // Desktop layout with full-page sticky scroll
+  return (
+    <div className="h-screen w-full overflow-hidden">
+      <SplashCursor />
+      
+      <div className="h-full w-full">
+        <StickyScroll content={stickyScrollContent} />
+        
+        {/* Fixed buttons at the bottom of the page */}
+        <div className="fixed bottom-10 left-0 w-full flex justify-center gap-6 z-10">
+          <Button asChild className="w-40 h-12 bg-white text-black rounded-md">
+            <Link to="/auth">
+              Join now
+            </Link>
+          </Button>
+          <Button asChild variant="outline" className="w-40 h-12 rounded-md border-2 border-white text-white">
+            <Link to="/auth" state={{ isSignUp: true }}>
+              Signup
+            </Link>
+          </Button>
+        </div>
+      </div>
+    </div>
   );
 };
 
