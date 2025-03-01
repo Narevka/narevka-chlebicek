@@ -130,10 +130,10 @@ const Index = () => {
     );
   }
   
-  // Desktop layout with full-height sticky scroll
+  // Desktop layout with proper StickyScroll implementation
   return (
-    <div className="h-screen flex flex-col bg-black">
-      <div className="flex-1 relative">
+    <div className="h-screen overflow-hidden bg-black">
+      <div className="h-full relative">
         <StickyScroll 
           content={stickyScrollContent}
           contentClassName="lg:h-80 lg:w-96"
