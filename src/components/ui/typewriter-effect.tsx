@@ -53,9 +53,25 @@ export const TypewriterEffectSmooth = ({
   return (
     <div className={cn("flex flex-col items-center justify-center", className)}>
       <div className="text-center">
-        <h1 className="text-3xl font-bold sm:text-5xl md:text-6xl">
-          <span>{currentText}</span>
-          <span className={cn("animate-blink", cursorClassName)}>|</span>
+        <h1 className="text-4xl font-bold sm:text-5xl md:text-6xl">
+          {words.map((word, index) => {
+            if (index < currentWord) {
+              return (
+                <span key={index} className={word.className}>
+                  {index === 0 ? word.text : ` ${word.text}`}{" "}
+                </span>
+              );
+            }
+            if (index === currentWord) {
+              return (
+                <span key={index} className={word.className}>
+                  {index === 0 ? currentText : ` ${currentText}`}
+                </span>
+              );
+            }
+            return null;
+          })}
+          <span className={cn("animate-pulse", cursorClassName)}>|</span>
         </h1>
       </div>
     </div>
