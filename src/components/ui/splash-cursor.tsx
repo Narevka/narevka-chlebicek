@@ -3,7 +3,7 @@
 
 import React, { useEffect } from 'react';
 
-// Define custom interfaces for the missing types
+// Define custom interfaces for the missing types with all required properties
 interface Material {
   vertexShader: string;
   fragmentShaderSource: string;
