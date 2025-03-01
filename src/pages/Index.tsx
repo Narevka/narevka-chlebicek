@@ -132,21 +132,26 @@ const Index = () => {
     );
   }
   
-  // Desktop layout - now with StickyScroll component
+  // Desktop layout - now with full page StickyScroll component
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-white">
+    <div className="h-screen flex flex-col bg-slate-900 relative">
       <SplashCursor />
-      <div className="w-full max-w-6xl mx-auto">
-        <div className="mb-10">
-          <StickyScroll content={stickyScrollContent} />
-        </div>
-        <div className="flex justify-center space-x-6 mt-8">
-          <Button asChild className="w-64 h-12 bg-black text-white rounded-md">
+      
+      {/* Full page StickyScroll component */}
+      <div className="flex-1 flex flex-col">
+        <StickyScroll 
+          content={stickyScrollContent}
+          contentClassName="lg:h-80 lg:w-96"
+        />
+        
+        {/* Position buttons at the bottom center of the page */}
+        <div className="absolute bottom-10 left-1/2 transform -translate-x-1/2 flex space-x-6 z-10">
+          <Button asChild className="w-40 h-12 bg-white text-black hover:bg-gray-200 rounded-md">
             <Link to="/auth">
               Join now
             </Link>
           </Button>
-          <Button asChild variant="outline" className="w-64 h-12 rounded-md border-2">
+          <Button asChild variant="outline" className="w-40 h-12 rounded-md border-2 border-white text-white hover:bg-white/10">
             <Link to="/auth" state={{ isSignUp: true }}>
               Signup
             </Link>
