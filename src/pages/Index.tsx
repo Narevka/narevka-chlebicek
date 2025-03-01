@@ -30,75 +30,52 @@ const Index = () => {
     },
   ];
 
-  // Content for the sticky scroll component
+  // Content for the sticky scroll component with 4 items
   const stickyScrollContent = [
     {
       title: "Collaborative Editing",
       description:
-        "Work together in real-time with your team, without stepping on each other's toes.",
+        "Work together in real time with your team, clients, and stakeholders. Collaborate on documents, share ideas, and make decisions quickly. With our platform, you can streamline your workflow and increase productivity.",
       content: (
         <div className="h-full w-full flex items-center justify-center text-white">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-            strokeWidth={1.5}
-            stroke="currentColor"
-            className="w-12 h-12"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10"
-            />
-          </svg>
+          <div className="text-center">
+            <h3 className="text-xl font-bold mb-2">Collaborative Editing</h3>
+          </div>
+        </div>
+      ),
+    },
+    {
+      title: "Real time changes",
+      description:
+        "See changes as they happen. With our platform, you can track every modification in real time. No more confusion about the latest version of your project. Say goodbye to the chaos of version control and embrace the simplicity of real-time updates.",
+      content: (
+        <img 
+          src="/lovable-uploads/c335196c-338d-475e-a31a-ce801c015619.png" 
+          alt="Real time changes" 
+          className="w-full h-full object-cover"
+        />
+      ),
+    },
+    {
+      title: "Version control",
+      description:
+        "Experience real-time updates and never stress about version control again. Our platform ensures that you're always working on the most recent version of your project, eliminating the need for constant manual updates. Stay in the loop, keep your team aligned, and maintain the flow of your work without any interruptions.",
+      content: (
+        <div className="h-full w-full flex items-center justify-center text-white">
+          <h3 className="text-xl font-bold">Version control</h3>
         </div>
       ),
     },
     {
       title: "Advanced Analytics",
       description:
-        "Get detailed insights into your projects with powerful analytics tools.",
+        "Get detailed insights into your projects with powerful analytics tools. Track progress, monitor team performance, and identify bottlenecks to optimize your workflow. Make data-driven decisions to improve efficiency and deliver better results.",
       content: (
-        <div className="h-full w-full flex items-center justify-center text-white">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-            strokeWidth={1.5}
-            stroke="currentColor"
-            className="w-12 h-12"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"
-            />
-          </svg>
-        </div>
-      ),
-    },
-    {
-      title: "Secure Infrastructure",
-      description:
-        "Enterprise-grade security to keep your data and users safe at all times.",
-      content: (
-        <div className="h-full w-full flex items-center justify-center text-white">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-            strokeWidth={1.5}
-            stroke="currentColor"
-            className="w-12 h-12"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z"
-            />
-          </svg>
-        </div>
+        <img 
+          src="/lovable-uploads/5014a49e-97ee-4351-b5bf-cb2322807db8.png" 
+          alt="Advanced Analytics" 
+          className="w-full h-full object-cover"
+        />
       ),
     },
   ];
