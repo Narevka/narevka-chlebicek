@@ -1,3 +1,4 @@
+
 "use client";
 import { useEffect, useRef } from "react";
 
@@ -16,6 +17,34 @@ interface SplashCursorProps {
   COLOR_UPDATE_SPEED?: number;
   BACK_COLOR?: { r: number; g: number; b: number };
   TRANSPARENT?: boolean;
+}
+
+// Define WebGL2 specific constants
+interface WebGL2Constants {
+  RGBA16F: number;
+  RG16F: number;
+  R16F: number;
+  HALF_FLOAT: number;
+  RG: number;
+  RED: number;
+}
+
+// Define Material class interface
+interface MaterialClass {
+  vertexShader: WebGLShader;
+  fragmentShaderSource: string;
+  programs: Record<number, WebGLProgram>;
+  activeProgram: WebGLProgram | null;
+  uniforms: Record<string, WebGLUniformLocation>;
+  setKeywords(keywords: string[]): void;
+  bind(): void;
+}
+
+// Define Program class interface
+interface ProgramClass {
+  uniforms: Record<string, WebGLUniformLocation>;
+  program: WebGLProgram;
+  bind(): void;
 }
 
 function SplashCursor({
@@ -106,9 +135,20 @@ function SplashCursor({
         );
       }
       gl.clearColor(0.0, 0.0, 0.0, 1.0);
+      
+      // Define WebGL2 constants (these are missing in the WebGL1 context type)
+      const webgl2Constants: WebGL2Constants = {
+        RGBA16F: 0x881B,
+        RG16F: 0x822F,
+        R16F: 0x822D,
+        HALF_FLOAT: 0x140B,
+        RG: 0x8227,
+        RED: 0x1903
+      };
+      
       const halfFloatTexType = isWebGL2
-        ? gl.HALF_FLOAT
-        : halfFloat && halfFloat.HALF_FLOAT_OES;
+        ? webgl2Constants.HALF_FLOAT
+        : halfFloat?.HALF_FLOAT_OES;
       let formatRGBA;
       let formatRG;
       let formatR;
@@ -116,12 +156,12 @@ function SplashCursor({
       if (isWebGL2) {
         formatRGBA = getSupportedFormat(
           gl,
-          gl.RGBA16F,
+          webgl2Constants.RGBA16F,
           gl.RGBA,
           halfFloatTexType
         );
-        formatRG = getSupportedFormat(gl, gl.RG16F, gl.RG, halfFloatTexType);
-        formatR = getSupportedFormat(gl, gl.R16F, gl.RED, halfFloatTexType);
+        formatRG = getSupportedFormat(gl, webgl2Constants.RG16F, webgl2Constants.RG, halfFloatTexType);
+        formatR = getSupportedFormat(gl, webgl2Constants.R16F, webgl2Constants.RED, halfFloatTexType);
       } else {
         formatRGBA = getSupportedFormat(gl, gl.RGBA, gl.RGBA, halfFloatTexType);
         formatRG = getSupportedFormat(gl, gl.RGBA, gl.RGBA, halfFloatTexType);
@@ -143,10 +183,10 @@ function SplashCursor({
     function getSupportedFormat(gl, internalFormat, format, type) {
       if (!supportRenderTextureFormat(gl, internalFormat, format, type)) {
         switch (internalFormat) {
-          case gl.R16F:
-            return getSupportedFormat(gl, gl.RG16F, gl.RG, type);
-          case gl.RG16F:
-            return getSupportedFormat(gl, gl.RGBA16F, gl.RGBA, type);
+          case 0x822D: // R16F
+            return getSupportedFormat(gl, 0x822F, 0x8227, type); // RG16F, RG
+          case 0x822F: // RG16F
+            return getSupportedFormat(gl, 0x881B, gl.RGBA, type); // RGBA16F, RGBA
           default:
             return null;
         }
@@ -188,14 +228,21 @@ function SplashCursor({
       return status === gl.FRAMEBUFFER_COMPLETE;
     }
 
-    class Material {
+    class Material implements MaterialClass {
+      vertexShader: WebGLShader;
+      fragmentShaderSource: string;
+      programs: Record<number, WebGLProgram>;
+      activeProgram: WebGLProgram | null;
+      uniforms: Record<string, WebGLUniformLocation>;
+      
       constructor(vertexShader, fragmentShaderSource) {
         this.vertexShader = vertexShader;
         this.fragmentShaderSource = fragmentShaderSource;
-        this.programs = [];
+        this.programs = {};
         this.activeProgram = null;
-        this.uniforms = [];
+        this.uniforms = {};
       }
+      
       setKeywords(keywords) {
         let hash = 0;
         for (let i = 0; i < keywords.length; i++) hash += hashCode(keywords[i]);
@@ -213,17 +260,22 @@ function SplashCursor({
         this.uniforms = getUniforms(program);
         this.activeProgram = program;
       }
+      
       bind() {
         gl.useProgram(this.activeProgram);
       }
     }
 
-    class Program {
+    class Program implements ProgramClass {
+      uniforms: Record<string, WebGLUniformLocation>;
+      program: WebGLProgram;
+      
       constructor(vertexShader, fragmentShader) {
         this.uniforms = {};
         this.program = createProgram(vertexShader, fragmentShader);
         this.uniforms = getUniforms(this.program);
       }
+      
       bind() {
         gl.useProgram(this.program);
       }
@@ -240,7 +292,7 @@ function SplashCursor({
     }
 
     function getUniforms(program) {
-      let uniforms = [];
+      let uniforms = {};
       let uniformCount = gl.getProgramParameter(program, gl.ACTIVE_UNIFORMS);
       for (let i = 0; i < uniformCount; i++) {
         let uniformName = gl.getActiveUniform(program, i).name;
@@ -249,7 +301,7 @@ function SplashCursor({
       return uniforms;
     }
 
-    function compileShader(type, source, keywords) {
+    function compileShader(type, source, keywords?) {
       source = addKeywords(source, keywords);
       const shader = gl.createShader(type);
       gl.shaderSource(shader, source);
