@@ -1,11 +1,11 @@
 
 import { Link } from "react-router-dom";
-import { TypewriterEffectSmooth } from "@/components/ui/typewriter-effect";
-import { Button } from "@/components/ui/button";
-import { useAuth } from "@/context/AuthContext";
-import { useIsMobile } from "@/hooks/use-mobile";
-import { SplashCursor } from "@/components/ui/splash-cursor";
-import { StickyScrollDemo } from "@/components/ui/sticky-scroll-demo";
+import { TypewriterEffectSmooth } from "@/components/ui/typewriter-effect.tsx";
+import { Button } from "@/components/ui/button.tsx";
+import { useAuth } from "@/context/AuthContext.tsx";
+import { useIsMobile } from "@/hooks/use-mobile.tsx";
+import { SplashCursor } from "@/components/ui/splash-cursor.tsx";
+import { StickyScrollDemo } from "@/components/ui/sticky-scroll-demo.tsx";
 
 const Index = () => {
   const { user } = useAuth();

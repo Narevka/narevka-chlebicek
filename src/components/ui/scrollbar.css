@@ -1,24 +1,23 @@
 /* Custom scrollbar styles */
 .scrollbar-thin::-webkit-scrollbar {
-    width: 6px;
-  }
-  
-  .scrollbar-thin::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  
-  .scrollbar-thin::-webkit-scrollbar-thumb {
-    background-color: rgba(155, 155, 155, 0.3);
-    border-radius: 20px;
-  }
-  
-  /* Hide scrollbar completely for a cleaner look */
-  .scrollbar-hidden {
-    -ms-overflow-style: none;  /* IE and Edge */
-    scrollbar-width: none;  /* Firefox */
-  }
-  
-  .scrollbar-hidden::-webkit-scrollbar {
-    display: none;  /* Chrome, Safari and Opera */
-  }
-  
+  width: 6px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background-color: rgba(155, 155, 155, 0.3);
+  border-radius: 20px;
+}
+
+/* Hide scrollbar completely for a cleaner look */
+.scrollbar-hidden {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+.scrollbar-hidden::-webkit-scrollbar {
+  display: none;  /* Chrome, Safari and Opera */
+}
