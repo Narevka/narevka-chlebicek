@@ -1,3 +1,4 @@
+
 // src/components/ui/splash-cursor.tsx
 
 "use client";
@@ -193,15 +194,36 @@ function SplashCursor({
       return status === gl.FRAMEBUFFER_COMPLETE;
     }
 
-    class Material {
-      constructor(vertexShader, fragmentShaderSource) {
+    // Fixed TypeScript interfaces
+    interface MaterialInterface {
+      vertexShader: any;
+      fragmentShaderSource: string;
+      programs: any[];
+      activeProgram: any;
+      uniforms: any[];
+      setKeywords: (keywords: string[]) => void;
+      bind: () => void;
+    }
+
+    interface ProgramInterface {
+      uniforms: Record<string, any>;
+      program: any;
+      bind: () => void;
+    }
+
+    class Material implements MaterialInterface {
+      vertexShader: any;
+      fragmentShaderSource: string;
+      programs: any[] = [];
+      activeProgram: any = null;
+      uniforms: any[] = [];
+
+      constructor(vertexShader: any, fragmentShaderSource: string) {
         this.vertexShader = vertexShader;
         this.fragmentShaderSource = fragmentShaderSource;
-        this.programs = [];
-        this.activeProgram = null;
-        this.uniforms = [];
       }
-      setKeywords(keywords) {
+      
+      setKeywords(keywords: string[]) {
         let hash = 0;
         for (let i = 0; i < keywords.length; i++) hash += hashCode(keywords[i]);
         let program = this.programs[hash];
@@ -218,23 +240,27 @@ function SplashCursor({
         this.uniforms = getUniforms(program);
         this.activeProgram = program;
       }
+      
       bind() {
         gl.useProgram(this.activeProgram);
       }
     }
 
-    class Program {
-      constructor(vertexShader, fragmentShader) {
-        this.uniforms = {};
+    class Program implements ProgramInterface {
+      uniforms: Record<string, any> = {};
+      program: any;
+
+      constructor(vertexShader: any, fragmentShader: any) {
         this.program = createProgram(vertexShader, fragmentShader);
         this.uniforms = getUniforms(this.program);
       }
+      
       bind() {
         gl.useProgram(this.program);
       }
     }
 
-    function createProgram(vertexShader, fragmentShader) {
+    function createProgram(vertexShader: any, fragmentShader: any) {
       let program = gl.createProgram();
       gl.attachShader(program, vertexShader);
       gl.attachShader(program, fragmentShader);
@@ -244,8 +270,8 @@ function SplashCursor({
       return program;
     }
 
-    function getUniforms(program) {
-      let uniforms = [];
+    function getUniforms(program: any) {
+      let uniforms: Record<string, any> = {};
       let uniformCount = gl.getProgramParameter(program, gl.ACTIVE_UNIFORMS);
       for (let i = 0; i < uniformCount; i++) {
         let uniformName = gl.getActiveUniform(program, i).name;
@@ -254,7 +280,7 @@ function SplashCursor({
       return uniforms;
     }
 
-    function compileShader(type, source, keywords) {
+    function compileShader(type: number, source: string, keywords?: string[]) {
       source = addKeywords(source, keywords);
       const shader = gl.createShader(type);
       gl.shaderSource(shader, source);
@@ -264,7 +290,7 @@ function SplashCursor({
       return shader;
     }
 
-    function addKeywords(source, keywords) {
+    function addKeywords(source: string, keywords?: string[]) {
       if (!keywords) return source;
       let keywordsString = "";
       keywords.forEach((keyword) => {

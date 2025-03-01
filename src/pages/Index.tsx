@@ -1,4 +1,3 @@
-
 // src/pages/Index.tsx
 
 import { Link } from "react-router-dom";
@@ -92,7 +91,7 @@ const Index = () => {
     );
   }
   
-  // Desktop layout with StickyScroll
+  // Desktop layout with StickyScroll and SplashCursor
   return (
     <div className="min-h-screen flex flex-col bg-white">
       {/* Add SplashCursor with z-0 to appear behind content */}
@@ -122,30 +121,6 @@ const Index = () => {
       <div className="w-full z-10 relative mb-16">
         <StickyScroll content={features} />
       </div>
-      
-      {/* CTA Section */}
-      <section className="py-16 px-6 bg-blue-50 z-10 relative">
-        <div className="max-w-3xl mx-auto text-center">
-          <h2 className="text-3xl font-bold mb-4">Ready to Get Started?</h2>
-          <p className="text-lg text-gray-600 mb-8">
-            Join thousands of users who are already building amazing apps.
-          </p>
-          <Button asChild size="lg" className="px-8">
-            <Link to="/auth" state={{ isSignUp: true }}>
-              Create Free Account
-            </Link>
-          </Button>
-        </div>
-      </section>
-      
-      {/* Footer */}
-      <footer className="py-8 px-6 bg-gray-900 text-white z-10 relative">
-        <div className="max-w-6xl mx-auto">
-          <div className="border-t border-gray-800 mt-8 pt-8 text-center text-gray-400">
-            <p>© {new Date().getFullYear()} Your Brand. All rights reserved.</p>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 };
