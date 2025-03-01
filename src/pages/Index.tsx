@@ -4,7 +4,7 @@ import { TypewriterEffectSmooth } from "@/components/ui/typewriter-effect.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { useAuth } from "@/context/AuthContext.tsx";
 import { useIsMobile } from "@/hooks/use-mobile.tsx";
-import { SplashCursor } from "@/components/ui/splash-cursor.tsx";
+import { SplashCursor } from "@/components/ui/fluid-cursor";
 import { StickyScrollDemo } from "@/components/ui/sticky-scroll-demo.tsx";
 
 const Index = () => {
