@@ -1,3 +1,4 @@
+
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
@@ -18,10 +19,6 @@ export default defineConfig(({ mode }) => ({
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
-  },
-  build: {
-    rollupOptions: {
-      external: ['framer-motion'] // Add framer-motion as an external dependency
-    }
   }
+  // Removed the build.rollupOptions that was excluding framer-motion
 }));
