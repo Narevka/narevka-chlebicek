@@ -1,4 +1,3 @@
-// src/components/ui/sticky-scroll.tsx
 
 "use client";
 import React, { useEffect, useRef, useState } from "react";
@@ -65,7 +64,7 @@ export const StickyScroll = ({
       animate={{
         backgroundColor: backgroundColors[activeCard % backgroundColors.length],
       }}
-      className="h-[80vh] overflow-y-auto flex justify-center relative space-x-10 rounded-md p-10"
+      className="h-[30rem] overflow-y-auto flex justify-center relative space-x-10 rounded-md p-10"
       ref={ref}
     >
       <div className="div relative flex items-start px-4">

@@ -1,3 +1,4 @@
+
 // src/pages/Index.tsx
 
 import { Link } from "react-router-dom";
@@ -91,7 +92,7 @@ const Index = () => {
     );
   }
   
-  // New Desktop layout with StickyScroll
+  // Desktop layout with StickyScroll
   return (
     <div className="min-h-screen flex flex-col bg-white">
       {/* Add SplashCursor with z-0 to appear behind content */}
@@ -118,7 +119,7 @@ const Index = () => {
       </div>
       
       {/* StickyScroll Features Section */}
-      <div className="w-full z-10 relative">
+      <div className="w-full z-10 relative mb-16">
         <StickyScroll content={features} />
       </div>
       
@@ -148,5 +149,5 @@ const Index = () => {
     </div>
   );
 };
-xd
+
 export default Index;
