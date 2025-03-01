@@ -62,18 +62,20 @@ export function getWebGLContext(canvas: HTMLCanvasElement): WebGLContext {
   let formatR;
 
   if (isWebGL2) {
+    const gl2 = gl as WebGL2RenderingContext;
     formatRGBA = getSupportedFormat(
-      gl as WebGLRenderingContext,
+      gl2,
       RGBA16F!,
-      gl.RGBA,
+      gl2.RGBA,
       halfFloatTexType
     );
-    formatRG = getSupportedFormat(gl as WebGLRenderingContext, RG16F!, RG!, halfFloatTexType);
-    formatR = getSupportedFormat(gl as WebGLRenderingContext, R16F!, RED!, halfFloatTexType);
+    formatRG = getSupportedFormat(gl2, RG16F!, RG!, halfFloatTexType);
+    formatR = getSupportedFormat(gl2, R16F!, RED!, halfFloatTexType);
   } else {
-    formatRGBA = getSupportedFormat(gl as WebGLRenderingContext, gl.RGBA, gl.RGBA, halfFloatTexType);
-    formatRG = getSupportedFormat(gl as WebGLRenderingContext, gl.RGBA, gl.RGBA, halfFloatTexType);
-    formatR = getSupportedFormat(gl as WebGLRenderingContext, gl.RGBA, gl.RGBA, halfFloatTexType);
+    const gl1 = gl as WebGLRenderingContext;
+    formatRGBA = getSupportedFormat(gl1, gl1.RGBA, gl1.RGBA, halfFloatTexType);
+    formatRG = getSupportedFormat(gl1, gl1.RGBA, gl1.RGBA, halfFloatTexType);
+    formatR = getSupportedFormat(gl1, gl1.RGBA, gl1.RGBA, halfFloatTexType);
   }
 
   return {
@@ -96,15 +98,15 @@ export function getSupportedFormat(
 ) {
   if (!supportRenderTextureFormat(gl, internalFormat, format, type)) {
     // Check if we're using WebGL2
-    const isWebGL2 = !!(gl as WebGL2RenderingContext).HALF_FLOAT;
+    const isWebGL2 = 'HALF_FLOAT' in gl;
     
     if (isWebGL2) {
       const gl2 = gl as WebGL2RenderingContext;
       switch (internalFormat) {
         case gl2.R16F:
-          return getSupportedFormat(gl, gl2.RG16F, gl2.RG, type);
+          return getSupportedFormat(gl2, gl2.RG16F, gl2.RG, type);
         case gl2.RG16F:
-          return getSupportedFormat(gl, gl2.RGBA16F, gl.RGBA, type);
+          return getSupportedFormat(gl2, gl2.RGBA16F, gl2.RGBA, type);
         default:
           return null;
       }
