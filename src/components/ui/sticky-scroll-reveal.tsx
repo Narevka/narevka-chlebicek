@@ -43,14 +43,12 @@ export const StickyScroll = ({
     "rgb(15 23 42)", // slate-900
     "rgb(0 0 0)", // black
     "rgb(23 23 23)", // neutral-900
-    "rgb(15 23 42)", // slate-900 repeated for the 4th item
   ];
 
   const linearGradients = [
     "linear-gradient(to bottom right, rgb(6 182 212), rgb(16 185 129))", // cyan-500 to emerald-500
     "linear-gradient(to bottom right, rgb(236 72 153), rgb(99 102 241))", // pink-500 to indigo-500
     "linear-gradient(to bottom right, rgb(249 115 22), rgb(234 179 8))", // orange-500 to yellow-500
-    "linear-gradient(to bottom right, rgb(249 115 22), rgb(236 72 153))", // orange-500 to pink-500 for the 4th item
   ];
 
   return (
@@ -93,13 +91,11 @@ export const StickyScroll = ({
           background: linearGradients[activeCard % linearGradients.length],
         }}
         className={cn(
-          "hidden lg:block h-80 w-80 rounded-md sticky top-40 right-40 overflow-hidden",
+          "hidden lg:block h-80 w-80 rounded-md sticky top-40 overflow-hidden",
           contentClassName
         )}
       >
-        <div className="w-full h-full flex items-center justify-center text-white">
-          {content[activeCard].content ?? null}
-        </div>
+        {content[activeCard].content ?? null}
       </div>
     </motion.div>
   );
