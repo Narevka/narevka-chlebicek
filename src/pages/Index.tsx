@@ -4,7 +4,6 @@ import { TypewriterEffectSmooth } from "@/components/ui/typewriter-effect";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/AuthContext";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { SplashCursor } from "@/components/ui/splash-cursor";
 import { StickyScroll } from "@/components/ui/sticky-scroll-reveal";
 
 const Index = () => {
@@ -107,7 +106,6 @@ const Index = () => {
   if (isMobile) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-white px-4">
-        <SplashCursor />
         <div className="max-w-3xl w-full space-y-8 text-center">
           <p className="text-neutral-600 dark:text-neutral-200 text-base mb-2">
             The road to freedom starts from here
@@ -132,13 +130,10 @@ const Index = () => {
     );
   }
   
-  // Desktop layout - now with full page StickyScroll component
+  // Desktop layout with full-height sticky scroll
   return (
-    <div className="h-screen flex flex-col bg-slate-900 relative">
-      <SplashCursor />
-      
-      {/* Full page StickyScroll component */}
-      <div className="flex-1 flex flex-col">
+    <div className="h-screen flex flex-col bg-black">
+      <div className="flex-1 relative">
         <StickyScroll 
           content={stickyScrollContent}
           contentClassName="lg:h-80 lg:w-96"
