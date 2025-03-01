@@ -1,11 +1,7 @@
-
-// src/components/ui/splash-cursor.tsx
-
 "use client";
 import { useEffect, useRef } from "react";
 
 interface SplashCursorProps {
-  // Add whatever props you like for customization
   SIM_RESOLUTION?: number;
   DYE_RESOLUTION?: number;
   CAPTURE_RESOLUTION?: number;
@@ -20,7 +16,6 @@ interface SplashCursorProps {
   COLOR_UPDATE_SPEED?: number;
   BACK_COLOR?: { r: number; g: number; b: number };
   TRANSPARENT?: boolean;
-  paused?: boolean;
 }
 
 function SplashCursor({
@@ -39,7 +34,6 @@ function SplashCursor({
   COLOR_UPDATE_SPEED = 10,
   BACK_COLOR = { r: 0.5, g: 0, b: 0 },
   TRANSPARENT = true,
-  paused = false,
 }: SplashCursorProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -73,7 +67,7 @@ function SplashCursor({
       SPLAT_FORCE,
       SHADING,
       COLOR_UPDATE_SPEED,
-      PAUSED: paused,
+      PAUSED: false,
       BACK_COLOR,
       TRANSPARENT,
     };
@@ -194,36 +188,15 @@ function SplashCursor({
       return status === gl.FRAMEBUFFER_COMPLETE;
     }
 
-    // Fixed TypeScript interfaces
-    interface MaterialInterface {
-      vertexShader: any;
-      fragmentShaderSource: string;
-      programs: any[];
-      activeProgram: any;
-      uniforms: any[];
-      setKeywords: (keywords: string[]) => void;
-      bind: () => void;
-    }
-
-    interface ProgramInterface {
-      uniforms: Record<string, any>;
-      program: any;
-      bind: () => void;
-    }
-
-    class Material implements MaterialInterface {
-      vertexShader: any;
-      fragmentShaderSource: string;
-      programs: any[] = [];
-      activeProgram: any = null;
-      uniforms: any[] = [];
-
-      constructor(vertexShader: any, fragmentShaderSource: string) {
+    class Material {
+      constructor(vertexShader, fragmentShaderSource) {
         this.vertexShader = vertexShader;
         this.fragmentShaderSource = fragmentShaderSource;
+        this.programs = [];
+        this.activeProgram = null;
+        this.uniforms = [];
       }
-      
-      setKeywords(keywords: string[]) {
+      setKeywords(keywords) {
         let hash = 0;
         for (let i = 0; i < keywords.length; i++) hash += hashCode(keywords[i]);
         let program = this.programs[hash];
@@ -240,27 +213,23 @@ function SplashCursor({
         this.uniforms = getUniforms(program);
         this.activeProgram = program;
       }
-      
       bind() {
         gl.useProgram(this.activeProgram);
       }
     }
 
-    class Program implements ProgramInterface {
-      uniforms: Record<string, any> = {};
-      program: any;
-
-      constructor(vertexShader: any, fragmentShader: any) {
+    class Program {
+      constructor(vertexShader, fragmentShader) {
+        this.uniforms = {};
         this.program = createProgram(vertexShader, fragmentShader);
         this.uniforms = getUniforms(this.program);
       }
-      
       bind() {
         gl.useProgram(this.program);
       }
     }
 
-    function createProgram(vertexShader: any, fragmentShader: any) {
+    function createProgram(vertexShader, fragmentShader) {
       let program = gl.createProgram();
       gl.attachShader(program, vertexShader);
       gl.attachShader(program, fragmentShader);
@@ -270,8 +239,8 @@ function SplashCursor({
       return program;
     }
 
-    function getUniforms(program: any) {
-      let uniforms: Record<string, any> = {};
+    function getUniforms(program) {
+      let uniforms = [];
       let uniformCount = gl.getProgramParameter(program, gl.ACTIVE_UNIFORMS);
       for (let i = 0; i < uniformCount; i++) {
         let uniformName = gl.getActiveUniform(program, i).name;
@@ -280,7 +249,7 @@ function SplashCursor({
       return uniforms;
     }
 
-    function compileShader(type: number, source: string, keywords?: string[]) {
+    function compileShader(type, source, keywords) {
       source = addKeywords(source, keywords);
       const shader = gl.createShader(type);
       gl.shaderSource(shader, source);
@@ -290,7 +259,7 @@ function SplashCursor({
       return shader;
     }
 
-    function addKeywords(source: string, keywords?: string[]) {
+    function addKeywords(source, keywords) {
       if (!keywords) return source;
       let keywordsString = "";
       keywords.forEach((keyword) => {
@@ -841,12 +810,6 @@ function SplashCursor({
     let colorUpdateTimer = 0.0;
 
     function updateFrame() {
-      // Check if animation is paused
-      if (config.PAUSED) {
-        requestAnimationFrame(updateFrame);
-        return;
-      }
-      
       const dt = calcDeltaTime();
       if (resizeCanvas()) initFramebuffers();
       updateColors(dt);
@@ -1209,37 +1172,51 @@ function SplashCursor({
       return hash;
     }
 
-    // Store handlers as constants for cleanup
-    const handleMouseDown = (e) => {
-      if (config.PAUSED) return;
+    window.addEventListener("mousedown", (e) => {
       let pointer = pointers[0];
       let posX = scaleByPixelRatio(e.clientX);
       let posY = scaleByPixelRatio(e.clientY);
       updatePointerDownData(pointer, -1, posX, posY);
       clickSplat(pointer);
-    };
+    });
 
-    const handleMouseMove = (e) => {
-      if (config.PAUSED) return;
+    document.body.addEventListener(
+      "mousemove",
+      function handleFirstMouseMove(e) {
+        let pointer = pointers[0];
+        let posX = scaleByPixelRatio(e.clientX);
+        let posY = scaleByPixelRatio(e.clientY);
+        let color = generateColor();
+        updateFrame(); // start animation loop
+        updatePointerMoveData(pointer, posX, posY, color);
+        document.body.removeEventListener("mousemove", handleFirstMouseMove);
+      }
+    );
+
+    window.addEventListener("mousemove", (e) => {
       let pointer = pointers[0];
       let posX = scaleByPixelRatio(e.clientX);
       let posY = scaleByPixelRatio(e.clientY);
       let color = pointer.color;
       updatePointerMoveData(pointer, posX, posY, color);
-    };
+    });
 
-    const handleFirstMouseMove = (e) => {
-      let pointer = pointers[0];
-      let posX = scaleByPixelRatio(e.clientX);
-      let posY = scaleByPixelRatio(e.clientY);
-      let color = generateColor();
-      updateFrame(); // start animation loop
-      updatePointerMoveData(pointer, posX, posY, color);
-      document.body.removeEventListener("mousemove", handleFirstMouseMove);
-    };
+    document.body.addEventListener(
+      "touchstart",
+      function handleFirstTouchStart(e) {
+        const touches = e.targetTouches;
+        let pointer = pointers[0];
+        for (let i = 0; i < touches.length; i++) {
+          let posX = scaleByPixelRatio(touches[i].clientX);
+          let posY = scaleByPixelRatio(touches[i].clientY);
+          updateFrame(); // start animation loop
+          updatePointerDownData(pointer, touches[i].identifier, posX, posY);
+        }
+        document.body.removeEventListener("touchstart", handleFirstTouchStart);
+      }
+    );
 
-    const handleTouchStart = (e) => {
-      if (config.PAUSED) return;
+    window.addEventListener("touchstart", (e) => {
       const touches = e.targetTouches;
       let pointer = pointers[0];
       for (let i = 0; i < touches.length; i++) {
@@ -1247,58 +1224,32 @@ function SplashCursor({
         let posY = scaleByPixelRatio(touches[i].clientY);
         updatePointerDownData(pointer, touches[i].identifier, posX, posY);
       }
-    };
+    });
 
-    const handleTouchMove = (e) => {
-      if (config.PAUSED) return;
-      const touches = e.targetTouches;
-      let pointer = pointers[0];
-      for (let i = 0; i < touches.length; i++) {
-        let posX = scaleByPixelRatio(touches[i].clientX);
-        let posY = scaleByPixelRatio(touches[i].clientY);
-        updatePointerMoveData(pointer, posX, posY, pointer.color);
-      }
-    };
+    window.addEventListener(
+      "touchmove",
+      (e) => {
+        const touches = e.targetTouches;
+        let pointer = pointers[0];
+        for (let i = 0; i < touches.length; i++) {
+          let posX = scaleByPixelRatio(touches[i].clientX);
+          let posY = scaleByPixelRatio(touches[i].clientY);
+          updatePointerMoveData(pointer, posX, posY, pointer.color);
+        }
+      },
+      false
+    );
 
-    const handleTouchEnd = (e) => {
+    window.addEventListener("touchend", (e) => {
       const touches = e.changedTouches;
       let pointer = pointers[0];
       for (let i = 0; i < touches.length; i++) {
         updatePointerUpData(pointer);
       }
-    };
+    });
 
-    // Add event listeners with named handlers
-    window.addEventListener("mousedown", handleMouseDown);
-    window.addEventListener("mousemove", handleMouseMove);
-    document.body.addEventListener("mousemove", handleFirstMouseMove);
-    window.addEventListener("touchstart", handleTouchStart);
-    window.addEventListener("touchmove", handleTouchMove, { passive: false });
-    window.addEventListener("touchend", handleTouchEnd);
-
-    // Start animation loop
     updateFrame();
-
-    // Return cleanup function
-    return () => {
-      window.removeEventListener("mousedown", handleMouseDown);
-      window.removeEventListener("mousemove", handleMouseMove);
-      document.body.removeEventListener("mousemove", handleFirstMouseMove);
-      window.removeEventListener("touchstart", handleTouchStart);
-      window.removeEventListener("touchmove", handleTouchMove);
-      window.removeEventListener("touchend", handleTouchEnd);
-      
-      // Clean up WebGL resources
-      gl.deleteProgram(copyProgram.program);
-      gl.deleteProgram(clearProgram.program);
-      gl.deleteProgram(splatProgram.program);
-      gl.deleteProgram(advectionProgram.program);
-      gl.deleteProgram(divergenceProgram.program);
-      gl.deleteProgram(curlProgram.program);
-      gl.deleteProgram(vorticityProgram.program);
-      gl.deleteProgram(pressureProgram.program);
-      gl.deleteProgram(gradienSubtractProgram.program);
-    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     SIM_RESOLUTION,
     DYE_RESOLUTION,
@@ -1314,12 +1265,11 @@ function SplashCursor({
     COLOR_UPDATE_SPEED,
     BACK_COLOR,
     TRANSPARENT,
-    paused,
   ]);
 
   return (
-    <div className="fixed top-0 left-0 w-full h-full pointer-events-none z-0">
-      <canvas ref={canvasRef} className="w-full h-full" />
+    <div className="fixed top-0 left-0 z-50 pointer-events-none">
+      <canvas ref={canvasRef} id="fluid" className="w-screen h-screen" />
     </div>
   );
 }
