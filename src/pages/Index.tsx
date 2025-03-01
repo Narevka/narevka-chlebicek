@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/AuthContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { StickyScroll } from "@/components/ui/sticky-scroll-reveal";
-import { useState, useEffect, Suspense } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import { ErrorBoundary } from "react-error-boundary";
 
 const SplashCursor = React.lazy(() => import("@/components/ui/splash-cursor").then(module => ({
