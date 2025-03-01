@@ -1,11 +1,12 @@
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/AuthContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { SplashCursor } from "@/components/ui/splash-cursor";
 import { cn } from "@/lib/utils";
+import { motion, useScroll, useMotionValueEvent } from "framer-motion";
 
 // Content sections for the landing page
 const sections = [
@@ -43,29 +44,43 @@ const Index = () => {
   const { user } = useAuth();
   const isMobile = useIsMobile();
   const [activeSection, setActiveSection] = useState(0);
-  const [transitioning, setTransitioning] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll through sections
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setTransitioning(true);
-      setTimeout(() => {
-        setActiveSection((prev) => (prev + 1) % sections.length);
-        setTransitioning(false);
-      }, 500);
-    }, 5000);
+  const { scrollYProgress } = useScroll({
+    container: containerRef,
+    offset: ["start start", "end start"],
+  });
 
-    return () => clearInterval(interval);
-  }, []);
+  // Use motion value event to track scroll progress
+  useMotionValueEvent(scrollYProgress, "change", (latest) => {
+    // Calculate which section should be active based on scroll position
+    const sectionBreakpoints = sections.map((_, index) => index / sections.length);
+    const closestBreakpointIndex = sectionBreakpoints.reduce(
+      (acc, breakpoint, index) => {
+        const distance = Math.abs(latest - breakpoint);
+        if (distance < Math.abs(latest - sectionBreakpoints[acc])) {
+          return index;
+        }
+        return acc;
+      },
+      0
+    );
+    setActiveSection(closestBreakpointIndex);
+  });
 
-  // Manual navigation
+  // Handle manual navigation
   const goToSection = (index: number) => {
     if (index === activeSection) return;
-    setTransitioning(true);
-    setTimeout(() => {
-      setActiveSection(index);
-      setTransitioning(false);
-    }, 500);
+    
+    if (containerRef.current) {
+      const sectionHeight = containerRef.current.scrollHeight / sections.length;
+      containerRef.current.scrollTo({
+        top: index * sectionHeight,
+        behavior: 'smooth'
+      });
+    }
+    
+    setActiveSection(index);
   };
 
   return (
@@ -73,49 +88,77 @@ const Index = () => {
       <SplashCursor />
       
       {/* Background with gradient */}
-      <div
-        className={cn(
-          "absolute inset-0 transition-colors duration-1000 ease-in-out",
-          sections[activeSection].gradient
-        )}
+      <motion.div
+        className="absolute inset-0 transition-colors duration-1000 ease-in-out"
+        animate={{
+          background: sections[activeSection].gradient.replace('bg-', '')
+        }}
+        transition={{ duration: 0.8 }}
       />
       
-      {/* Content Container */}
-      <div className="relative z-10 flex flex-1 items-center">
-        <div className={cn(
-          "container mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8 px-4 transition-opacity duration-500",
-          transitioning ? "opacity-0" : "opacity-100"
-        )}>
-          {/* Text content */}
-          <div className="flex flex-col justify-center space-y-6 text-white">
-            <h1 className="text-4xl md:text-5xl font-bold">
-              {sections[activeSection].title}
-            </h1>
-            <p className="text-lg opacity-90 max-w-xl">
-              {sections[activeSection].description}
-            </p>
-            
-            <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4 pt-4">
-              <Button asChild className="bg-white text-black hover:bg-gray-100">
-                <Link to="/auth">Get Started</Link>
-              </Button>
-              <Button asChild variant="outline" className="border-white text-white hover:bg-white/10">
-                <Link to="/auth" state={{ isSignUp: true }}>Sign Up</Link>
-              </Button>
+      {/* Scrollable container */}
+      <div 
+        ref={containerRef}
+        className="relative z-10 flex-1 overflow-y-auto hide-scrollbar"
+        style={{ scrollSnapType: 'y mandatory' }}
+      >
+        {sections.map((section, index) => (
+          <div 
+            key={section.id}
+            className="h-screen min-h-screen w-full flex items-center snap-start"
+            style={{ scrollSnapAlign: 'start' }}
+          >
+            <div className="container mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8 px-4">
+              {/* Text content */}
+              <motion.div 
+                className="flex flex-col justify-center space-y-6 text-white"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ 
+                  opacity: activeSection === index ? 1 : 0.3,
+                  y: activeSection === index ? 0 : 20 
+                }}
+                transition={{ duration: 0.5 }}
+              >
+                <h1 className="text-4xl md:text-5xl font-bold">
+                  {section.title}
+                </h1>
+                <p className="text-lg opacity-90 max-w-xl">
+                  {section.description}
+                </p>
+                
+                {index === 0 && (
+                  <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4 pt-4">
+                    <Button asChild className="bg-white text-black hover:bg-gray-100">
+                      <Link to="/auth">Get Started</Link>
+                    </Button>
+                    <Button asChild variant="outline" className="border-white text-white hover:bg-white/10">
+                      <Link to="/auth" state={{ isSignUp: true }}>Sign Up</Link>
+                    </Button>
+                  </div>
+                )}
+              </motion.div>
+              
+              {/* Image area */}
+              <motion.div 
+                className="flex justify-center items-center"
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ 
+                  opacity: activeSection === index ? 1 : 0.3,
+                  scale: activeSection === index ? 1 : 0.9
+                }}
+                transition={{ duration: 0.5 }}
+              >
+                <div className="relative h-64 md:h-96 w-full overflow-hidden rounded-lg">
+                  <img
+                    src={section.image}
+                    alt={section.title}
+                    className="w-full h-full object-cover object-center transform transition-transform duration-700 ease-out hover:scale-105"
+                  />
+                </div>
+              </motion.div>
             </div>
           </div>
-          
-          {/* Image area */}
-          <div className="flex justify-center items-center">
-            <div className="relative h-64 md:h-96 w-full overflow-hidden rounded-lg">
-              <img
-                src={sections[activeSection].image}
-                alt={sections[activeSection].title}
-                className="w-full h-full object-cover object-center transform transition-transform duration-700 ease-out hover:scale-105"
-              />
-            </div>
-          </div>
-        </div>
+        ))}
       </div>
       
       {/* Navigation dots */}
