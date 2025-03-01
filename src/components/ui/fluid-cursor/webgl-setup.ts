@@ -14,7 +14,7 @@ import {
   displayShaderSource
 } from './shaders';
 import { getWebGLContext } from './webgl-utils';
-import { createBlit } from './renderer';
+import { createBlit } from './blit';
 import { Config } from './types';
 
 export function setupWebGL(canvas: HTMLCanvasElement, config: Config) {
