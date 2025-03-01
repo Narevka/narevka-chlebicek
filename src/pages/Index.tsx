@@ -6,10 +6,17 @@ import { useAuth } from "@/context/AuthContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { SplashCursor } from "@/components/ui/splash-cursor";
 import { StickyScroll } from "@/components/ui/sticky-scroll-reveal";
+import { useState, useEffect } from "react";
 
 const Index = () => {
   const { user } = useAuth();
   const isMobile = useIsMobile();
+  const [isLoading, setIsLoading] = useState(true);
+  
+  useEffect(() => {
+    // Set loading to false after component mounts
+    setIsLoading(false);
+  }, []);
   
   const words = [
     {
@@ -80,33 +87,41 @@ const Index = () => {
     },
   ];
 
-  // Mobile layout
-  if (isMobile) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-black px-4">
-        <SplashCursor />
-        <div className="max-w-3xl w-full space-y-8 text-center">
-          <p className="text-neutral-400 text-base mb-2">
-            The road to freedom starts from here
-          </p>
-          
-          <TypewriterEffectSmooth words={words} />
-          
-          <div className="flex flex-col space-y-4 mt-8">
-            <Button asChild className="w-full h-12 bg-white text-black rounded-md">
-              <Link to="/auth">
-                Join now
-              </Link>
-            </Button>
-            <Button asChild variant="outline" className="w-full h-12 rounded-md border-2 border-white text-white">
-              <Link to="/auth" state={{ isSignUp: true }}>
-                Signup
-              </Link>
-            </Button>
-          </div>
+  // Fallback layout in case of error or while loading
+  const renderFallbackLayout = () => (
+    <div className="min-h-screen flex flex-col items-center justify-center bg-black px-4">
+      <SplashCursor />
+      <div className="max-w-3xl w-full space-y-8 text-center">
+        <p className="text-neutral-400 text-base mb-2">
+          The road to freedom starts from here
+        </p>
+        
+        <TypewriterEffectSmooth words={words} />
+        
+        <div className="flex flex-col sm:flex-row sm:justify-center space-y-4 sm:space-y-0 sm:space-x-4 mt-8">
+          <Button asChild className="w-full sm:w-40 h-12 bg-white text-black rounded-md">
+            <Link to="/auth">
+              Join now
+            </Link>
+          </Button>
+          <Button asChild variant="outline" className="w-full sm:w-40 h-12 rounded-md border-2 border-white text-white">
+            <Link to="/auth" state={{ isSignUp: true }}>
+              Signup
+            </Link>
+          </Button>
         </div>
       </div>
-    );
+    </div>
+  );
+
+  // Mobile layout
+  if (isMobile) {
+    return renderFallbackLayout();
+  }
+  
+  // Show fallback during loading or if there's an error
+  if (isLoading) {
+    return renderFallbackLayout();
   }
   
   // Desktop layout with full-page sticky scroll
