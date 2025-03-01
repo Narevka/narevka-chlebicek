@@ -110,10 +110,13 @@ export function getWebGLContext(canvas: HTMLCanvasElement): { gl: WebGLRendering
   const halfFloat = gl.getExtension("OES_texture_half_float");
   const supportLinearFiltering = gl.getExtension("OES_texture_half_float_linear");
   if (halfFloat) {
-    // Fix: Using a type compatible with WebGLRenderingContext
-    // The number 36193 corresponds to halfFloat.HALF_FLOAT_OES
-    // We need to use the correct type that TypeScript expects
-    ext.halfFloatTexType = halfFloat.HALF_FLOAT_OES as unknown as number;
+    // Fix: Using the gl.UNSIGNED_BYTE as a fallback if the casting fails
+    // The proper way is to use the extension's constant but with the right type
+    ext.halfFloatTexType = gl.UNSIGNED_BYTE;
+    if (halfFloat.HALF_FLOAT_OES !== undefined) {
+      // Only assign if it's available and let TypeScript handle the type
+      ext.halfFloatTexType = halfFloat.HALF_FLOAT_OES;
+    }
     ext.supportLinearFiltering = !!supportLinearFiltering;
   }
 
