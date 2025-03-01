@@ -37,10 +37,12 @@ const Index = () => {
       description:
         "Work together in real time with your team, clients, and stakeholders. Collaborate on documents, share ideas, and make decisions quickly. With our platform, you can streamline your workflow and increase productivity.",
       content: (
-        <div className="h-full w-full flex items-center justify-center text-white">
-          <div className="text-center">
-            <h3 className="text-xl font-bold mb-2">Collaborative Editing</h3>
-          </div>
+        <div className="h-full w-full bg-gradient-to-r from-purple-900 to-indigo-800 rounded-lg flex items-center justify-center text-white p-6">
+          <img 
+            src="https://images.unsplash.com/photo-1581091226825-a6a2a5aee158" 
+            alt="Collaborative Editing" 
+            className="rounded-lg object-cover h-[90%] w-[90%] shadow-xl"
+          />
         </div>
       ),
     },
@@ -49,11 +51,13 @@ const Index = () => {
       description:
         "See changes as they happen. With our platform, you can track every modification in real time. No more confusion about the latest version of your project. Say goodbye to the chaos of version control and embrace the simplicity of real-time updates.",
       content: (
-        <img 
-          src="/lovable-uploads/c335196c-338d-475e-a31a-ce801c015619.png" 
-          alt="Real time changes" 
-          className="w-full h-full object-cover"
-        />
+        <div className="h-full w-full bg-gradient-to-r from-blue-900 to-cyan-800 rounded-lg flex items-center justify-center p-6">
+          <img 
+            src="/lovable-uploads/c335196c-338d-475e-a31a-ce801c015619.png" 
+            alt="Real time changes" 
+            className="rounded-lg object-cover h-[90%] w-[90%] shadow-xl"
+          />
+        </div>
       ),
     },
     {
@@ -61,8 +65,12 @@ const Index = () => {
       description:
         "Experience real-time updates and never stress about version control again. Our platform ensures that you're always working on the most recent version of your project, eliminating the need for constant manual updates. Stay in the loop, keep your team aligned, and maintain the flow of your work without any interruptions.",
       content: (
-        <div className="h-full w-full flex items-center justify-center text-white">
-          <h3 className="text-xl font-bold">Version control</h3>
+        <div className="h-full w-full bg-gradient-to-r from-teal-900 to-emerald-800 rounded-lg flex items-center justify-center p-6">
+          <img 
+            src="https://images.unsplash.com/photo-1486312338219-ce68d2c6f44d" 
+            alt="Version control" 
+            className="rounded-lg object-cover h-[90%] w-[90%] shadow-xl"
+          />
         </div>
       ),
     },
@@ -71,11 +79,13 @@ const Index = () => {
       description:
         "Get detailed insights into your projects with powerful analytics tools. Track progress, monitor team performance, and identify bottlenecks to optimize your workflow. Make data-driven decisions to improve efficiency and deliver better results.",
       content: (
-        <img 
-          src="/lovable-uploads/5014a49e-97ee-4351-b5bf-cb2322807db8.png" 
-          alt="Advanced Analytics" 
-          className="w-full h-full object-cover"
-        />
+        <div className="h-full w-full bg-gradient-to-r from-orange-900 to-amber-800 rounded-lg flex items-center justify-center p-6">
+          <img 
+            src="/lovable-uploads/5014a49e-97ee-4351-b5bf-cb2322807db8.png" 
+            alt="Advanced Analytics" 
+            className="rounded-lg object-cover h-[90%] w-[90%] shadow-xl"
+          />
+        </div>
       ),
     },
   ];
@@ -111,7 +121,7 @@ const Index = () => {
   
   // Desktop layout with full-page sticky scroll
   return (
-    <div className="h-screen w-full overflow-hidden">
+    <div className="h-screen w-full overflow-hidden bg-black">
       <SplashCursor />
       
       <div className="h-full w-full">
