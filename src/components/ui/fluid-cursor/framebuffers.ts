@@ -1,7 +1,7 @@
 
 import { getResolution, createDoubleFBO, createFBO, resizeDoubleFBO } from './webgl-utils';
 import { DoubleFBO, FBO } from './types';
-import { Program } from './webgl-classes';
+import type { Program } from './types';
 
 export function initFramebuffers(
   gl: WebGLRenderingContext,

@@ -1,6 +1,6 @@
 
 import { DoubleFBO, FBO, Config } from './types';
-import { Material, Program } from './webgl-classes';
+import type { Material, Program } from './types';
 
 export function createBlit(gl: WebGLRenderingContext) {
   gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());

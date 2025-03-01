@@ -1,6 +1,6 @@
 
 import { DoubleFBO, FBO, Config } from './types';
-import { Program } from './webgl-classes';
+import type { Program } from './types';
 
 export function step(
   gl: WebGLRenderingContext,

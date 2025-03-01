@@ -1,4 +1,3 @@
-
 import { hashCode } from './webgl-utils';
 import { Material, Program } from './types';
 
@@ -140,3 +139,5 @@ export class ProgramClass implements Program {
     this.gl.useProgram(this.program);
   }
 }
+
+export type { Material, Program };

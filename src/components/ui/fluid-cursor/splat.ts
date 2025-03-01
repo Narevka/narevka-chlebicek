@@ -1,7 +1,6 @@
-
 import { PointerPrototype } from './types';
 import { correctRadius } from './pointer';
-import { Program } from './webgl-classes';
+import type { Program } from './types';
 import { generateColor } from './pointer';
 
 export function splat(
