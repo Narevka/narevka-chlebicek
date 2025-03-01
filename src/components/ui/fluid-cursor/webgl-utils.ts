@@ -1,4 +1,3 @@
-
 export function createWebGLProgram(
   gl: WebGLRenderingContext,
   vertexShaderSource: string,
@@ -110,12 +109,11 @@ export function getWebGLContext(canvas: HTMLCanvasElement): { gl: WebGLRendering
   const halfFloat = gl.getExtension("OES_texture_half_float");
   const supportLinearFiltering = gl.getExtension("OES_texture_half_float_linear");
   if (halfFloat) {
-    // Fix: Using the gl.UNSIGNED_BYTE as a fallback if the casting fails
-    // The proper way is to use the extension's constant but with the right type
+    // Fix: Using the gl.UNSIGNED_BYTE as a fallback
     ext.halfFloatTexType = gl.UNSIGNED_BYTE;
     if (halfFloat.HALF_FLOAT_OES !== undefined) {
-      // Only assign if it's available and let TypeScript handle the type
-      ext.halfFloatTexType = halfFloat.HALF_FLOAT_OES;
+      // Need to cast the value to avoid type errors
+      ext.halfFloatTexType = halfFloat.HALF_FLOAT_OES as unknown as number & 5121;
     }
     ext.supportLinearFiltering = !!supportLinearFiltering;
   }
