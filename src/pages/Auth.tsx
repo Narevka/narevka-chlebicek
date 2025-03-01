@@ -5,13 +5,14 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
+import { Separator } from "@/components/ui/separator";
 
 const Auth = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
-  const { signIn, signUp } = useAuth();
+  const { signIn, signUp, signInWithGoogle } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -41,6 +42,19 @@ const Auth = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    try {
+      await signInWithGoogle();
+      // No need to navigate, the OAuth redirect will handle this
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "An unknown error occurred with Google sign in",
+        variant: "destructive",
+      });
     }
   };
 
@@ -92,6 +106,29 @@ const Auth = () => {
             {loading ? "Please wait..." : isLogin ? "Log in" : "Sign up"}
           </Button>
         </form>
+
+        <div className="flex items-center my-4">
+          <Separator className="flex-grow" />
+          <span className="px-4 text-sm text-gray-500">Or continue with</span>
+          <Separator className="flex-grow" />
+        </div>
+
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full flex items-center justify-center"
+          onClick={handleGoogleSignIn}
+        >
+          <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
+            <path
+              fill="currentColor"
+              d="M12.545,10.239v3.821h5.445c-0.712,2.315-2.647,3.972-5.445,3.972c-3.332,0-6.033-2.701-6.033-6.032
+              s2.701-6.032,6.033-6.032c1.498,0,2.866,0.549,3.921,1.453l2.814-2.814C17.503,2.988,15.139,2,12.545,2
+              C7.021,2,2.543,6.477,2.543,12s4.478,10,10.002,10c8.396,0,10.249-7.85,9.426-11.748L12.545,10.239z"
+            />
+          </svg>
+          Continue with Google
+        </Button>
 
         <div className="mt-4 text-center">
           <button

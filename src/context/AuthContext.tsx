@@ -13,6 +13,7 @@ type AuthContextType = {
   signUp: (email: string, password: string) => Promise<{
     error: Error | null;
   }>;
+  signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
 };
 
@@ -60,6 +61,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error };
   };
 
+  const signInWithGoogle = async () => {
+    await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: window.location.origin + '/dashboard',
+      },
+    });
+  };
+
   const signOut = async () => {
     await supabase.auth.signOut();
   };
@@ -70,6 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     loading,
     signIn,
     signUp,
+    signInWithGoogle,
     signOut,
   };
 
