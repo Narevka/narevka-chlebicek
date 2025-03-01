@@ -1,10 +1,18 @@
-
 import { useAuth } from "@/context/AuthContext";
 import { Navigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 
 const Dashboard = () => {
-  const { user, signOut } = useAuth();
+  const { user, loading, signOut } = useAuth();
+
+  // Pokaż komunikat ładowania, gdy sprawdzamy stan sesji
+  if (loading) {
+    return (
+      <div className="min-h-screen w-full flex items-center justify-center bg-white">
+        <p className="text-lg">Ładowanie...</p>
+      </div>
+    );
+  }
 
   // Redirect if not logged in
   if (!user) {
