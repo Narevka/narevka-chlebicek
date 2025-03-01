@@ -4,8 +4,14 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/AuthContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { StickyScroll } from "@/components/ui/sticky-scroll-reveal";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { ErrorBoundary } from "react-error-boundary";
+
+const SplashCursor = React.lazy(() => import("@/components/ui/splash-cursor").then(module => ({
+  default: module.SplashCursor || (() => null) // Fallback to null component if SplashCursor doesn't exist
+})).catch(() => ({
+  default: () => null // Silently handle any loading errors
+})));
 
 const Index = () => {
   const { user } = useAuth();
@@ -40,7 +46,6 @@ const Index = () => {
     },
   ];
 
-  // Content for the sticky scroll component with 4 items
   const stickyScrollContent = [
     {
       title: "Collaborative Editing",
@@ -90,9 +95,14 @@ const Index = () => {
     },
   ];
 
-  // Simple fallback layout without the SplashCursor that's causing issues
   const renderFallbackLayout = () => (
     <div className="min-h-screen flex flex-col items-center justify-center bg-black px-4">
+      <ErrorBoundary FallbackComponent={() => null}>
+        <Suspense fallback={null}>
+          <SplashCursor />
+        </Suspense>
+      </ErrorBoundary>
+      
       <div className="max-w-3xl w-full space-y-8 text-center">
         <p className="text-neutral-400 text-base mb-2">
           The road to freedom starts from here
@@ -116,27 +126,28 @@ const Index = () => {
     </div>
   );
 
-  // Error fallback component
   const ErrorFallback = () => renderFallbackLayout();
 
-  // Mobile layout
   if (isMobile) {
     return renderFallbackLayout();
   }
   
-  // Show fallback during loading or if there's an error
   if (isLoading) {
     return renderFallbackLayout();
   }
   
-  // Desktop layout with full-page sticky scroll but wrapped in error boundary
   return (
     <ErrorBoundary FallbackComponent={ErrorFallback}>
       <div className="h-screen w-full overflow-hidden">
+        <ErrorBoundary FallbackComponent={() => null}>
+          <Suspense fallback={null}>
+            <SplashCursor />
+          </Suspense>
+        </ErrorBoundary>
+        
         <div className="h-full w-full">
           <StickyScroll content={stickyScrollContent} />
           
-          {/* Fixed buttons at the bottom of the page */}
           <div className="fixed bottom-10 left-0 w-full flex justify-center gap-6 z-10">
             <Button asChild className="w-40 h-12 bg-white text-black rounded-md">
               <Link to="/auth">
