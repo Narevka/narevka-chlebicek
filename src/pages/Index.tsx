@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/AuthContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { SplashCursor } from "@/components/ui/splash-cursor";
+import { StickyScrollDemo } from "@/components/ui/sticky-scroll-demo";
 
 const Index = () => {
   const { user } = useAuth();
@@ -29,54 +30,56 @@ const Index = () => {
     },
   ];
 
-  // Mobile layout
+  // Mobile layout with fixed sticky scroll
   if (isMobile) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-white px-4">
+      <>
         <SplashCursor />
-        <div className="max-w-3xl w-full space-y-8 text-center">
+        <div className="fixed top-0 left-0 right-0 p-4 z-20 text-center">
           <p className="text-neutral-600 dark:text-neutral-200 text-base mb-2">
             The road to freedom starts from here
           </p>
-          
           <TypewriterEffectSmooth words={words} />
-          
-          <div className="flex flex-col space-y-4 mt-8">
+        </div>
+        <StickyScrollDemo />
+        <div className="fixed bottom-0 left-0 right-0 p-4 z-30">
+          <div className="flex flex-col space-y-4">
             <Button asChild className="w-full h-12 bg-black text-white rounded-md">
               <Link to="/auth">
                 Join now
               </Link>
             </Button>
-            <Button asChild variant="outline" className="w-full h-12 rounded-md border-2">
+            <Button asChild variant="outline" className="w-full h-12 rounded-md border-2 bg-white/10 backdrop-blur-sm">
               <Link to="/auth" state={{ isSignUp: true }}>
                 Signup
               </Link>
             </Button>
           </div>
         </div>
-      </div>
+      </>
     );
   }
   
-  // Desktop layout (minimal version with just buttons)
+  // Desktop layout with fixed sticky scroll
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-white">
+    <>
       <SplashCursor />
-      <div className="max-w-md w-full space-y-8 text-center">
+      <StickyScrollDemo />
+      <div className="fixed bottom-0 left-0 right-0 flex justify-center p-6 z-30">
         <div className="flex flex-col space-y-4">
           <Button asChild className="w-64 h-12 mx-auto bg-black text-white rounded-md">
             <Link to="/auth">
               Join now
             </Link>
           </Button>
-          <Button asChild variant="outline" className="w-64 h-12 mx-auto rounded-md border-2">
+          <Button asChild variant="outline" className="w-64 h-12 mx-auto rounded-md border-2 bg-white/10 backdrop-blur-sm">
             <Link to="/auth" state={{ isSignUp: true }}>
               Signup
             </Link>
           </Button>
         </div>
       </div>
-    </div>
+    </>
   );
 };
 
