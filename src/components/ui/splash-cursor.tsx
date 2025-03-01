@@ -1,7 +1,10 @@
+// src/components/ui/splash-cursor.tsx
+
 "use client";
 import { useEffect, useRef } from "react";
 
 interface SplashCursorProps {
+  // Add whatever props you like for customization
   SIM_RESOLUTION?: number;
   DYE_RESOLUTION?: number;
   CAPTURE_RESOLUTION?: number;
@@ -16,6 +19,7 @@ interface SplashCursorProps {
   COLOR_UPDATE_SPEED?: number;
   BACK_COLOR?: { r: number; g: number; b: number };
   TRANSPARENT?: boolean;
+  paused?: boolean;
 }
 
 function SplashCursor({
@@ -34,6 +38,7 @@ function SplashCursor({
   COLOR_UPDATE_SPEED = 10,
   BACK_COLOR = { r: 0.5, g: 0, b: 0 },
   TRANSPARENT = true,
+  paused = false,
 }: SplashCursorProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -67,7 +72,7 @@ function SplashCursor({
       SPLAT_FORCE,
       SHADING,
       COLOR_UPDATE_SPEED,
-      PAUSED: false,
+      PAUSED: paused,
       BACK_COLOR,
       TRANSPARENT,
     };
@@ -810,6 +815,12 @@ function SplashCursor({
     let colorUpdateTimer = 0.0;
 
     function updateFrame() {
+      // Check if animation is paused
+      if (config.PAUSED) {
+        requestAnimationFrame(updateFrame);
+        return;
+      }
+      
       const dt = calcDeltaTime();
       if (resizeCanvas()) initFramebuffers();
       updateColors(dt);
@@ -1172,51 +1183,37 @@ function SplashCursor({
       return hash;
     }
 
-    window.addEventListener("mousedown", (e) => {
+    // Store handlers as constants for cleanup
+    const handleMouseDown = (e) => {
+      if (config.PAUSED) return;
       let pointer = pointers[0];
       let posX = scaleByPixelRatio(e.clientX);
       let posY = scaleByPixelRatio(e.clientY);
       updatePointerDownData(pointer, -1, posX, posY);
       clickSplat(pointer);
-    });
+    };
 
-    document.body.addEventListener(
-      "mousemove",
-      function handleFirstMouseMove(e) {
-        let pointer = pointers[0];
-        let posX = scaleByPixelRatio(e.clientX);
-        let posY = scaleByPixelRatio(e.clientY);
-        let color = generateColor();
-        updateFrame(); // start animation loop
-        updatePointerMoveData(pointer, posX, posY, color);
-        document.body.removeEventListener("mousemove", handleFirstMouseMove);
-      }
-    );
-
-    window.addEventListener("mousemove", (e) => {
+    const handleMouseMove = (e) => {
+      if (config.PAUSED) return;
       let pointer = pointers[0];
       let posX = scaleByPixelRatio(e.clientX);
       let posY = scaleByPixelRatio(e.clientY);
       let color = pointer.color;
       updatePointerMoveData(pointer, posX, posY, color);
-    });
+    };
 
-    document.body.addEventListener(
-      "touchstart",
-      function handleFirstTouchStart(e) {
-        const touches = e.targetTouches;
-        let pointer = pointers[0];
-        for (let i = 0; i < touches.length; i++) {
-          let posX = scaleByPixelRatio(touches[i].clientX);
-          let posY = scaleByPixelRatio(touches[i].clientY);
-          updateFrame(); // start animation loop
-          updatePointerDownData(pointer, touches[i].identifier, posX, posY);
-        }
-        document.body.removeEventListener("touchstart", handleFirstTouchStart);
-      }
-    );
+    const handleFirstMouseMove = (e) => {
+      let pointer = pointers[0];
+      let posX = scaleByPixelRatio(e.clientX);
+      let posY = scaleByPixelRatio(e.clientY);
+      let color = generateColor();
+      updateFrame(); // start animation loop
+      updatePointerMoveData(pointer, posX, posY, color);
+      document.body.removeEventListener("mousemove", handleFirstMouseMove);
+    };
 
-    window.addEventListener("touchstart", (e) => {
+    const handleTouchStart = (e) => {
+      if (config.PAUSED) return;
       const touches = e.targetTouches;
       let pointer = pointers[0];
       for (let i = 0; i < touches.length; i++) {
@@ -1224,32 +1221,58 @@ function SplashCursor({
         let posY = scaleByPixelRatio(touches[i].clientY);
         updatePointerDownData(pointer, touches[i].identifier, posX, posY);
       }
-    });
+    };
 
-    window.addEventListener(
-      "touchmove",
-      (e) => {
-        const touches = e.targetTouches;
-        let pointer = pointers[0];
-        for (let i = 0; i < touches.length; i++) {
-          let posX = scaleByPixelRatio(touches[i].clientX);
-          let posY = scaleByPixelRatio(touches[i].clientY);
-          updatePointerMoveData(pointer, posX, posY, pointer.color);
-        }
-      },
-      false
-    );
+    const handleTouchMove = (e) => {
+      if (config.PAUSED) return;
+      const touches = e.targetTouches;
+      let pointer = pointers[0];
+      for (let i = 0; i < touches.length; i++) {
+        let posX = scaleByPixelRatio(touches[i].clientX);
+        let posY = scaleByPixelRatio(touches[i].clientY);
+        updatePointerMoveData(pointer, posX, posY, pointer.color);
+      }
+    };
 
-    window.addEventListener("touchend", (e) => {
+    const handleTouchEnd = (e) => {
       const touches = e.changedTouches;
       let pointer = pointers[0];
       for (let i = 0; i < touches.length; i++) {
         updatePointerUpData(pointer);
       }
-    });
+    };
 
+    // Add event listeners with named handlers
+    window.addEventListener("mousedown", handleMouseDown);
+    window.addEventListener("mousemove", handleMouseMove);
+    document.body.addEventListener("mousemove", handleFirstMouseMove);
+    window.addEventListener("touchstart", handleTouchStart);
+    window.addEventListener("touchmove", handleTouchMove, { passive: false });
+    window.addEventListener("touchend", handleTouchEnd);
+
+    // Start animation loop
     updateFrame();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
+    // Return cleanup function
+    return () => {
+      window.removeEventListener("mousedown", handleMouseDown);
+      window.removeEventListener("mousemove", handleMouseMove);
+      document.body.removeEventListener("mousemove", handleFirstMouseMove);
+      window.removeEventListener("touchstart", handleTouchStart);
+      window.removeEventListener("touchmove", handleTouchMove);
+      window.removeEventListener("touchend", handleTouchEnd);
+      
+      // Clean up WebGL resources
+      gl.deleteProgram(copyProgram.program);
+      gl.deleteProgram(clearProgram.program);
+      gl.deleteProgram(splatProgram.program);
+      gl.deleteProgram(advectionProgram.program);
+      gl.deleteProgram(divergenceProgram.program);
+      gl.deleteProgram(curlProgram.program);
+      gl.deleteProgram(vorticityProgram.program);
+      gl.deleteProgram(pressureProgram.program);
+      gl.deleteProgram(gradienSubtractProgram.program);
+    };
   }, [
     SIM_RESOLUTION,
     DYE_RESOLUTION,
@@ -1265,11 +1288,12 @@ function SplashCursor({
     COLOR_UPDATE_SPEED,
     BACK_COLOR,
     TRANSPARENT,
+    paused,
   ]);
 
   return (
-    <div className="fixed top-0 left-0 z-50 pointer-events-none">
-      <canvas ref={canvasRef} id="fluid" className="w-screen h-screen" />
+    <div className="fixed top-0 left-0 w-full h-full pointer-events-none z-0">
+      <canvas ref={canvasRef} className="w-full h-full" />
     </div>
   );
 }
