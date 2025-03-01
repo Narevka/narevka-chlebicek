@@ -1,4 +1,3 @@
-
 import { WebGLContext, FBO, DoubleFBO, Resolution } from './types';
 
 // Define WebGL2 constants that TypeScript doesn't recognize
@@ -388,4 +387,20 @@ export function HSVtoRGB(h: number, s: number, v: number): { r: number; g: numbe
   }
   
   return { r, g, b };
+}
+
+export function loadTexture(
+  gl: WebGLRenderingContext | WebGL2RenderingContext,
+  texData: ImageData,
+  index: number
+) {
+  gl.activeTexture(gl.TEXTURE0 + index);
+  let texture = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, texture);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, texData);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  return texture;
 }

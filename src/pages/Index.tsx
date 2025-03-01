@@ -30,27 +30,22 @@ const Index = () => {
     },
   ];
 
-  // Mobile layout with fixed header and footer
+  // Mobile layout with only typing effect and buttons
   if (isMobile) {
     return (
       <div className="flex flex-col min-h-screen">
         <SplashCursor />
-        <div className="flex-1 flex flex-col">
+        <div className="flex-1 flex flex-col justify-between">
           {/* Header with typewriter effect */}
-          <div className="fixed top-0 left-0 right-0 p-4 z-20 bg-white/80 dark:bg-black/80 backdrop-blur-md">
+          <div className="p-6 pt-12 z-20">
             <p className="text-neutral-600 dark:text-neutral-200 text-base mb-2">
               The road to freedom starts from here
             </p>
             <TypewriterEffectSmooth words={words} />
           </div>
           
-          {/* Main content area */}
-          <div className="mt-28 mb-28">
-            <StickyScrollDemo />
-          </div>
-          
           {/* Fixed bottom buttons */}
-          <div className="fixed bottom-0 left-0 right-0 p-4 z-30 bg-white/80 dark:bg-black/80 backdrop-blur-md">
+          <div className="p-6 pb-12 z-30">
             <div className="flex flex-col space-y-4">
               <Button asChild className="w-full h-12 bg-black text-white rounded-md">
                 <Link to="/auth">
