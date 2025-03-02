@@ -15,7 +15,11 @@ export const StickyScroll = ({
   }[];
   contentClassName?: string;
 }) => {
+  // Always start with the first card active
   const [activeCard, setActiveCard] = React.useState(0);
+  
+  // Ref for the outer container to control initial scroll position
+  const containerRef = useRef<HTMLDivElement>(null);
   const ref = useRef<any>(null);
   const { scrollYProgress } = useScroll({
     container: ref,
@@ -58,6 +62,14 @@ export const StickyScroll = ({
     setBackgroundGradient(linearGradients[activeCard % linearGradients.length]);
   }, [activeCard]);
 
+  // Effect to ensure the first item is fully visible on initial render
+  useEffect(() => {
+    if (ref.current) {
+      // Reset scroll position to top
+      ref.current.scrollTop = 0;
+    }
+  }, []);
+
   return (
     <motion.div
       animate={{
@@ -76,28 +88,59 @@ export const StickyScroll = ({
         {content[activeCard].content ?? null}
       </div>
       
-      <div className="grid grid-cols-1 lg:grid-cols-2 h-screen">
-        {/* Text column - centered on mobile, left-aligned on desktop */}
-        <div className="flex justify-center lg:justify-end">
+      <div className="flex flex-col lg:flex-row items-center justify-center h-screen w-full">
+        {/* Text column */}
+        <div className="max-w-lg px-4">
           <div 
-            className="h-screen overflow-y-auto flex items-center px-8 pt-20 lg:pt-20 pb-32 scrollbar-hidden"
+            className="h-screen overflow-y-auto flex items-center px-8 pt-0 pb-32 scrollbar-hidden relative"
             ref={ref}
             style={{
               scrollbarWidth: 'none',
-              paddingTop: 'calc(4rem + var(--mobile-image-height, 0px))',
+              paddingTop: '0px',
+              marginTop: '0px',
+              transform: 'translateY(calc(50vh - 180px))', /* Adjusted to move text down */
+              maskImage: 'linear-gradient(to bottom, transparent, black 15%, black 85%, transparent)',
+              WebkitMaskImage: 'linear-gradient(to bottom, transparent, black 15%, black 85%, transparent)',
             }}
           >
-            <div className="max-w-xl">
-              {content.map((item, index) => (
-                <div key={item.title + index} className="my-24">
+            <div className="py-8 px-2">
+              {/* First item with extra padding to ensure it's fully visible */}
+              <div key={content[0].title} className="pt-24 pb-16">
+                <motion.h2
+                  initial={{
+                    opacity: 0,
+                  }}
+                  animate={{
+                    opacity: activeCard === 0 ? 1 : 0.3,
+                  }}
+                  className="text-3xl font-extrabold text-white mb-4"
+                >
+                  {content[0].title}
+                </motion.h2>
+                <motion.p
+                  initial={{
+                    opacity: 0,
+                  }}
+                  animate={{
+                    opacity: activeCard === 0 ? 1 : 0.3,
+                  }}
+                  className="text-kg text-white font-medium max-w-sm mt-4"
+                >
+                  {content[0].description}
+                </motion.p>
+              </div>
+              
+              {/* Rest of the items */}
+              {content.slice(1).map((item, index) => (
+                <div key={item.title + (index + 1)} className="my-16">
                   <motion.h2
                     initial={{
                       opacity: 0,
                     }}
                     animate={{
-                      opacity: activeCard === index ? 1 : 0.3,
+                    opacity: activeCard === index + 1 ? 1 : 0.3,
                     }}
-                    className="text-2xl font-bold text-slate-100"
+                    className="text-3xl font-extrabold text-white mb-4"
                   >
                     {item.title}
                   </motion.h2>
@@ -106,9 +149,9 @@ export const StickyScroll = ({
                       opacity: 0,
                     }}
                     animate={{
-                      opacity: activeCard === index ? 1 : 0.3,
+                      opacity: activeCard === index + 1 ? 1 : 0.3,
                     }}
-                    className="text-kg text-slate-300 max-w-sm mt-10"
+                  className="text-kg text-white font-medium max-w-sm mt-4"
                   >
                     {item.description}
                   </motion.p>
@@ -120,11 +163,15 @@ export const StickyScroll = ({
         </div>
         
         {/* Image column */}
-        <div className="hidden lg:flex items-center justify-center">
+        <div className="hidden lg:block ml-4">
           <div
-            style={{ background: backgroundGradient }}
+            style={{ 
+              background: backgroundGradient,
+              height: "30rem", /* 480px (1.5x of h-80) */
+              width: "36rem"   /* 576px (1.5x of w-96) */
+            }}
             className={cn(
-              "h-80 w-96 rounded-md bg-white overflow-hidden",
+              "rounded-md bg-white overflow-hidden",
               contentClassName
             )}
           >

@@ -69,14 +69,14 @@ const Index = () => {
     <>
       <SplashCursor />
       <StickyScrollDemo />
-      <div className="fixed bottom-0 left-0 right-0 flex justify-center p-6 z-30">
-        <div className="flex flex-col space-y-4">
-          <GradientButton asChild className="w-64 h-12 mx-auto">
+      <div className="fixed top-0 right-0 flex justify-end p-6 z-30">
+        <div className="flex flex-row space-x-4">
+          <GradientButton asChild className="w-32 h-10">
             <Link to="/auth">
               Join now
             </Link>
           </GradientButton>
-          <GradientButton asChild variant="variant" className="w-64 h-12 mx-auto">
+          <GradientButton asChild variant="variant" className="w-32 h-10">
             <Link to="/auth" state={{ isSignUp: true }}>
               Signup
             </Link>
