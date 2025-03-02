@@ -1,3 +1,4 @@
+
 "use client";
 import React, { useEffect, useRef, useState } from "react";
 import { useMotionValueEvent, useScroll, motion } from "framer-motion";
@@ -77,16 +78,18 @@ export const StickyScroll = ({
       </div>
       
       <div className="grid grid-cols-1 lg:grid-cols-2 h-screen">
-        {/* Text column - now centered both horizontally and vertically */}
-        <div className="flex justify-center items-center">
+        {/* Text column */}
+        <div className="flex justify-center items-center h-screen">
           <div 
-            className="h-screen overflow-y-auto px-8 pt-20 lg:pt-0 pb-32 scrollbar-hidden flex flex-col justify-center"
+            className="h-screen overflow-y-auto px-8 py-0 scrollbar-hidden flex flex-col"
             ref={ref}
             style={{
               scrollbarWidth: 'none',
-              paddingTop: 'calc(var(--mobile-image-height, 0px))',
             }}
           >
+            {/* Empty space at top to push content to center */}
+            <div className="h-[40vh]" />
+            
             <div className="max-w-xl">
               {content.map((item, index) => (
                 <div key={item.title + index} className="my-24">
@@ -114,8 +117,10 @@ export const StickyScroll = ({
                   </motion.p>
                 </div>
               ))}
-              <div className="h-40" />
             </div>
+            
+            {/* Empty space at bottom to ensure content stays centered */}
+            <div className="h-[40vh]" />
           </div>
         </div>
         
