@@ -77,14 +77,14 @@ export const StickyScroll = ({
       </div>
       
       <div className="grid grid-cols-1 lg:grid-cols-2 h-screen">
-        {/* Text column - centered on mobile, left-aligned on desktop */}
-        <div className="flex justify-center lg:justify-end">
+        {/* Text column - now centered both horizontally and vertically */}
+        <div className="flex justify-center items-center">
           <div 
-            className="h-screen overflow-y-auto flex items-center px-8 pt-20 lg:pt-20 pb-32 scrollbar-hidden"
+            className="h-screen overflow-y-auto px-8 pt-20 lg:pt-0 pb-32 scrollbar-hidden flex flex-col justify-center"
             ref={ref}
             style={{
               scrollbarWidth: 'none',
-              paddingTop: 'calc(4rem + var(--mobile-image-height, 0px))',
+              paddingTop: 'calc(var(--mobile-image-height, 0px))',
             }}
           >
             <div className="max-w-xl">
@@ -97,7 +97,7 @@ export const StickyScroll = ({
                     animate={{
                       opacity: activeCard === index ? 1 : 0.3,
                     }}
-                    className="text-2xl font-bold text-slate-100"
+                    className="text-2xl font-bold text-slate-100 text-center lg:text-left"
                   >
                     {item.title}
                   </motion.h2>
@@ -108,7 +108,7 @@ export const StickyScroll = ({
                     animate={{
                       opacity: activeCard === index ? 1 : 0.3,
                     }}
-                    className="text-kg text-slate-300 max-w-sm mt-10"
+                    className="text-kg text-slate-300 max-w-sm mt-10 text-center mx-auto lg:text-left lg:mx-0"
                   >
                     {item.description}
                   </motion.p>
