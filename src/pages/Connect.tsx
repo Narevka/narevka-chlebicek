@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,8 @@ import { useAgentDetail } from "@/hooks/useAgentDetail";
 import { useAuth } from "@/context/AuthContext";
 import ConnectSidebar from "@/components/connect/ConnectSidebar";
 import CodeSnippet from "@/components/connect/CodeSnippet";
+import { useToast } from "@/hooks/use-toast";
+import { v4 as uuidv4 } from "uuid";
 
 const Connect = () => {
   const { id } = useParams<{ id: string }>();
@@ -19,31 +21,59 @@ const Connect = () => {
   const { agent, loading } = useAgentDetail(id || "", user?.id);
   const [embedType, setEmbedType] = useState<"bubble" | "iframe">("bubble");
   const [website, setWebsite] = useState("www.example.com");
+  const { toast } = useToast();
+  const [secretKey] = useState(() => {
+    // Generate a random UUID as the secret key if none exists
+    // In a real application, this would be stored in the database
+    return uuidv4();
+  });
 
-  // Generate embed codes based on selected options
+  // Generate embed codes based on selected options and agent ID
   const bubbleCode = `<script>
+  window.chatbaseConfig = {
+    chatbotId: "${id}",
+  }
+  
   (function(){if(!window.chatbase||window.chatbase("getState")!=="initialized"){window.chatbase=(...arguments)=>{if(!window.chatbase.q){window.chatbase.q=[];}window.chatbase.q.push(arguments);};
   let s=document.createElement("script");s.type="text/javascript";s.async=true;s.src="https://www.chatbase.co/embed.min.js";
   let p=document.getElementsByTagName("script")[0];p.parentNode.insertBefore(s,p);}})();
 </script>`;
 
   const iframeCode = `<iframe
-  src="https://www.chatbase.co/chatbot-iframe/${id}"
+  src="https://chatbase.co/chatbot-iframe/${id}"
   width="100%"
   style="height: 100%; min-height: 700px"
   frameborder="0"
 ></iframe>`;
 
   const serverVerificationCode = `const crypto = require('crypto');
-const secret = '••••••••••'; // Your verification secret key
+const secret = '${secretKey.slice(0, 8)}...'; // Your verification secret key
 const userId = current_user_id; // A string UUID to identify your user
 
 const hash = crypto.createHmac('sha256', secret).update(userId).digest('hex');`;
 
+  const handleCopySecretKey = async () => {
+    try {
+      await navigator.clipboard.writeText(secretKey);
+      toast({
+        title: "Secret key copied",
+        description: "The secret key has been copied to your clipboard",
+        duration: 3000,
+      });
+    } catch (err) {
+      toast({
+        title: "Copy failed",
+        description: "Could not copy secret key. Please try again.",
+        variant: "destructive",
+        duration: 3000,
+      });
+    }
+  };
+
   return (
     <div className="flex min-h-screen">
       <ConnectSidebar />
-      <div className="flex-1 p-6">
+      <div className="flex-1 p-6 overflow-y-auto pb-24">
         <h1 className="text-3xl font-bold mb-6">Connect</h1>
         
         <div className="mb-10">
@@ -115,14 +145,15 @@ const hash = crypto.createHmac('sha256', secret).update(userId).digest('hex');`;
                     <Input 
                       id="secretKey" 
                       type="password" 
-                      value="••••••••••" 
+                      value={secretKey.slice(0, 8) + "•".repeat(20)} 
                       readOnly 
-                      className="rounded-r-none"
+                      className="rounded-r-none font-mono"
                     />
                     <Button 
                       variant="outline" 
                       size="icon" 
                       className="rounded-l-none border-l-0"
+                      onClick={handleCopySecretKey}
                     >
                       <ClipboardCopy className="h-4 w-4" />
                     </Button>

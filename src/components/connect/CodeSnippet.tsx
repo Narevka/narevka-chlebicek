@@ -11,13 +11,23 @@ interface CodeSnippetProps {
 const CodeSnippet = ({ code }: CodeSnippetProps) => {
   const { toast } = useToast();
   
-  const handleCopy = () => {
-    navigator.clipboard.writeText(code);
-    toast({
-      title: "Copied to clipboard",
-      description: "The code has been copied to your clipboard",
-      duration: 3000,
-    });
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(code);
+      toast({
+        title: "Copied to clipboard",
+        description: "The code has been copied to your clipboard",
+        duration: 3000,
+      });
+    } catch (err) {
+      console.error("Failed to copy: ", err);
+      toast({
+        title: "Copy failed",
+        description: "Could not copy to clipboard. Please try again.",
+        variant: "destructive",
+        duration: 3000,
+      });
+    }
   };
   
   const lines = code.split("\n");
@@ -28,7 +38,7 @@ const CodeSnippet = ({ code }: CodeSnippetProps) => {
         <Button 
           variant="outline" 
           size="sm" 
-          className="h-8 bg-white" 
+          className="h-8 bg-white hover:bg-gray-100" 
           onClick={handleCopy}
         >
           <ClipboardCopy className="h-4 w-4 mr-2" />
