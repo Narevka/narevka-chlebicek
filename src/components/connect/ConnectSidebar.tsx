@@ -2,7 +2,7 @@
 import React from "react";
 import { Code, Share, Box } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 interface SidebarItemProps {
   icon: React.ComponentType<{ className?: string }>;
@@ -31,6 +31,7 @@ const SidebarItem = ({
 
 const ConnectSidebar = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = React.useState<string>("embed");
   
   // Determine if we're on the embed tab
@@ -47,11 +48,12 @@ const ConnectSidebar = () => {
 
   const handleTabClick = (tab: string) => {
     setActiveTab(tab);
-    window.location.hash = tab;
+    // Use navigate with a replaced state to avoid creating a new history entry
+    navigate(`${location.pathname}#${tab}`, { replace: true });
   };
 
   return (
-    <div className="w-64 border-r border-gray-200 pt-6 flex flex-col">
+    <div className="w-64 border-r border-gray-200 pt-6 flex flex-col h-screen">
       <SidebarItem 
         icon={Code} 
         label="Embed" 

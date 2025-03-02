@@ -1,7 +1,7 @@
 
 import React from "react";
 import { Button } from "@/components/ui/button";
-import { ClipboardCopy } from "lucide-react";
+import { ClipboardCopy, Check } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface CodeSnippetProps {
@@ -10,15 +10,20 @@ interface CodeSnippetProps {
 
 const CodeSnippet = ({ code }: CodeSnippetProps) => {
   const { toast } = useToast();
+  const [copied, setCopied] = React.useState(false);
   
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(code);
+      setCopied(true);
       toast({
         title: "Copied to clipboard",
         description: "The code has been copied to your clipboard",
         duration: 3000,
       });
+      
+      // Reset copied state after 2 seconds
+      setTimeout(() => setCopied(false), 2000);
     } catch (err) {
       console.error("Failed to copy: ", err);
       toast({
@@ -41,8 +46,17 @@ const CodeSnippet = ({ code }: CodeSnippetProps) => {
           className="h-8 bg-white hover:bg-gray-100" 
           onClick={handleCopy}
         >
-          <ClipboardCopy className="h-4 w-4 mr-2" />
-          Copy
+          {copied ? (
+            <>
+              <Check className="h-4 w-4 mr-2 text-green-500" />
+              Copied
+            </>
+          ) : (
+            <>
+              <ClipboardCopy className="h-4 w-4 mr-2" />
+              Copy
+            </>
+          )}
         </Button>
       </div>
       
