@@ -1,4 +1,3 @@
-
 "use client";
 import React, { useEffect, useRef, useState } from "react";
 import { useMotionValueEvent, useScroll, motion } from "framer-motion";
@@ -78,18 +77,16 @@ export const StickyScroll = ({
       </div>
       
       <div className="grid grid-cols-1 lg:grid-cols-2 h-screen">
-        {/* Text column */}
-        <div className="flex justify-center items-center h-screen">
+        {/* Text column - centered on mobile, left-aligned on desktop */}
+        <div className="flex justify-center lg:justify-end">
           <div 
-            className="h-screen overflow-y-auto px-8 py-0 scrollbar-hidden flex flex-col"
+            className="h-screen overflow-y-auto flex items-center px-8 pt-20 lg:pt-20 pb-32 scrollbar-hidden"
             ref={ref}
             style={{
               scrollbarWidth: 'none',
+              paddingTop: 'calc(4rem + var(--mobile-image-height, 0px))',
             }}
           >
-            {/* Significantly increased empty space at top to push content down further */}
-            <div className="h-[150vh]" />
-            
             <div className="max-w-xl">
               {content.map((item, index) => (
                 <div key={item.title + index} className="my-24">
@@ -100,7 +97,7 @@ export const StickyScroll = ({
                     animate={{
                       opacity: activeCard === index ? 1 : 0.3,
                     }}
-                    className="text-2xl font-bold text-slate-100 text-center lg:text-left"
+                    className="text-2xl font-bold text-slate-100"
                   >
                     {item.title}
                   </motion.h2>
@@ -111,16 +108,14 @@ export const StickyScroll = ({
                     animate={{
                       opacity: activeCard === index ? 1 : 0.3,
                     }}
-                    className="text-kg text-slate-300 max-w-sm mt-10 text-center mx-auto lg:text-left lg:mx-0"
+                    className="text-kg text-slate-300 max-w-sm mt-10"
                   >
                     {item.description}
                   </motion.p>
                 </div>
               ))}
+              <div className="h-40" />
             </div>
-            
-            {/* Empty space at bottom to ensure content stays centered */}
-            <div className="h-[75vh]" />
           </div>
         </div>
         
