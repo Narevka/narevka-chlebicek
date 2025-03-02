@@ -14,7 +14,8 @@ import CodeSnippet from "@/components/connect/CodeSnippet";
 import { useToast } from "@/hooks/use-toast";
 import { v4 as uuidv4 } from "uuid";
 
-const EMBED_BASE_URL = "https://chatbase.co"; // Replace with your actual base URL in production
+// Update this to use the actual production URL or current window origin for testing
+const EMBED_BASE_URL = window.location.origin || "https://chatbase.co"; 
 
 const Connect = () => {
   const { id } = useParams<{ id: string }>();
@@ -47,7 +48,10 @@ const Connect = () => {
   const bubbleCode = `<script>
   window.chatbaseConfig = {
     chatbotId: "${id}",
-    domain: "${EMBED_BASE_URL}"
+    domain: "${EMBED_BASE_URL}",
+    title: "${agent?.name || 'Chat with our AI'}",
+    description: "${agent?.description || 'Ask me anything!'}",
+    primaryColor: "#6366f1"
   }
   
   (function() {
@@ -73,6 +77,8 @@ const Connect = () => {
   width="100%"
   style="height: 100%; min-height: 700px"
   frameborder="0"
+  title="${agent?.name || 'AI Chat'}"
+  allow="microphone"
 ></iframe>`;
 
   const serverVerificationCode = `// Node.js example
