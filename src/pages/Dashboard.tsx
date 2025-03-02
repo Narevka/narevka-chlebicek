@@ -1,7 +1,6 @@
-
 import { useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { Navigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { MessageSquare, Grid, ChevronDown, Plus } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -22,6 +21,7 @@ const Dashboard = () => {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isAgentModalOpen, setIsAgentModalOpen] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchAgents = async () => {
@@ -52,7 +52,6 @@ const Dashboard = () => {
     }
   }, [user]);
 
-  // Show loading message when checking session state
   if (loading) {
     return (
       <div className="min-h-screen w-full flex items-center justify-center bg-white">
@@ -61,7 +60,6 @@ const Dashboard = () => {
     );
   }
 
-  // Redirect if not logged in
   if (!user) {
     return <Navigate to="/auth" />;
   }
@@ -87,13 +85,16 @@ const Dashboard = () => {
     }
   };
 
+  const handleAgentClick = (agentId: string) => {
+    navigate(`/agents/${agentId}`);
+  };
+
   const getUserInitial = () => {
     return user?.email?.charAt(0).toUpperCase() || "U";
   };
 
   return (
     <div className="min-h-screen w-full bg-white flex flex-col">
-      {/* Top Navigation Bar */}
       <div className="border-b border-gray-200">
         <div className="flex items-center justify-between px-4 py-3">
           <div className="flex items-center space-x-4">
@@ -120,7 +121,6 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* Main Content Area */}
       <div className="flex-1">
         <Tabs defaultValue="agents" className="w-full">
           <div className="border-b border-gray-200">
@@ -179,7 +179,11 @@ const Dashboard = () => {
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                   {agents.map((agent) => (
-                    <div key={agent.id} className="border border-gray-200 rounded-md overflow-hidden hover:shadow-md transition-shadow">
+                    <div 
+                      key={agent.id} 
+                      className="border border-gray-200 rounded-md overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
+                      onClick={() => handleAgentClick(agent.id)}
+                    >
                       <div className="bg-gray-100 p-10 flex justify-center items-center">
                         <MessageSquare className="text-gray-500" size={48} />
                       </div>
