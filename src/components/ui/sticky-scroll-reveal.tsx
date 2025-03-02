@@ -87,8 +87,8 @@ export const StickyScroll = ({
               scrollbarWidth: 'none',
             }}
           >
-            {/* Increased empty space at top to push content down further */}
-            <div className="h-[60vh]" />
+            {/* Significantly increased empty space at top to push content down further */}
+            <div className="h-[100vh]" />
             
             <div className="max-w-xl">
               {content.map((item, index) => (
@@ -120,7 +120,7 @@ export const StickyScroll = ({
             </div>
             
             {/* Empty space at bottom to ensure content stays centered */}
-            <div className="h-[20vh]" />
+            <div className="h-[50vh]" />
           </div>
         </div>
         
