@@ -1,8 +1,10 @@
 
 import React from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { Link2 } from "lucide-react";
 import { RefreshCw } from "lucide-react";
 import { useAgentDetail } from "@/hooks/useAgentDetail";
 import PlaygroundTab from "@/components/agent/PlaygroundTab";
@@ -13,6 +15,7 @@ import SettingsTab from "@/components/agent/SettingsTab";
 
 const AgentDetail = () => {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { agent, loading } = useAgentDetail(id || "", user?.id);
 
@@ -31,12 +34,15 @@ const AgentDetail = () => {
     <div className="container mx-auto px-4 py-6 max-w-7xl">
       <div className="mb-6">
         <Tabs defaultValue="playground" className="w-full">
-          <TabsList className="grid grid-cols-5 max-w-2xl">
+          <TabsList className="grid grid-cols-6 max-w-3xl">
             <TabsTrigger value="playground" className="text-sm">Playground</TabsTrigger>
             <TabsTrigger value="activity" className="text-sm">Activity</TabsTrigger>
             <TabsTrigger value="analytics" className="text-sm">Analytics</TabsTrigger>
             <TabsTrigger value="sources" className="text-sm">Sources</TabsTrigger>
             <TabsTrigger value="settings" className="text-sm">Settings</TabsTrigger>
+            <TabsTrigger value="connect" className="text-sm" onClick={() => navigate(`/agents/${id}/connect`)}>
+              Connect
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="playground">
@@ -57,6 +63,17 @@ const AgentDetail = () => {
 
           <TabsContent value="settings">
             <SettingsTab />
+          </TabsContent>
+
+          <TabsContent value="connect">
+            <div className="py-4">
+              <Button asChild variant="outline">
+                <Link to={`/agents/${id}/connect`}>
+                  <Link2 className="mr-2 h-4 w-4" />
+                  Open connect page
+                </Link>
+              </Button>
+            </div>
           </TabsContent>
         </Tabs>
       </div>
