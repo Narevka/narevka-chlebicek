@@ -1,17 +1,20 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from "@/components/ui/separator";
+import { HighlightedPasswordDisplay } from "@/components/HighlightedPasswordDisplay";
 
 const Auth = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [passwordsMatch, setPasswordsMatch] = useState(false);
   const { signIn, signUp, signInWithGoogle } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -26,6 +29,16 @@ const Auth = () => {
         if (error) throw error;
         navigate("/dashboard");
       } else {
+        // For registration, ensure passwords match
+        if (!passwordsMatch) {
+          toast({
+            title: "Error",
+            description: "Passwords do not match",
+            variant: "destructive",
+          });
+          return;
+        }
+        
         const { error } = await signUp(email, password);
         if (error) throw error;
         toast({
@@ -90,27 +103,63 @@ const Auth = () => {
               <label htmlFor="password" className="block text-sm font-medium text-gray-700">
                 Password
               </label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                className="mt-1"
-                placeholder="••••••••"
-              />
+              {isLogin ? (
+                <Input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  className="mt-1"
+                  placeholder="••••••••"
+                />
+              ) : (
+                <HighlightedPasswordDisplay
+                  password={password}
+                  confirmPassword={confirmPassword}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              )}
             </div>
+            
+            {!isLogin && (
+              <div>
+                <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
+                  Confirm Password
+                </label>
+                <Input
+                  id="confirmPassword"
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => {
+                    const match = e.target.value === password;
+                    setPasswordsMatch(match);
+                    setConfirmPassword(e.target.value);
+                  }}
+                  required
+                  className="mt-1"
+                  placeholder="••••••••"
+                />
+              </div>
+            )}
           </div>
 
-          <Button type="submit" className="w-full" disabled={loading}>
+          <Button 
+            type="submit" 
+            className="w-full" 
+            disabled={loading || (!isLogin && !passwordsMatch)}
+          >
             {loading ? "Please wait..." : isLogin ? "Log in" : "Sign up"}
           </Button>
         </form>
 
-        <div className="flex items-center my-4">
-          <Separator className="flex-grow" />
-          <span className="px-4 text-sm text-gray-500">Or continue with</span>
-          <Separator className="flex-grow" />
+        <div className="text-center my-6 relative">
+          <div className="absolute inset-0 flex items-center">
+            <Separator className="w-full" />
+          </div>
+          <span className="px-2 text-sm text-gray-500 bg-white relative z-10 inline-block">
+            Or continue with
+          </span>
         </div>
 
         <Button
