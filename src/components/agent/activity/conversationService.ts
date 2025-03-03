@@ -94,32 +94,49 @@ export const fetchConversations = async (
     if (filters.feedback) {
       try {
         // Check if columns exist before filtering
-        const { data: messagesData } = await supabase
+        const { data: messagesData, error: columnsCheckError } = await supabase
           .from('messages')
           .select('*')
           .limit(1);
         
-        // Only filter by feedback if the columns exist
-        if (messagesData && messagesData.length > 0 && 
-            ('has_thumbs_up' in messagesData[0] || 'has_thumbs_down' in messagesData[0])) {
+        if (columnsCheckError) {
+          console.error("Error checking message columns:", columnsCheckError);
+          return { conversations: filteredConversations, totalItems: pagination.totalItems };
+        }
+        
+        // Only filter by feedback if we have data to check against
+        if (messagesData && messagesData.length > 0) {
+          // Type assertion to allow property access check
+          const sampleMessage = messagesData[0] as Record<string, unknown>;
+          const hasFeedbackColumns = 'has_thumbs_up' in sampleMessage || 'has_thumbs_down' in sampleMessage;
           
-          const conversationsWithFeedback = await Promise.all(
-            filteredConversations.map(async (conversation) => {
-              const { data } = await supabase
-                .from('messages')
-                .select('*')
-                .eq('conversation_id', conversation.id);
-              
-              const hasFeedback = data?.some(msg => 
-                (filters.feedback === "thumbs_up" && msg.has_thumbs_up) || 
-                (filters.feedback === "thumbs_down" && msg.has_thumbs_down)
-              );
-              
-              return { ...conversation, hasFeedback };
-            })
-          );
-          
-          filteredConversations = conversationsWithFeedback.filter(conv => conv.hasFeedback);
+          if (hasFeedbackColumns) {
+            const conversationsWithFeedback = await Promise.all(
+              filteredConversations.map(async (conversation) => {
+                const { data } = await supabase
+                  .from('messages')
+                  .select('*')
+                  .eq('conversation_id', conversation.id);
+                
+                if (!data || data.length === 0) {
+                  return { ...conversation, hasFeedback: false };
+                }
+                
+                // Use type assertion for each message to safely check properties
+                const hasFeedback = data.some(msg => {
+                  const message = msg as Message;
+                  return (
+                    (filters.feedback === "thumbs_up" && message.has_thumbs_up) || 
+                    (filters.feedback === "thumbs_down" && message.has_thumbs_down)
+                  );
+                });
+                
+                return { ...conversation, hasFeedback };
+              })
+            );
+            
+            filteredConversations = conversationsWithFeedback.filter(conv => conv.hasFeedback);
+          }
         }
       } catch (error) {
         console.error("Error with feedback filtering:", error);
@@ -128,7 +145,7 @@ export const fetchConversations = async (
     
     return { 
       conversations: filteredConversations, 
-      totalItems 
+      totalItems: pagination.totalItems 
     };
   } catch (error) {
     console.error("Error fetching conversations:", error);
