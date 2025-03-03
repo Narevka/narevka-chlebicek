@@ -1,4 +1,3 @@
-
 import { Link } from "react-router-dom";
 import { TypewriterEffectSmooth } from "@/components/ui/typewriter-effect.tsx";
 import { useAuth } from "@/context/AuthContext.tsx";
@@ -94,30 +93,23 @@ const Index = () => {
       {/* Hero Section */}
       <section className="pt-24 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-pink-50 to-white">
         <div className="max-w-7xl mx-auto">
-          <div className="flex flex-col md:flex-row items-center">
-            <div className="w-full md:w-1/2 mb-8 md:mb-0">
-              <h1 className="text-4xl md:text-5xl font-bold mb-4">Build Your AI Chat Assistant in Minutes</h1>
-              <p className="text-neutral-600 dark:text-neutral-200 text-lg mb-6">
-                Create, train, and deploy custom chat bots without coding
-              </p>
-              <TypewriterEffectSmooth words={words} className="mb-8" />
-              <div className="flex flex-col sm:flex-row gap-4">
-                <GradientButton asChild className="w-full sm:w-auto h-12">
-                  <Link to="/auth">
-                    Start Building Now
-                  </Link>
-                </GradientButton>
-                <GradientButton asChild variant="variant" className="w-full sm:w-auto h-12">
-                  <Link to="/auth" state={{ isSignUp: true }}>
-                    Create Free Account
-                  </Link>
-                </GradientButton>
-              </div>
-            </div>
-            <div className="w-full md:w-1/2">
-              <div className="bg-white rounded-lg shadow-xl p-4 border border-gray-100">
-                <img src="/public/placeholder.svg" alt="Chat Assistant Demo" className="w-full h-64 object-cover rounded" />
-              </div>
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <h1 className="text-4xl md:text-5xl font-bold mb-4">Build Your AI Chat Assistant in Minutes</h1>
+            <p className="text-neutral-600 dark:text-neutral-200 text-lg mb-6 max-w-2xl mx-auto">
+              Create, train, and deploy custom chat bots without coding
+            </p>
+            <TypewriterEffectSmooth words={words} className="mb-8" />
+            <div className="flex flex-col sm:flex-row gap-4">
+              <GradientButton asChild className="w-full sm:w-auto h-12">
+                <Link to="/auth">
+                  Start Building Now
+                </Link>
+              </GradientButton>
+              <GradientButton asChild variant="variant" className="w-full sm:w-auto h-12">
+                <Link to="/auth" state={{ isSignUp: true }}>
+                  Create Free Account
+                </Link>
+              </GradientButton>
             </div>
           </div>
         </div>
