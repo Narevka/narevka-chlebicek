@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useNavigate } from "react-router-dom";
@@ -6,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from "@/components/ui/separator";
-import { HighlightedPasswordDisplay } from "@/components/HighlightedPasswordDisplay";
+import { HighlightedPasswordDisplay } from "@/components/ui/HighlightedPasswordDisplay";
 
 const Auth = () => {
   const [email, setEmail] = useState("");
