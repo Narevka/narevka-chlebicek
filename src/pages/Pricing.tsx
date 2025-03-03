@@ -1,30 +1,13 @@
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Check } from "lucide-react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { TypewriterEffectSmooth } from "@/components/ui/typewriter-effect";
 
 const Pricing = () => {
   const [billingCycle, setBillingCycle] = useState<"monthly" | "annual">("monthly");
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  
-  const images = [
-    "/lovable-uploads/0487f87e-5421-475b-92c4-0f67f771578c.png",
-    "/lovable-uploads/fbe55ce8-3fb3-4e6c-b698-1626a42fd87c.png", 
-    "/lovable-uploads/f330b4b9-8968-4bd5-86fa-6a1998727783.png"
-  ];
-
-  // Cycle through images every 3 seconds
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentImageIndex((prevIndex) => (prevIndex + 1) % images.length);
-    }, 3000);
-    
-    return () => clearInterval(interval);
-  }, [images.length]);
 
   const toggleBilling = () => {
     setBillingCycle(billingCycle === "monthly" ? "annual" : "monthly");
@@ -46,14 +29,6 @@ const Pricing = () => {
           <p className="mt-5 max-w-xl mx-auto text-xl text-gray-500">
             Ultimate Cheat Sheet
           </p>
-        </div>
-
-        {/* Evolving Illustrations Label */}
-        <div className="flex justify-center mb-8">
-          <div className="bg-white rounded-full px-4 py-2 shadow-sm border border-gray-200 flex items-center gap-2">
-            <span className="text-sm font-medium text-gray-700">Evolving illustrations</span>
-            <div className="w-3 h-3 bg-blue-500 rounded-full animate-pulse"></div>
-          </div>
         </div>
 
         {/* Billing Toggle */}
@@ -89,18 +64,8 @@ const Pricing = () => {
           <Card className="border border-gray-200 shadow-sm rounded-2xl overflow-hidden bg-white">
             <CardHeader className="pt-6 px-6">
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-lg flex items-center justify-center bg-gray-100 relative overflow-hidden">
-                  {images.map((image, index) => (
-                    <img 
-                      key={index}
-                      src={image} 
-                      alt="Free plan" 
-                      className={cn(
-                        "w-10 h-10 object-contain absolute inset-0 m-auto transition-opacity duration-1000",
-                        index === currentImageIndex ? "opacity-100" : "opacity-0"
-                      )}
-                    />
-                  ))}
+                <div className="w-12 h-12 rounded-lg flex items-center justify-center bg-gray-100">
+                  <img src="/lovable-uploads/0487f87e-5421-475b-92c4-0f67f771578c.png" alt="Free plan" className="w-10 h-10 object-contain" />
                 </div>
                 <CardTitle className="text-xl font-semibold">Free</CardTitle>
               </div>
@@ -146,30 +111,13 @@ const Pricing = () => {
             </div>
             <CardHeader className="pt-8 px-6">
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-lg flex items-center justify-center bg-blue-400 bg-opacity-30 relative overflow-hidden">
-                  {images.map((image, index) => (
-                    <img 
-                      key={index}
-                      src={image} 
-                      alt="Professional plan" 
-                      className={cn(
-                        "w-10 h-10 object-contain absolute inset-0 m-auto transition-opacity duration-1000",
-                        index === currentImageIndex ? "opacity-100" : "opacity-0"
-                      )}
-                    />
-                  ))}
+                <div className="w-12 h-12 rounded-lg flex items-center justify-center bg-blue-400 bg-opacity-30">
+                  <img src="/lovable-uploads/0487f87e-5421-475b-92c4-0f67f771578c.png" alt="Professional plan" className="w-10 h-10 object-contain" />
                 </div>
                 <CardTitle className="text-xl font-semibold text-white">Professional</CardTitle>
               </div>
               <CardDescription className="mt-3 text-sm text-blue-100">
-                <TypewriterEffectSmooth
-                  words={[
-                    { text: "Scale your business" },
-                    { text: "with enterprise-grade features" }
-                  ]}
-                  className="text-left h-12"
-                  cursorClassName="text-blue-200"
-                />
+                Scale your business and team with enterprise-grade features
               </CardDescription>
             </CardHeader>
             <CardContent className="pt-4 px-6">
@@ -213,18 +161,8 @@ const Pricing = () => {
           <Card className="border border-gray-200 shadow-sm rounded-2xl overflow-hidden bg-white">
             <CardHeader className="pt-6 px-6">
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-lg flex items-center justify-center bg-gray-100 relative overflow-hidden">
-                  {images.map((image, index) => (
-                    <img 
-                      key={index}
-                      src={image} 
-                      alt="Company plan" 
-                      className={cn(
-                        "w-10 h-10 object-contain absolute inset-0 m-auto transition-opacity duration-1000",
-                        index === currentImageIndex ? "opacity-100" : "opacity-0"
-                      )}
-                    />
-                  ))}
+                <div className="w-12 h-12 rounded-lg flex items-center justify-center bg-gray-100">
+                  <img src="/lovable-uploads/0487f87e-5421-475b-92c4-0f67f771578c.png" alt="Company plan" className="w-10 h-10 object-contain" />
                 </div>
                 <CardTitle className="text-xl font-semibold">Company</CardTitle>
               </div>
@@ -259,13 +197,6 @@ const Pricing = () => {
               </Button>
             </CardFooter>
           </Card>
-        </div>
-
-        {/* Short plan description */}
-        <div className="mt-12 text-center">
-          <div className="inline-block bg-white rounded-full px-4 py-2 shadow-sm border border-gray-200">
-            <span className="text-sm font-medium text-gray-700">Short plan description</span>
-          </div>
         </div>
 
         {/* Additional Benefits Section */}
