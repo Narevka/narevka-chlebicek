@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { cn } from "@/lib/utils";
 
 const Pricing = () => {
-  const [billingCycle, setBillingCycle] = useState<"monthly" | "annual">("monthly");
+  const [billingCycle, setBillingCycle] = useState<"monthly" | "annual">("annual");
 
   const toggleBilling = () => {
     setBillingCycle(billingCycle === "monthly" ? "annual" : "monthly");
