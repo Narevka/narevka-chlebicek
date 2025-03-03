@@ -8,7 +8,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import ConversationsList from "./ConversationsList";
 import ConversationDetails from "./ConversationDetails";
-import { Conversation, Message } from "./types";
+import { Conversation, Message, PaginationState } from "./types";
+import { 
+  Pagination, 
+  PaginationContent, 
+  PaginationItem, 
+  PaginationLink, 
+  PaginationNext, 
+  PaginationPrevious 
+} from "@/components/ui/pagination";
 
 const ChatLogsSection = () => {
   const { user } = useAuth();
@@ -19,22 +27,44 @@ const ChatLogsSection = () => {
   const [filter, setFilter] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
+  const [pagination, setPagination] = useState<PaginationState>({
+    currentPage: 1,
+    pageSize: 10,
+    totalItems: 0
+  });
 
   useEffect(() => {
     if (!user) return;
     
     fetchConversations();
-  }, [user]);
+  }, [user, pagination.currentPage]);
 
   const fetchConversations = async () => {
     if (!user) return;
     
     setIsLoading(true);
     try {
+      // First get the total count for pagination
+      const { count, error: countError } = await supabase
+        .from('conversations')
+        .select('*', { count: 'exact', head: true });
+      
+      if (countError) throw countError;
+      
+      setPagination(prev => ({
+        ...prev,
+        totalItems: count || 0
+      }));
+      
+      // Then get the paginated data
       const { data: conversationsData, error: conversationsError } = await supabase
         .from('conversations')
         .select('*')
-        .order('updated_at', { ascending: false });
+        .order('updated_at', { ascending: false })
+        .range(
+          (pagination.currentPage - 1) * pagination.pageSize, 
+          pagination.currentPage * pagination.pageSize - 1
+        );
       
       if (conversationsError) throw conversationsError;
       
@@ -101,6 +131,39 @@ const ChatLogsSection = () => {
     return matchesSearch && matchesFilter;
   });
 
+  const totalPages = Math.ceil(pagination.totalItems / pagination.pageSize);
+
+  const handlePageChange = (page: number) => {
+    if (page < 1 || page > totalPages) return;
+    setPagination(prev => ({ ...prev, currentPage: page }));
+  };
+
+  const renderPaginationItems = () => {
+    const items = [];
+    const maxVisiblePages = 5;
+    let startPage = Math.max(1, pagination.currentPage - Math.floor(maxVisiblePages / 2));
+    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+    
+    if (endPage - startPage + 1 < maxVisiblePages) {
+      startPage = Math.max(1, endPage - maxVisiblePages + 1);
+    }
+    
+    for (let i = startPage; i <= endPage; i++) {
+      items.push(
+        <PaginationItem key={i}>
+          <PaginationLink 
+            isActive={pagination.currentPage === i}
+            onClick={() => handlePageChange(i)}
+          >
+            {i}
+          </PaginationLink>
+        </PaginationItem>
+      );
+    }
+    
+    return items;
+  };
+
   return (
     <div>
       <div className="flex justify-between items-center mb-4">
@@ -144,6 +207,32 @@ const ChatLogsSection = () => {
             setConversations={setConversations}
           />
         </div>
+        
+        {pagination.totalItems > 0 && (
+          <div className="p-4 border-t">
+            <Pagination>
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious 
+                    onClick={() => handlePageChange(pagination.currentPage - 1)}
+                    aria-disabled={pagination.currentPage === 1}
+                    className={pagination.currentPage === 1 ? "pointer-events-none opacity-50" : ""}
+                  />
+                </PaginationItem>
+                
+                {renderPaginationItems()}
+                
+                <PaginationItem>
+                  <PaginationNext 
+                    onClick={() => handlePageChange(pagination.currentPage + 1)}
+                    aria-disabled={pagination.currentPage === totalPages}
+                    className={pagination.currentPage === totalPages ? "pointer-events-none opacity-50" : ""}
+                  />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
+          </div>
+        )}
       </div>
 
       <ConversationDetails 

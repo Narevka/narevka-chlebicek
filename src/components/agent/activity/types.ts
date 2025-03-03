@@ -15,3 +15,9 @@ export interface Message {
   confidence?: number;
   created_at: string;
 }
+
+export interface PaginationState {
+  currentPage: number;
+  pageSize: number;
+  totalItems: number;
+}
