@@ -35,13 +35,11 @@ const Dashboard = () => {
 
       {/* Main content */}
       <div className="flex-1 overflow-auto">
-        <div className="flex-1">
-          <DashboardTabs 
-            agents={agents} 
-            isLoading={isLoading} 
-            onOpenModal={() => setIsAgentModalOpen(true)} 
-          />
-        </div>
+        <DashboardTabs 
+          agents={agents} 
+          isLoading={isLoading} 
+          onOpenModal={() => setIsAgentModalOpen(true)} 
+        />
 
         <AgentCreationModal 
           isOpen={isAgentModalOpen} 
