@@ -1,6 +1,5 @@
-
 import React, { useState, useEffect } from "react";
-import { RefreshCw, Filter, Download } from "lucide-react";
+import { RefreshCw, Download } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
@@ -9,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import ConversationsList from "./ConversationsList";
 import ConversationDetails from "./ConversationDetails";
 import { Conversation, Message, PaginationState } from "./types";
+import ConversationsFilter from "./ConversationsFilter";
 import { 
   Pagination, 
   PaginationContent, 
@@ -44,7 +44,6 @@ const ChatLogsSection = () => {
     
     setIsLoading(true);
     try {
-      // First get the total count for pagination
       const { count, error: countError } = await supabase
         .from('conversations')
         .select('*', { count: 'exact', head: true });
@@ -56,7 +55,6 @@ const ChatLogsSection = () => {
         totalItems: count || 0
       }));
       
-      // Then get the paginated data
       const { data: conversationsData, error: conversationsError } = await supabase
         .from('conversations')
         .select('*')
@@ -124,6 +122,8 @@ const ChatLogsSection = () => {
     fetchMessagesForConversation(conversation.id);
   };
 
+  const sources = conversations.map(convo => convo.source);
+
   const filteredConversations = conversations.filter(convo => {
     const matchesSearch = convo.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
                          (convo.last_message && convo.last_message.toLowerCase().includes(searchTerm.toLowerCase()));
@@ -178,10 +178,11 @@ const ChatLogsSection = () => {
             <RefreshCw className="h-4 w-4 mr-2" />
             Refresh
           </Button>
-          <Button variant="outline" size="sm" className="flex items-center">
-            <Filter className="h-4 w-4 mr-2" />
-            Filter
-          </Button>
+          <ConversationsFilter 
+            sources={sources} 
+            activeFilter={filter} 
+            onFilterChange={setFilter} 
+          />
           <Button variant="outline" size="sm" className="bg-black text-white hover:bg-gray-800 flex items-center">
             <Download className="h-4 w-4 mr-2" />
             Export
