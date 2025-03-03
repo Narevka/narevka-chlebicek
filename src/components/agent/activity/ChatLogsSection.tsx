@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import ConversationsList from "./ConversationsList";
 import ConversationDetails from "./ConversationDetails";
 import { Conversation, Message, PaginationState } from "./types";
-import ConversationsFilter from "./ConversationsFilter";
+import ConversationsFilter, { FilterState } from "./ConversationsFilter";
 import { 
   Pagination, 
   PaginationContent, 
@@ -24,7 +24,12 @@ const ChatLogsSection = () => {
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [conversationMessages, setConversationMessages] = useState<Message[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [filter, setFilter] = useState<string | null>(null);
+  const [filters, setFilters] = useState<FilterState>({
+    source: null,
+    confidenceScore: null,
+    feedback: null,
+    dateRange: null
+  });
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [pagination, setPagination] = useState<PaginationState>({
@@ -37,16 +42,32 @@ const ChatLogsSection = () => {
     if (!user) return;
     
     fetchConversations();
-  }, [user, pagination.currentPage]);
+  }, [user, pagination.currentPage, filters]);
 
   const fetchConversations = async () => {
     if (!user) return;
     
     setIsLoading(true);
     try {
-      const { count, error: countError } = await supabase
+      let query = supabase
         .from('conversations')
         .select('*', { count: 'exact', head: true });
+      
+      if (filters.source) {
+        query = query.eq('source', filters.source);
+      }
+      
+      if (filters.dateRange) {
+        const today = new Date();
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(today.getDate() - 7);
+        
+        if (filters.dateRange === "last_7_days") {
+          query = query.gte('created_at', sevenDaysAgo.toISOString());
+        }
+      }
+      
+      const { count, error: countError } = await query;
       
       if (countError) throw countError;
       
@@ -55,7 +76,7 @@ const ChatLogsSection = () => {
         totalItems: count || 0
       }));
       
-      const { data: conversationsData, error: conversationsError } = await supabase
+      let conversationsQuery = supabase
         .from('conversations')
         .select('*')
         .order('updated_at', { ascending: false })
@@ -64,17 +85,39 @@ const ChatLogsSection = () => {
           pagination.currentPage * pagination.pageSize - 1
         );
       
+      if (filters.source) {
+        conversationsQuery = conversationsQuery.eq('source', filters.source);
+      }
+      
+      if (filters.dateRange) {
+        const today = new Date();
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(today.getDate() - 7);
+        
+        if (filters.dateRange === "last_7_days") {
+          conversationsQuery = conversationsQuery.gte('created_at', sevenDaysAgo.toISOString());
+        }
+      }
+      
+      const { data: conversationsData, error: conversationsError } = await conversationsQuery;
+      
       if (conversationsError) throw conversationsError;
       
       const conversationsWithLastMessage = await Promise.all(
         (conversationsData || []).map(async (conversation) => {
-          const { data: lastMessageData, error: lastMessageError } = await supabase
+          let messagesQuery = supabase
             .from('messages')
-            .select('content, is_bot')
+            .select('content, is_bot, confidence')
             .eq('conversation_id', conversation.id)
             .order('created_at', { ascending: false })
-            .limit(1)
-            .single();
+            .limit(1);
+          
+          if (filters.confidenceScore) {
+            const threshold = parseFloat(filters.confidenceScore.replace('< ', ''));
+            messagesQuery = messagesQuery.lt('confidence', threshold);
+          }
+          
+          const { data: lastMessageData, error: lastMessageError } = await messagesQuery.single();
           
           if (lastMessageError && lastMessageError.code !== 'PGRST116') {
             console.error("Error fetching last message:", lastMessageError);
@@ -83,12 +126,35 @@ const ChatLogsSection = () => {
           
           return {
             ...conversation,
-            last_message: lastMessageData?.is_bot ? "AI: " + lastMessageData?.content : lastMessageData?.content
+            last_message: lastMessageData?.is_bot ? "AI: " + lastMessageData?.content : lastMessageData?.content,
+            confidence: lastMessageData?.confidence
           };
         })
       );
       
-      setConversations(conversationsWithLastMessage);
+      let filteredConversations = conversationsWithLastMessage;
+      
+      if (filters.feedback) {
+        const conversationsWithFeedback = await Promise.all(
+          filteredConversations.map(async (conversation) => {
+            const { data: messagesData } = await supabase
+              .from('messages')
+              .select('has_thumbs_up, has_thumbs_down')
+              .eq('conversation_id', conversation.id);
+            
+            const hasFeedback = messagesData?.some(msg => 
+              (filters.feedback === "thumbs_up" && msg.has_thumbs_up) || 
+              (filters.feedback === "thumbs_down" && msg.has_thumbs_down)
+            );
+            
+            return { ...conversation, hasFeedback };
+          })
+        );
+        
+        filteredConversations = conversationsWithFeedback.filter(conv => conv.hasFeedback);
+      }
+      
+      setConversations(filteredConversations);
     } catch (error) {
       console.error("Error fetching conversations:", error);
       toast.error("Failed to load conversations");
@@ -127,8 +193,7 @@ const ChatLogsSection = () => {
   const filteredConversations = conversations.filter(convo => {
     const matchesSearch = convo.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
                          (convo.last_message && convo.last_message.toLowerCase().includes(searchTerm.toLowerCase()));
-    const matchesFilter = filter ? convo.source === filter : true;
-    return matchesSearch && matchesFilter;
+    return matchesSearch;
   });
 
   const totalPages = Math.ceil(pagination.totalItems / pagination.pageSize);
@@ -164,6 +229,11 @@ const ChatLogsSection = () => {
     return items;
   };
 
+  const handleFilterChange = (filterType: keyof FilterState, value: string | null) => {
+    setFilters(prev => ({ ...prev, [filterType]: value }));
+    setPagination(prev => ({ ...prev, currentPage: 1 }));
+  };
+
   return (
     <div>
       <div className="flex justify-between items-center mb-4">
@@ -178,11 +248,6 @@ const ChatLogsSection = () => {
             <RefreshCw className="h-4 w-4 mr-2" />
             Refresh
           </Button>
-          <ConversationsFilter 
-            sources={sources} 
-            activeFilter={filter} 
-            onFilterChange={setFilter} 
-          />
           <Button variant="outline" size="sm" className="bg-black text-white hover:bg-gray-800 flex items-center">
             <Download className="h-4 w-4 mr-2" />
             Export
@@ -190,12 +255,18 @@ const ChatLogsSection = () => {
         </div>
       </div>
 
-      <div className="mb-4">
+      <div className="mb-4 space-y-4">
         <Input
           placeholder="Search conversations..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className="max-w-md"
+        />
+
+        <ConversationsFilter 
+          sources={sources} 
+          activeFilters={filters} 
+          onFilterChange={handleFilterChange} 
         />
       </div>
 

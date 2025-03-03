@@ -6,6 +6,8 @@ export interface Conversation {
   created_at: string;
   updated_at: string;
   last_message?: string;
+  confidence?: number;
+  hasFeedback?: boolean;
 }
 
 export interface Message {
@@ -14,6 +16,8 @@ export interface Message {
   is_bot: boolean;
   confidence?: number;
   created_at: string;
+  has_thumbs_up?: boolean;
+  has_thumbs_down?: boolean;
 }
 
 export interface PaginationState {
