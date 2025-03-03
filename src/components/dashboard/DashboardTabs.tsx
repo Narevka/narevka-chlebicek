@@ -21,8 +21,8 @@ const DashboardTabs = ({ agents, isLoading, onOpenModal }: DashboardTabsProps) =
   return (
     <Tabs defaultValue="agents" className="w-full">
       <div className="border-b border-gray-200">
-        <div className="max-w-5xl mx-auto">
-          <TabsList className="flex justify-center h-12 bg-transparent border-none">
+        <div className="px-6">
+          <TabsList className="h-12 bg-transparent border-none">
             <TabsTrigger 
               value="agents" 
               className="data-[state=active]:border-b-2 data-[state=active]:border-purple-600 data-[state=active]:shadow-none data-[state=active]:bg-transparent rounded-none px-8 h-full"
@@ -45,7 +45,7 @@ const DashboardTabs = ({ agents, isLoading, onOpenModal }: DashboardTabsProps) =
         </div>
       </div>
 
-      <div className="max-w-5xl mx-auto w-full p-4">
+      <div className="p-6">
         <TabsContent value="agents" className="mt-6">
           <div className="flex justify-between items-center mb-8">
             <h1 className="text-3xl font-bold">Agents</h1>

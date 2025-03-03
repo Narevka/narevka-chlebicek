@@ -2,10 +2,10 @@
 import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { Navigate } from "react-router-dom";
-import TopNavigationBar from "@/components/dashboard/TopNavigationBar";
 import DashboardTabs from "@/components/dashboard/DashboardTabs";
 import AgentCreationModal from "@/components/AgentCreationModal";
 import { useAgents } from "@/hooks/useAgents";
+import SidebarMenu from "@/components/dashboard/SidebarMenu";
 
 const Dashboard = () => {
   const { user, loading } = useAuth();
@@ -29,22 +29,26 @@ const Dashboard = () => {
   };
 
   return (
-    <div className="min-h-screen w-full bg-white flex flex-col">
-      <TopNavigationBar />
+    <div className="min-h-screen w-full bg-white flex">
+      {/* Sidebar */}
+      <SidebarMenu />
 
-      <div className="flex-1">
-        <DashboardTabs 
-          agents={agents} 
-          isLoading={isLoading} 
-          onOpenModal={() => setIsAgentModalOpen(true)} 
+      {/* Main content */}
+      <div className="flex-1 overflow-auto">
+        <div className="flex-1">
+          <DashboardTabs 
+            agents={agents} 
+            isLoading={isLoading} 
+            onOpenModal={() => setIsAgentModalOpen(true)} 
+          />
+        </div>
+
+        <AgentCreationModal 
+          isOpen={isAgentModalOpen} 
+          onClose={() => setIsAgentModalOpen(false)} 
+          onAgentCreated={handleAgentCreated}
         />
       </div>
-
-      <AgentCreationModal 
-        isOpen={isAgentModalOpen} 
-        onClose={() => setIsAgentModalOpen(false)} 
-        onAgentCreated={handleAgentCreated}
-      />
     </div>
   );
 };
