@@ -9,7 +9,7 @@ interface PlaygroundTabProps {
 
 const PlaygroundTab = ({ agentName }: PlaygroundTabProps) => {
   return (
-    <div className="mt-6">
+    <div>
       <div className="flex items-center mb-6">
         <h1 className="text-2xl font-bold">Playground</h1>
         <span className="ml-2 text-muted-foreground">
