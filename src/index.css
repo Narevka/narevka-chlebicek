@@ -17,3 +17,6 @@
     }
   }
 }
+
+/* Import scrollbar styles */
+@import url('./components/ui/scrollbar.css');
