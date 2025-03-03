@@ -45,7 +45,7 @@ export function HighlightedPasswordDisplay({
     <div className="relative">
       {/* Custom password field with highlighting */}
       <div 
-        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-within:outline-none focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 mt-1"
+        className="flex h-10 w-full rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm transition-colors focus-within:outline-none focus-within:ring-2 focus-within:ring-indigo-500 focus-within:ring-offset-2 focus-within:border-indigo-300 focus-within:bg-white"
         onClick={() => inputRef.current?.focus()}
       >
         <div className="flex items-center h-full">
@@ -54,7 +54,7 @@ export function HighlightedPasswordDisplay({
           {/* Blinking cursor positioned after the last typed character */}
           {isFocused && (
             <div 
-              className="h-4 w-0.5 bg-black animate-blink"
+              className="h-4 w-0.5 bg-indigo-600 animate-blink"
               style={{ 
                 position: 'absolute',
                 left: `${12 + (password.length * 6)}px` // Position after last character
