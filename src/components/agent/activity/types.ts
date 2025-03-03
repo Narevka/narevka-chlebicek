@@ -25,3 +25,10 @@ export interface PaginationState {
   pageSize: number;
   totalItems: number;
 }
+
+export interface FilterState {
+  source: string | null;
+  confidenceScore: string | null;
+  feedback: string | null;
+  dateRange: string | null;
+}

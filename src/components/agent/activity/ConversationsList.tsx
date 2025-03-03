@@ -2,44 +2,22 @@
 import React from "react";
 import { Trash2, Loader2 } from "lucide-react";
 import { format } from "date-fns";
-import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
 import { Conversation } from "./types";
 
 interface ConversationsListProps {
   conversations: Conversation[];
   isLoading: boolean;
   onSelectConversation: (conversation: Conversation) => void;
-  setConversations: React.Dispatch<React.SetStateAction<Conversation[]>>;
+  onDeleteConversation: (conversationId: string, e: React.MouseEvent) => void;
 }
 
 const ConversationsList = ({ 
   conversations, 
   isLoading, 
   onSelectConversation, 
-  setConversations 
+  onDeleteConversation 
 }: ConversationsListProps) => {
   
-  const deleteConversation = async (conversationId: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    
-    try {
-      const { error } = await supabase
-        .from('conversations')
-        .delete()
-        .eq('id', conversationId);
-      
-      if (error) throw error;
-      
-      setConversations(conversations.filter(convo => convo.id !== conversationId));
-      
-      toast.success("Conversation deleted");
-    } catch (error) {
-      console.error("Error deleting conversation:", error);
-      toast.error("Failed to delete conversation");
-    }
-  };
-
   if (isLoading) {
     return (
       <div className="flex justify-center items-center p-12">
@@ -78,7 +56,7 @@ const ConversationsList = ({
               </div>
               <button 
                 className="text-red-500 hover:text-red-700"
-                onClick={(e) => deleteConversation(convo.id, e)}
+                onClick={(e) => onDeleteConversation(convo.id, e)}
               >
                 <Trash2 className="h-4 w-4" />
               </button>
