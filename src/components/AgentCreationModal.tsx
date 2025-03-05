@@ -31,6 +31,7 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({
   const [description, setDescription] = useState("");
   const [instructions, setInstructions] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [debugInfo, setDebugInfo] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,6 +47,7 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({
     }
 
     setIsSubmitting(true);
+    setDebugInfo(null);
 
     try {
       // Create agent in database
@@ -70,21 +72,38 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({
       }
 
       const agentData = data[0];
+      setDebugInfo(`Agent created in database with ID: ${agentData.id}`);
 
       // Call edge function to create OpenAI Assistant
+      setDebugInfo(prev => `${prev}\nCalling edge function to create OpenAI Assistant...`);
       const createAssistantResponse = await supabase.functions.invoke('create-openai-assistant', {
         body: { agentData }
       });
 
+      setDebugInfo(prev => `${prev}\nEdge function response received: ${JSON.stringify(createAssistantResponse)}`);
+
       if (createAssistantResponse.error) {
         console.error("Error creating OpenAI assistant:", createAssistantResponse.error);
+        setDebugInfo(prev => `${prev}\nError from edge function: ${createAssistantResponse.error}`);
         toast.warning("Agent created but OpenAI Assistant creation failed. It will be retried later.");
       } else {
-        toast.success("Agent created successfully with OpenAI Assistant");
+        const responseData = createAssistantResponse.data;
+        setDebugInfo(prev => `${prev}\nSuccess response: ${JSON.stringify(responseData)}`);
+        
+        if (responseData.success) {
+          setDebugInfo(prev => `${prev}\nOpenAI Assistant created successfully with ID: ${responseData.assistant?.id}`);
+          toast.success("Agent created successfully with OpenAI Assistant");
+        } else {
+          setDebugInfo(prev => `${prev}\nError message from OpenAI: ${responseData.error}`);
+          toast.warning(`Agent created but OpenAI Assistant creation failed: ${responseData.error}`);
+        }
       }
 
       onAgentCreated();
-      onClose();
+      // Don't close the modal immediately so user can see debug info if there's an error
+      if (!createAssistantResponse.error) {
+        onClose();
+      }
       
       // Reset form
       setName("");
@@ -92,6 +111,7 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({
       setInstructions("");
     } catch (error: any) {
       console.error("Error creating agent:", error);
+      setDebugInfo(prev => `${prev}\nError creating agent: ${error.message}`);
       toast.error(error.message || "Failed to create agent");
     } finally {
       setIsSubmitting(false);
@@ -156,6 +176,13 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({
                 Instructions that tell the AI how to behave and what to do.
               </p>
             </div>
+            
+            {debugInfo && (
+              <div className="mt-4 p-3 bg-gray-100 rounded text-xs font-mono text-gray-800 whitespace-pre-wrap overflow-auto max-h-40">
+                <p className="font-medium mb-1">Debug Information:</p>
+                {debugInfo}
+              </div>
+            )}
           </div>
           
           <DialogFooter>

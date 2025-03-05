@@ -16,18 +16,29 @@ serve(async (req) => {
     const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
     
     if (!OPENAI_API_KEY) {
+      console.error("OpenAI API key not found in environment variables");
       throw new Error('OpenAI API key is not configured');
     }
+
+    console.log("OpenAI API key found, proceeding with assistant update");
 
     const { assistantId, name, description, instructions } = await req.json();
     
     if (!assistantId) {
+      console.error("Missing assistantId in request");
       throw new Error('Assistant ID is required');
     }
 
-    console.log("Updating OpenAI Assistant:", assistantId);
+    console.log("Updating OpenAI Assistant:", assistantId, "with name:", name);
 
     // Update OpenAI Assistant
+    const updatePayload = {
+      name: name,
+      description: description || undefined,
+      instructions: instructions || undefined,
+    };
+    console.log("OpenAI update payload:", JSON.stringify(updatePayload, null, 2));
+
     const openaiResponse = await fetch(`https://api.openai.com/v1/assistants/${assistantId}`, {
       method: 'POST',
       headers: {
@@ -35,21 +46,28 @@ serve(async (req) => {
         'Authorization': `Bearer ${OPENAI_API_KEY}`,
         'OpenAI-Beta': 'assistants=v2'
       },
-      body: JSON.stringify({
-        name: name,
-        description: description || undefined,
-        instructions: instructions || undefined,
-      })
+      body: JSON.stringify(updatePayload)
     });
 
+    console.log("OpenAI response status:", openaiResponse.status);
+    const responseText = await openaiResponse.text();
+    console.log("OpenAI raw response:", responseText);
+
     if (!openaiResponse.ok) {
-      const errorData = await openaiResponse.json();
-      console.error("OpenAI API error:", errorData);
-      throw new Error(`OpenAI API error: ${errorData.error?.message || 'Unknown error'}`);
+      console.error("OpenAI API error. Status:", openaiResponse.status);
+      console.error("OpenAI API error response:", responseText);
+      throw new Error(`OpenAI API error: Status ${openaiResponse.status}, Response: ${responseText}`);
     }
 
-    const assistantData = await openaiResponse.json();
-    console.log("OpenAI Assistant updated successfully");
+    let assistantData;
+    try {
+      assistantData = JSON.parse(responseText);
+      console.log("OpenAI Assistant updated successfully");
+      console.log("Updated assistant details:", JSON.stringify(assistantData, null, 2));
+    } catch (e) {
+      console.error("Failed to parse OpenAI response:", e);
+      throw new Error(`Failed to parse OpenAI response: ${e.message}`);
+    }
     
     return new Response(
       JSON.stringify({
