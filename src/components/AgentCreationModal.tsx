@@ -100,7 +100,10 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-[525px]">
+      <DialogContent 
+        className="sm:max-w-[525px] bg-white border-gray-200 shadow-lg"
+        style={{ opacity: 1 }}
+      >
         <DialogHeader>
           <DialogTitle>Create New Agent</DialogTitle>
           <DialogDescription>
@@ -120,6 +123,7 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({
                 onChange={(e) => setName(e.target.value)}
                 placeholder="My AI Assistant"
                 required
+                className="bg-gray-50"
               />
             </div>
             
@@ -132,6 +136,7 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="A helpful assistant for my website"
+                className="bg-gray-50"
               />
             </div>
 
@@ -145,6 +150,7 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({
                 onChange={(e) => setInstructions(e.target.value)}
                 placeholder="You are a helpful AI assistant. Answer questions accurately and concisely."
                 rows={3}
+                className="bg-gray-50"
               />
               <p className="text-xs text-gray-500">
                 Instructions that tell the AI how to behave and what to do.
