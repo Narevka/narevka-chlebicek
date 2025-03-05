@@ -172,7 +172,73 @@ serve(async (req) => {
       console.log(`Added file to vector store: ${JSON.stringify(addToVectorStoreData)}`);
       
       result = addToVectorStoreData;
+    } else if (sourceData.type === 'qa') {
+      console.log(`Processing Q&A source: ${sourceId}`);
       
+      try {
+        // Parse Q&A content from JSON string
+        const qaData = JSON.parse(sourceData.content);
+        const { question, answer } = qaData;
+        
+        if (!question || !answer) {
+          throw new Error("Invalid Q&A data: missing question or answer");
+        }
+        
+        // Format the content with a clear structure
+        const formattedContent = `Question: ${question}\n\nAnswer: ${answer}`;
+        
+        // Use the question as the filename (sanitize it to be a valid filename)
+        let fileName = question.trim();
+        // Limit to 50 chars and remove invalid filename characters
+        fileName = fileName.substring(0, 50).replace(/[/\\?%*:|"<>]/g, '_');
+        fileName = `qa_${fileName}.txt`;
+        
+        // Create a file with OpenAI
+        const formData = new FormData();
+        formData.append('purpose', 'assistants');
+        formData.append('file', new Blob([formattedContent], { type: 'text/plain' }), fileName);
+        
+        const fileResponse = await fetch('https://api.openai.com/v1/files', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${OPENAI_API_KEY}`,
+          },
+          body: formData
+        });
+        
+        if (!fileResponse.ok) {
+          throw new Error(`Error uploading Q&A file to OpenAI: ${await fileResponse.text()}`);
+        }
+        
+        const fileData = await fileResponse.json();
+        const fileId = fileData.id;
+        console.log(`Created Q&A file in OpenAI: ${fileId}`);
+        
+        // Add the file to the vector store
+        const addToVectorStoreResponse = await fetch(`https://api.openai.com/v1/vector_stores/${vectorStoreId}/files`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${OPENAI_API_KEY}`,
+            'Content-Type': 'application/json',
+            'OpenAI-Beta': 'assistants=v2'
+          },
+          body: JSON.stringify({
+            file_id: fileId
+          })
+        });
+        
+        if (!addToVectorStoreResponse.ok) {
+          throw new Error(`Error adding Q&A file to vector store: ${await addToVectorStoreResponse.text()}`);
+        }
+        
+        const addToVectorStoreData = await addToVectorStoreResponse.json();
+        console.log(`Added Q&A file to vector store: ${JSON.stringify(addToVectorStoreData)}`);
+        
+        result = addToVectorStoreData;
+      } catch (err) {
+        console.error("Error processing Q&A data:", err);
+        throw new Error(`Failed to process Q&A data: ${err.message}`);
+      }
     } else if (sourceData.type === 'file') {
       console.log(`Processing file source: ${sourceId}`);
       

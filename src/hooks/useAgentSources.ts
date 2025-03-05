@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -178,6 +177,48 @@ export const useAgentSources = (agentId: string | undefined) => {
     }
   };
 
+  const handleAddQA = async (question: string, answer: string) => {
+    if (!agentId || !user) return;
+    
+    try {
+      // Create content for Q&A with a clear formatting for later parsing
+      const content = JSON.stringify({ question, answer });
+      // Estimate character count
+      const chars = question.length + answer.length;
+      
+      const { data, error } = await supabase
+        .from("agent_sources")
+        .insert([{
+          agent_id: agentId,
+          user_id: user.id,
+          type: "qa",
+          content: content,
+          chars: chars
+        }])
+        .select();
+        
+      if (error) throw error;
+      
+      if (data) {
+        const newSources = data as SourceItem[];
+        setSources(prev => [...newSources, ...prev]);
+        
+        // Process the new source with OpenAI
+        try {
+          const sourceId = newSources[0].id;
+          await processSourceWithOpenAI(sourceId);
+          toast.success("Q&A added and processed successfully");
+        } catch (processError: any) {
+          console.error("Error processing Q&A with OpenAI:", processError);
+          toast.warning("Q&A added to database but failed to process with OpenAI");
+        }
+      }
+    } catch (error) {
+      console.error("Error adding Q&A:", error);
+      toast.error("Failed to add Q&A");
+    }
+  };
+
   const handleRetrainAgent = async () => {
     if (!agentId) return;
     
@@ -203,7 +244,6 @@ export const useAgentSources = (agentId: string | undefined) => {
     }
   };
 
-  // Calculate stats from sources
   const getSourceStats = () => {
     const filesSources = sources.filter(s => s.type === "file");
     const textSources = sources.filter(s => s.type === "text");
@@ -235,6 +275,7 @@ export const useAgentSources = (agentId: string | undefined) => {
     isRetraining,
     handleAddText,
     handleAddFiles,
+    handleAddQA,
     handleRetrainAgent,
     getSourceStats
   };

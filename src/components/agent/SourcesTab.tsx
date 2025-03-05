@@ -18,6 +18,7 @@ const SourcesTab = () => {
     isRetraining,
     handleAddText,
     handleAddFiles,
+    handleAddQA,
     handleRetrainAgent,
     getSourceStats
   } = useAgentSources(agentId);
@@ -34,7 +35,7 @@ const SourcesTab = () => {
       case "website":
         return <WebsiteSource />;
       case "qa":
-        return <QASource />;
+        return <QASource onAddQA={handleAddQA} />;
       default:
         return <FilesSource onAddFiles={handleAddFiles} />;
     }
