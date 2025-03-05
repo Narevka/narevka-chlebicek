@@ -1,9 +1,35 @@
 
-import React from "react";
+import React, { useState } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
-const TextSource = () => {
+interface TextSourceProps {
+  onAddText?: (text: string) => void;
+}
+
+const TextSource = ({ onAddText }: TextSourceProps) => {
+  const [inputText, setInputText] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleAddText = () => {
+    if (!inputText.trim()) {
+      toast.error("Please enter some text");
+      return;
+    }
+
+    setIsSubmitting(true);
+    
+    // Call the callback function to handle the text
+    if (onAddText) {
+      onAddText(inputText);
+      toast.success("Text added successfully");
+      setInputText(""); // Clear input after successful addition
+    }
+    
+    setIsSubmitting(false);
+  };
+
   return (
     <div>
       <h2 className="text-2xl font-bold mb-4">Text</h2>
@@ -12,10 +38,15 @@ const TextSource = () => {
         <Textarea 
           placeholder="Enter text ..." 
           className="min-h-[400px] mb-4 resize-none"
+          value={inputText}
+          onChange={(e) => setInputText(e.target.value)}
         />
         <div className="flex justify-end">
-          <Button>
-            Add Text
+          <Button 
+            onClick={handleAddText}
+            disabled={isSubmitting || !inputText.trim()}
+          >
+            {isSubmitting ? "Adding..." : "Add Text"}
           </Button>
         </div>
       </div>
