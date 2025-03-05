@@ -30,12 +30,16 @@ const SettingsTab = () => {
           .eq("user_id", user.id)
           .single();
           
-        if (error) throw error;
+        if (error) {
+          console.error("Database error:", error);
+          throw error;
+        }
         
-        setName(data.name || "");
-        setDescription(data.description || "");
-        setInstructions(data.instructions || "");
-        setOpenaiAssistantId(data.openai_assistant_id);
+        // Now that we've checked for errors, we can safely access the data
+        setName(data?.name || "");
+        setDescription(data?.description || "");
+        setInstructions(data?.instructions || "");
+        setOpenaiAssistantId(data?.openai_assistant_id);
       } catch (error) {
         console.error("Error fetching agent settings:", error);
         toast.error("Failed to load agent settings");
