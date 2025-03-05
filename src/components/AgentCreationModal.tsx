@@ -32,6 +32,7 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({
   const [instructions, setInstructions] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [debugInfo, setDebugInfo] = useState<string | null>(null);
+  const [rawResponse, setRawResponse] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,6 +49,7 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({
 
     setIsSubmitting(true);
     setDebugInfo(null);
+    setRawResponse(null);
 
     try {
       // Create agent in database
@@ -85,10 +87,12 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({
       if (createAssistantResponse.error) {
         console.error("Error creating OpenAI assistant:", createAssistantResponse.error);
         setDebugInfo(prev => `${prev}\nError from edge function: ${createAssistantResponse.error}`);
+        setRawResponse(JSON.stringify(createAssistantResponse, null, 2));
         toast.warning("Agent created but OpenAI Assistant creation failed. It will be retried later.");
       } else {
         const responseData = createAssistantResponse.data;
         setDebugInfo(prev => `${prev}\nSuccess response: ${JSON.stringify(responseData)}`);
+        setRawResponse(JSON.stringify(responseData, null, 2));
         
         if (responseData.success) {
           setDebugInfo(prev => `${prev}\nOpenAI Assistant created successfully with ID: ${responseData.assistant?.id}`);
@@ -112,6 +116,7 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({
     } catch (error: any) {
       console.error("Error creating agent:", error);
       setDebugInfo(prev => `${prev}\nError creating agent: ${error.message}`);
+      setRawResponse(JSON.stringify(error, null, 2));
       toast.error(error.message || "Failed to create agent");
     } finally {
       setIsSubmitting(false);
@@ -121,7 +126,7 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent 
-        className="sm:max-w-[525px] bg-white border-gray-200 shadow-lg"
+        className="sm:max-w-[600px] bg-white border-gray-200 shadow-lg max-h-[90vh] overflow-auto"
         style={{ opacity: 1 }}
       >
         <DialogHeader>
@@ -178,9 +183,16 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({
             </div>
             
             {debugInfo && (
-              <div className="mt-4 p-3 bg-gray-100 rounded text-xs font-mono text-gray-800 whitespace-pre-wrap overflow-auto max-h-40">
+              <div className="mt-4 p-3 bg-gray-100 rounded text-xs font-mono text-gray-800 whitespace-pre-wrap overflow-auto max-h-60">
                 <p className="font-medium mb-1">Debug Information:</p>
                 {debugInfo}
+              </div>
+            )}
+            
+            {rawResponse && (
+              <div className="mt-4 p-3 bg-gray-50 border border-gray-200 rounded text-xs font-mono text-gray-800 whitespace-pre-wrap overflow-auto max-h-60">
+                <p className="font-medium mb-1">Raw Response Data:</p>
+                {rawResponse}
               </div>
             )}
           </div>

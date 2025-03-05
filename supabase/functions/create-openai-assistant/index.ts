@@ -22,6 +22,9 @@ serve(async (req) => {
     }
 
     console.log("OpenAI API key found, proceeding with agent creation");
+    // Mask API key for security but show first and last few chars for debugging
+    const maskedKey = OPENAI_API_KEY.substring(0, 4) + '...' + OPENAI_API_KEY.substring(OPENAI_API_KEY.length - 4);
+    console.log(`Using OpenAI API key starting with ${maskedKey}`);
 
     const { agentData } = await req.json();
     
@@ -43,17 +46,25 @@ serve(async (req) => {
     };
     console.log("OpenAI request payload:", JSON.stringify(openaiRequestBody, null, 2));
 
+    const requestHeaders = {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${OPENAI_API_KEY}`,
+      'OpenAI-Beta': 'assistants=v2'
+    };
+    console.log("OpenAI request headers:", JSON.stringify({
+      'Content-Type': requestHeaders['Content-Type'],
+      'Authorization': 'Bearer sk-...', // Mask the actual token
+      'OpenAI-Beta': requestHeaders['OpenAI-Beta']
+    }, null, 2));
+
     const openaiResponse = await fetch('https://api.openai.com/v1/assistants', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${OPENAI_API_KEY}`,
-        'OpenAI-Beta': 'assistants=v2'
-      },
+      headers: requestHeaders,
       body: JSON.stringify(openaiRequestBody)
     });
 
     console.log("OpenAI response status:", openaiResponse.status);
+    console.log("OpenAI response headers:", JSON.stringify(Object.fromEntries([...openaiResponse.headers]), null, 2));
     const responseText = await openaiResponse.text();
     console.log("OpenAI raw response:", responseText);
 
