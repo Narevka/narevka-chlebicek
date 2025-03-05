@@ -3,4 +3,4 @@ project_id = "qaopcduyhmweewrcwkoy"
 [secrets]
 OPENAI_API_KEY = ""
 SUPABASE_URL = "https://qaopcduyhmweewrcwkoy.supabase.co"
-SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFhb3BjZHV5aG13ZWV3cmN3a295Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDA4MzM3MjQsImV4cCI6MjA1NjQwOTcyNH0.-IBnucBUA_FMYpx7xKebNhYIXqaems-du5KUvG5T04A"
+SUPABASE_SERVICE_ROLE_KEY = ""

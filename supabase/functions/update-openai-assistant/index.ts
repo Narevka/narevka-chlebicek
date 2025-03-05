@@ -25,6 +25,8 @@ serve(async (req) => {
       throw new Error('Assistant ID is required');
     }
 
+    console.log("Updating OpenAI Assistant:", assistantId);
+
     // Update OpenAI Assistant
     const openaiResponse = await fetch(`https://api.openai.com/v1/assistants/${assistantId}`, {
       method: 'POST',
@@ -47,6 +49,7 @@ serve(async (req) => {
     }
 
     const assistantData = await openaiResponse.json();
+    console.log("OpenAI Assistant updated successfully");
     
     return new Response(
       JSON.stringify({

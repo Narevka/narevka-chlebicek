@@ -26,6 +26,8 @@ serve(async (req) => {
       throw new Error('Invalid agent data provided');
     }
 
+    console.log("Creating OpenAI Assistant for agent:", agentData.id);
+
     // Create OpenAI Assistant
     const openaiResponse = await fetch('https://api.openai.com/v1/assistants', {
       method: 'POST',
@@ -50,21 +52,20 @@ serve(async (req) => {
     }
 
     const assistantData = await openaiResponse.json();
+    console.log("OpenAI Assistant created successfully:", assistantData.id);
     
-    // Get Supabase client from request auth header
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      throw new Error('No authorization header');
+    // Get Supabase client
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+    
+    if (!supabaseUrl || !supabaseServiceKey) {
+      throw new Error('Supabase credentials are not configured');
     }
     
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') || '',
-      Deno.env.get('SUPABASE_ANON_KEY') || '',
-      { global: { headers: { Authorization: authHeader } } }
-    );
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
     // Update the agent with the OpenAI assistant ID
-    const { error: updateError } = await supabaseClient
+    const { error: updateError } = await supabaseAdmin
       .from('agents')
       .update({ openai_assistant_id: assistantData.id })
       .eq('id', agentData.id);
@@ -73,6 +74,8 @@ serve(async (req) => {
       console.error("Error updating agent:", updateError);
       throw new Error(`Error updating agent: ${updateError.message}`);
     }
+
+    console.log("Agent updated with OpenAI Assistant ID successfully");
 
     return new Response(
       JSON.stringify({
