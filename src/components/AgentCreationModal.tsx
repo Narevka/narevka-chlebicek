@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/context/AuthContext";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { 
   Dialog,
   DialogContent,
@@ -28,6 +29,7 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({
   const { user } = useAuth();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [instructions, setInstructions] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -46,6 +48,7 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({
     setIsSubmitting(true);
 
     try {
+      // Create agent in database
       const { data, error } = await supabase
         .from("agents")
         .insert([
@@ -53,6 +56,7 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({
             user_id: user.id,
             name: name.trim(),
             description: description.trim() || null,
+            instructions: instructions.trim() || null,
           }
         ])
         .select();
@@ -61,13 +65,31 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({
         throw error;
       }
 
-      toast.success("Agent created successfully");
+      if (!data || data.length === 0) {
+        throw new Error("Failed to create agent");
+      }
+
+      const agentData = data[0];
+
+      // Call edge function to create OpenAI Assistant
+      const createAssistantResponse = await supabase.functions.invoke('create-openai-assistant', {
+        body: { agentData }
+      });
+
+      if (createAssistantResponse.error) {
+        console.error("Error creating OpenAI assistant:", createAssistantResponse.error);
+        toast.warning("Agent created but OpenAI Assistant creation failed. It will be retried later.");
+      } else {
+        toast.success("Agent created successfully with OpenAI Assistant");
+      }
+
       onAgentCreated();
       onClose();
       
       // Reset form
       setName("");
       setDescription("");
+      setInstructions("");
     } catch (error: any) {
       console.error("Error creating agent:", error);
       toast.error(error.message || "Failed to create agent");
@@ -78,11 +100,11 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[525px]">
         <DialogHeader>
           <DialogTitle>Create New Agent</DialogTitle>
           <DialogDescription>
-            Create a new chatbot agent to embed on your website.
+            Create a new chatbot agent to embed on your website. This will also create an OpenAI Assistant.
           </DialogDescription>
         </DialogHeader>
         
@@ -111,6 +133,22 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="A helpful assistant for my website"
               />
+            </div>
+
+            <div className="grid gap-2">
+              <label htmlFor="instructions" className="text-sm font-medium">
+                Instructions (optional)
+              </label>
+              <Textarea
+                id="instructions"
+                value={instructions}
+                onChange={(e) => setInstructions(e.target.value)}
+                placeholder="You are a helpful AI assistant. Answer questions accurately and concisely."
+                rows={3}
+              />
+              <p className="text-xs text-gray-500">
+                Instructions that tell the AI how to behave and what to do.
+              </p>
             </div>
           </div>
           
