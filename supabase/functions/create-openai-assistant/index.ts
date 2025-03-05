@@ -42,7 +42,11 @@ serve(async (req) => {
       description: agentData.description || `Agent for ${agentData.name}`,
       instructions: agentData.instructions || "You are a helpful assistant. Answer questions accurately and concisely.",
       model: "gpt-4o-mini",
-      tools: [] // No tools by default, can be configured later
+      tools: [], // No tools by default, can be configured later
+      metadata: {
+        app_created_by: "lovable_platform",
+        agent_id: agentData.id
+      }
     };
     console.log("OpenAI request payload:", JSON.stringify(openaiRequestBody, null, 2));
 
@@ -57,6 +61,7 @@ serve(async (req) => {
       'OpenAI-Beta': requestHeaders['OpenAI-Beta']
     }, null, 2));
 
+    console.log("Making request to: https://api.openai.com/v1/assistants");
     const openaiResponse = await fetch('https://api.openai.com/v1/assistants', {
       method: 'POST',
       headers: requestHeaders,
@@ -110,11 +115,26 @@ serve(async (req) => {
     }
 
     console.log("Agent updated with OpenAI Assistant ID successfully");
+    
+    // Verify the update was successful
+    const { data: updatedAgent, error: getError } = await supabaseAdmin
+      .from('agents')
+      .select('id, name, openai_assistant_id')
+      .eq('id', agentData.id)
+      .single();
+      
+    if (getError) {
+      console.error("Error fetching updated agent:", getError);
+    } else {
+      console.log("Updated agent data:", JSON.stringify(updatedAgent, null, 2));
+    }
 
     return new Response(
       JSON.stringify({
         success: true,
-        assistant: assistantData
+        assistant: assistantData,
+        apiKeyUsed: maskedKey,
+        openAiApiEndpoint: 'https://api.openai.com/v1/assistants'
       }),
       {
         headers: { 

@@ -39,6 +39,10 @@ serve(async (req) => {
       name: name,
       description: description || undefined,
       instructions: instructions || undefined,
+      metadata: {
+        app_updated_by: "lovable_platform",
+        updated_at: new Date().toISOString()
+      }
     };
     console.log("OpenAI update payload:", JSON.stringify(updatePayload, null, 2));
 
@@ -85,7 +89,9 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: true,
-        assistant: assistantData
+        assistant: assistantData,
+        apiKeyUsed: maskedKey,
+        openAiApiEndpoint: `https://api.openai.com/v1/assistants/${assistantId}`
       }),
       {
         headers: { 
