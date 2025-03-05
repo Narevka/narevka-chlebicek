@@ -19,9 +19,10 @@ interface Message {
 
 interface ChatInterfaceProps {
   agentName: string;
+  agentId?: string;
 }
 
-const ChatInterface = ({ agentName }: ChatInterfaceProps) => {
+const ChatInterface = ({ agentName, agentId }: ChatInterfaceProps) => {
   const { user } = useAuth();
   const [messages, setMessages] = React.useState<Array<Message>>([
     { content: "Hi! What can I help you with?", isUser: false }
@@ -29,6 +30,7 @@ const ChatInterface = ({ agentName }: ChatInterfaceProps) => {
   const [inputMessage, setInputMessage] = React.useState("");
   const [sendingMessage, setSendingMessage] = React.useState(false);
   const [conversationId, setConversationId] = React.useState<string | null>(null);
+  const [threadId, setThreadId] = React.useState<string | null>(null);
 
   useEffect(() => {
     // Create a new conversation when component mounts
@@ -100,7 +102,7 @@ const ChatInterface = ({ agentName }: ChatInterfaceProps) => {
   };
 
   const handleSendMessage = async () => {
-    if (!inputMessage.trim() || !conversationId) return;
+    if (!inputMessage.trim() || !conversationId || !agentId) return;
     
     const userMessage = {
       id: uuidv4(),
@@ -118,17 +120,33 @@ const ChatInterface = ({ agentName }: ChatInterfaceProps) => {
       is_bot: false
     });
     
-    // Generate bot response (simulate for now)
-    setTimeout(async () => {
+    try {
+      // Call our edge function to get a response from the assistant
+      const responseData = await supabase.functions.invoke('chat-with-assistant', {
+        body: { 
+          message: inputMessage,
+          agentId: agentId,
+          conversationId: threadId
+        }
+      });
+      
+      if (responseData.error) {
+        throw new Error(responseData.error.message || "Failed to get assistant response");
+      }
+      
+      // Update thread ID if it's a new conversation
+      if (responseData.data.threadId && !threadId) {
+        setThreadId(responseData.data.threadId);
+      }
+      
       const botResponse = { 
         id: uuidv4(),
-        content: `This is a simulated response to: "${inputMessage}"`, 
+        content: responseData.data.response || "I'm sorry, I couldn't generate a response.", 
         isUser: false,
-        confidence: 0.85
+        confidence: responseData.data.confidence || 0.75
       };
       
       setMessages(prev => [...prev, botResponse]);
-      setSendingMessage(false);
       
       // Save bot response to database
       await saveMessageToDb({
@@ -142,7 +160,27 @@ const ChatInterface = ({ agentName }: ChatInterfaceProps) => {
       if (messages.length === 1) {
         updateConversationTitle(inputMessage);
       }
-    }, 1000);
+    } catch (error: any) {
+      console.error("Error getting assistant response:", error);
+      toast.error(error.message || "Failed to get assistant response");
+      
+      // Add error message
+      const errorMessage = { 
+        id: uuidv4(),
+        content: "Sorry, I encountered an error processing your request. Please try again.", 
+        isUser: false
+      };
+      setMessages(prev => [...prev, errorMessage]);
+      
+      // Save error message to database
+      await saveMessageToDb({
+        conversation_id: conversationId,
+        content: errorMessage.content,
+        is_bot: true
+      });
+    } finally {
+      setSendingMessage(false);
+    }
     
     setInputMessage("");
   };
@@ -171,6 +209,7 @@ const ChatInterface = ({ agentName }: ChatInterfaceProps) => {
       if (error) throw error;
       
       setConversationId(data.id);
+      setThreadId(null); // Reset OpenAI thread ID
       setMessages([{ content: "Hi! What can I help you with?", isUser: false }]);
       
       // Save initial bot message

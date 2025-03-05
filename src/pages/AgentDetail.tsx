@@ -32,7 +32,7 @@ const AgentDetail = () => {
   const renderContent = () => {
     switch (activeTab) {
       case "playground":
-        return <PlaygroundTab agentName={agent?.name || "Agent"} />;
+        return <PlaygroundTab agentName={agent?.name || "Agent"} agentId={id || ""} />;
       case "activity":
         return <ActivityTab />;
       case "analytics":
@@ -45,7 +45,7 @@ const AgentDetail = () => {
         navigate(`/agents/${id}/connect`);
         return null;
       default:
-        return <PlaygroundTab agentName={agent?.name || "Agent"} />;
+        return <PlaygroundTab agentName={agent?.name || "Agent"} agentId={id || ""} />;
     }
   };
 

@@ -5,9 +5,10 @@ import ChatInterface from "./ChatInterface";
 
 interface PlaygroundTabProps {
   agentName: string;
+  agentId: string;
 }
 
-const PlaygroundTab = ({ agentName }: PlaygroundTabProps) => {
+const PlaygroundTab = ({ agentName, agentId }: PlaygroundTabProps) => {
   return (
     <div>
       <div className="flex items-center mb-6">
@@ -24,7 +25,7 @@ const PlaygroundTab = ({ agentName }: PlaygroundTabProps) => {
         </div>
       </div>
 
-      <ChatInterface agentName={agentName} />
+      <ChatInterface agentName={agentName} agentId={agentId} />
     </div>
   );
 };
