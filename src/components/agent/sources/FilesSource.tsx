@@ -64,6 +64,23 @@ const FilesSource = ({ onAddFiles }: FilesSourceProps) => {
     setSelectedFiles(prev => prev.filter((_, index) => index !== indexToRemove));
   };
 
+  const readFileAsBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (typeof reader.result === 'string') {
+          resolve(reader.result);
+        } else {
+          reject(new Error('Failed to read file as base64'));
+        }
+      };
+      reader.onerror = () => {
+        reject(new Error('Failed to read file'));
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
   const handleSubmitFiles = async () => {
     if (selectedFiles.length === 0) {
       toast.error("Please select files to upload");

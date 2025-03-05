@@ -20,7 +20,7 @@ serve(async (req) => {
       throw new Error('OpenAI API key is not configured');
     }
 
-    const { sourceId, agentId, operation } = await req.json();
+    const { sourceId, agentId, operation, fileBase64 } = await req.json();
     
     if (!sourceId || !agentId) {
       throw new Error('Source ID and Agent ID are required');
@@ -175,15 +175,85 @@ serve(async (req) => {
       
     } else if (sourceData.type === 'file') {
       console.log(`Processing file source: ${sourceId}`);
-      // For this demo, we'll just log as we can't actually upload the file 
-      // since we're just storing the filename in our database
-      console.log(`File processing would happen here for file: ${sourceData.content}`);
       
-      result = { 
-        status: "success", 
-        message: "File processing simulation successful",
-        note: "In a real implementation, we would upload the actual file to OpenAI" 
-      };
+      // Check if fileBase64 is provided
+      if (!fileBase64) {
+        throw new Error("File content is missing for file type source");
+      }
+      
+      // Convert base64 to blob
+      const base64Data = fileBase64.split(',')[1]; // Remove the data:application/pdf;base64, part
+      const binaryData = atob(base64Data);
+      const byteArray = new Uint8Array(binaryData.length);
+      for (let i = 0; i < binaryData.length; i++) {
+        byteArray[i] = binaryData.charCodeAt(i);
+      }
+      
+      // Determine the file type from the source content (filename)
+      const filename = sourceData.content;
+      const fileExtension = filename.split('.').pop()?.toLowerCase();
+      let mimeType = 'application/octet-stream'; // Default
+      
+      // Set mime type based on file extension
+      if (fileExtension === 'pdf') {
+        mimeType = 'application/pdf';
+      } else if (fileExtension === 'doc' || fileExtension === 'docx') {
+        mimeType = 'application/msword';
+      } else if (fileExtension === 'txt') {
+        mimeType = 'text/plain';
+      } else if (fileExtension === 'md') {
+        mimeType = 'text/markdown';
+      }
+      
+      // Create a blob with the correct mime type
+      const blob = new Blob([byteArray], { type: mimeType });
+      
+      // Create FormData to upload the file
+      const formData = new FormData();
+      formData.append('purpose', 'assistants');
+      formData.append('file', blob, filename);
+      
+      // Upload file to OpenAI
+      const fileResponse = await fetch('https://api.openai.com/v1/files', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${OPENAI_API_KEY}`,
+          // Content-Type is automatically set by FormData
+        },
+        body: formData
+      });
+      
+      if (!fileResponse.ok) {
+        const errorText = await fileResponse.text();
+        console.error(`Error uploading file to OpenAI: ${errorText}`);
+        throw new Error(`Error uploading file to OpenAI: ${errorText}`);
+      }
+      
+      const fileData = await fileResponse.json();
+      const fileId = fileData.id;
+      console.log(`Uploaded file to OpenAI with ID: ${fileId}`);
+      
+      // Add the file to the vector store
+      const addToVectorStoreResponse = await fetch(`https://api.openai.com/v1/vector_stores/${vectorStoreId}/files`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${OPENAI_API_KEY}`,
+          'Content-Type': 'application/json',
+          'OpenAI-Beta': 'assistants=v2'
+        },
+        body: JSON.stringify({
+          file_id: fileId
+        })
+      });
+      
+      if (!addToVectorStoreResponse.ok) {
+        throw new Error(`Error adding file to vector store: ${await addToVectorStoreResponse.text()}`);
+      }
+      
+      const addToVectorStoreData = await addToVectorStoreResponse.json();
+      console.log(`Added file to vector store: ${JSON.stringify(addToVectorStoreData)}`);
+      
+      result = addToVectorStoreData;
     } else {
       throw new Error(`Unsupported source type: ${sourceData.type}`);
     }
@@ -197,6 +267,7 @@ serve(async (req) => {
         'OpenAI-Beta': 'assistants=v2'
       },
       body: JSON.stringify({
+        tools: [{ type: "file_search" }],
         tool_resources: {
           file_search: {
             vector_store_ids: [vectorStoreId]

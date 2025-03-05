@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { FilesIcon, Text, Globe, MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -53,7 +52,7 @@ const SourcesTab = () => {
         
       if (error) throw error;
       
-      setSources(data as SourceItem[] || []);
+      setSources(data || []);
     } catch (error) {
       console.error("Error fetching sources:", error);
       toast.error("Failed to load sources");
@@ -62,7 +61,7 @@ const SourcesTab = () => {
     }
   };
 
-  const processSourceWithOpenAI = async (sourceId: string) => {
+  const processSourceWithOpenAI = async (sourceId: string, fileBase64?: string) => {
     if (!agentId) return;
     
     setIsProcessingSource(true);
@@ -72,7 +71,8 @@ const SourcesTab = () => {
         body: { 
           sourceId, 
           agentId,
-          operation: 'add'
+          operation: 'add',
+          fileBase64
         }
       });
       
@@ -131,22 +131,38 @@ const SourcesTab = () => {
     }
   };
 
+  const readFileAsBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (typeof reader.result === 'string') {
+          resolve(reader.result);
+        } else {
+          reject(new Error('Failed to read file as base64'));
+        }
+      };
+      reader.onerror = () => {
+        reject(new Error('Failed to read file'));
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
   const handleAddFiles = async (files: File[]) => {
     if (!agentId || !user) return;
     
     try {
-      // This would normally handle file uploads to storage
-      // and then process them to extract text for vectorization
-      // For now, we'll mock this by treating each file as a text source
-      
       for (const file of files) {
+        // First, read the file as base64
+        const fileBase64 = await readFileAsBase64(file);
+        
         const { data, error } = await supabase
           .from("agent_sources")
           .insert([{
             agent_id: agentId,
             user_id: user.id,
             type: "file",
-            content: file.name, // In a real implementation, this would be the file path or ID
+            content: file.name,
             chars: Math.floor(file.size / 4) // Rough estimate of character count
           }])
           .select();
@@ -157,21 +173,20 @@ const SourcesTab = () => {
           const newSources = data as SourceItem[];
           setSources(prev => [...newSources, ...prev]);
           
-          // Process the new source with OpenAI
+          // Process the new source with OpenAI, passing the file content
           try {
             const sourceId = newSources[0].id;
-            await processSourceWithOpenAI(sourceId);
+            await processSourceWithOpenAI(sourceId, fileBase64);
+            toast.success(`${file.name} added and processed successfully`);
           } catch (processError: any) {
-            console.error("Error processing file with OpenAI:", processError);
-            toast.warning(`${file.name} added to database but failed to process with OpenAI`);
+            console.error(`Error processing file ${file.name} with OpenAI:`, processError);
+            toast.warning(`${file.name} added to database but failed to process with OpenAI: ${processError.message}`);
           }
         }
       }
-      
-      toast.success("Files added successfully");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error adding files:", error);
-      toast.error("Failed to add files");
+      toast.error(`Failed to add files: ${error.message}`);
     }
   };
 
