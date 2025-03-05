@@ -1,22 +1,36 @@
 
 import React, { useState, useEffect } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
+import { AlertTriangle, Trash2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 const SettingsTab = () => {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [instructions, setInstructions] = useState("");
   const [openaiAssistantId, setOpenaiAssistantId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   
   useEffect(() => {
     const fetchAgentSettings = async () => {
@@ -97,6 +111,53 @@ const SettingsTab = () => {
     }
   };
   
+  const handleDelete = async () => {
+    if (!id || !user) return;
+    
+    setIsDeleting(true);
+    
+    try {
+      // First delete the OpenAI assistant if it exists
+      if (openaiAssistantId) {
+        console.log(`Attempting to delete OpenAI assistant with ID: ${openaiAssistantId}`);
+        
+        const deleteAssistantResponse = await supabase.functions.invoke('delete-openai-assistant', {
+          body: { 
+            assistantId: openaiAssistantId
+          }
+        });
+        
+        if (deleteAssistantResponse.error) {
+          console.error("Error deleting OpenAI assistant:", deleteAssistantResponse.error);
+          toast.warning("OpenAI Assistant deletion failed, but will continue with database deletion");
+          // We continue with database deletion even if OpenAI deletion fails
+        } else {
+          console.log("OpenAI assistant deleted successfully");
+        }
+      }
+      
+      // Then delete the agent from the database
+      const { error } = await supabase
+        .from("agents")
+        .delete()
+        .eq("id", id)
+        .eq("user_id", user.id);
+        
+      if (error) {
+        console.error("Error deleting agent from database:", error);
+        throw error;
+      }
+      
+      toast.success("Agent deleted successfully");
+      // Navigate back to the dashboard
+      navigate("/dashboard");
+    } catch (error: any) {
+      console.error("Error deleting agent:", error);
+      toast.error(error.message || "Failed to delete agent");
+      setIsDeleting(false);
+    }
+  };
+  
   if (isLoading) {
     return (
       <div className="p-6 flex justify-center">
@@ -168,13 +229,51 @@ const SettingsTab = () => {
           </div>
         )}
         
-        <Button 
-          onClick={handleSave} 
-          disabled={isSaving}
-          className="mt-4"
-        >
-          {isSaving ? "Saving..." : "Save Settings"}
-        </Button>
+        <div className="flex gap-4 pt-4">
+          <Button 
+            onClick={handleSave} 
+            disabled={isSaving || isDeleting}
+            className="mr-auto"
+          >
+            {isSaving ? "Saving..." : "Save Settings"}
+          </Button>
+          
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button 
+                variant="destructive"
+                disabled={isDeleting || isSaving}
+                className="flex gap-2"
+              >
+                <Trash2 size={16} />
+                {isDeleting ? "Deleting..." : "Delete Agent"}
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle className="flex items-center gap-2">
+                  <AlertTriangle className="h-5 w-5 text-red-500" />
+                  Delete Agent
+                </AlertDialogTitle>
+                <AlertDialogDescription>
+                  Are you sure you want to delete this agent? This action cannot be undone.
+                  <br /><br />
+                  This will delete the agent from your dashboard and also remove the associated 
+                  OpenAI Assistant if one exists.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction 
+                  onClick={handleDelete}
+                  className="bg-red-500 hover:bg-red-600"
+                >
+                  Delete
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
       </div>
     </div>
   );
