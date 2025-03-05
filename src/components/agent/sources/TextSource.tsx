@@ -12,7 +12,7 @@ const TextSource = ({ onAddText }: TextSourceProps) => {
   const [inputText, setInputText] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleAddText = () => {
+  const handleAddText = async () => {
     if (!inputText.trim()) {
       toast.error("Please enter some text");
       return;
@@ -20,14 +20,18 @@ const TextSource = ({ onAddText }: TextSourceProps) => {
 
     setIsSubmitting(true);
     
-    // Call the callback function to handle the text
-    if (onAddText) {
-      onAddText(inputText);
-      toast.success("Text added successfully");
-      setInputText(""); // Clear input after successful addition
+    try {
+      // Call the callback function to handle the text
+      if (onAddText) {
+        await onAddText(inputText);
+        setInputText(""); // Clear input after successful addition
+      }
+    } catch (error) {
+      console.error("Error adding text:", error);
+      toast.error("Failed to add text");
+    } finally {
+      setIsSubmitting(false);
     }
-    
-    setIsSubmitting(false);
   };
 
   return (

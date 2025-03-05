@@ -64,7 +64,7 @@ const FilesSource = ({ onAddFiles }: FilesSourceProps) => {
     setSelectedFiles(prev => prev.filter((_, index) => index !== indexToRemove));
   };
 
-  const handleSubmitFiles = () => {
+  const handleSubmitFiles = async () => {
     if (selectedFiles.length === 0) {
       toast.error("Please select files to upload");
       return;
@@ -72,14 +72,18 @@ const FilesSource = ({ onAddFiles }: FilesSourceProps) => {
 
     setIsUploading(true);
     
-    // Call the callback function to handle the files
-    if (onAddFiles) {
-      onAddFiles(selectedFiles);
-      toast.success("Files uploaded successfully");
-      setSelectedFiles([]); // Clear files after successful upload
+    try {
+      // Call the callback function to handle the files
+      if (onAddFiles) {
+        await onAddFiles(selectedFiles);
+        setSelectedFiles([]); // Clear files after successful upload
+      }
+    } catch (error) {
+      console.error("Error uploading files:", error);
+      toast.error("Failed to upload files");
+    } finally {
+      setIsUploading(false);
     }
-    
-    setIsUploading(false);
   };
 
   return (

@@ -17,6 +17,8 @@ type SourceType = "files" | "text" | "website" | "qa";
 
 interface SourceItem {
   id: string;
+  agent_id: string;
+  user_id: string;
   type: string;
   content: string;
   chars: number;
@@ -50,7 +52,7 @@ const SourcesTab = () => {
         
       if (error) throw error;
       
-      setSources(data || []);
+      setSources(data as SourceItem[] || []);
     } catch (error) {
       console.error("Error fetching sources:", error);
       toast.error("Failed to load sources");
@@ -80,7 +82,7 @@ const SourcesTab = () => {
       if (error) throw error;
       
       if (data) {
-        setSources(prev => [...data, ...prev]);
+        setSources(prev => [...(data as SourceItem[]), ...prev]);
         toast.success("Text added successfully");
       }
     } catch (error) {
@@ -112,7 +114,7 @@ const SourcesTab = () => {
         if (error) throw error;
         
         if (data) {
-          setSources(prev => [...data, ...prev]);
+          setSources(prev => [...(data as SourceItem[]), ...prev]);
         }
       }
       
