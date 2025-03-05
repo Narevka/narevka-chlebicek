@@ -32,6 +32,7 @@ const SourcesTab = () => {
   const [sources, setSources] = useState<SourceItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRetraining, setIsRetraining] = useState(false);
+  const [isProcessingSource, setIsProcessingSource] = useState(false);
 
   useEffect(() => {
     if (agentId) {
@@ -61,6 +62,35 @@ const SourcesTab = () => {
     }
   };
 
+  const processSourceWithOpenAI = async (sourceId: string) => {
+    if (!agentId) return;
+    
+    setIsProcessingSource(true);
+    
+    try {
+      const processResponse = await supabase.functions.invoke('process-agent-source', {
+        body: { 
+          sourceId, 
+          agentId,
+          operation: 'add'
+        }
+      });
+      
+      if (processResponse.error) {
+        console.error("Error processing source with OpenAI:", processResponse.error);
+        throw new Error(processResponse.error.message || "Failed to process source with OpenAI");
+      }
+      
+      console.log("Source processed successfully:", processResponse.data);
+      return processResponse.data;
+    } catch (error: any) {
+      console.error("Error processing source with OpenAI:", error);
+      throw error;
+    } finally {
+      setIsProcessingSource(false);
+    }
+  };
+
   const handleAddText = async (text: string) => {
     if (!agentId || !user) return;
     
@@ -82,8 +112,18 @@ const SourcesTab = () => {
       if (error) throw error;
       
       if (data) {
-        setSources(prev => [...(data as SourceItem[]), ...prev]);
-        toast.success("Text added successfully");
+        const newSources = data as SourceItem[];
+        setSources(prev => [...newSources, ...prev]);
+        
+        // Process the new source with OpenAI
+        try {
+          const sourceId = newSources[0].id;
+          await processSourceWithOpenAI(sourceId);
+          toast.success("Text added and processed successfully");
+        } catch (processError: any) {
+          console.error("Error processing text with OpenAI:", processError);
+          toast.warning("Text added to database but failed to process with OpenAI");
+        }
       }
     } catch (error) {
       console.error("Error adding text:", error);
@@ -107,14 +147,24 @@ const SourcesTab = () => {
             user_id: user.id,
             type: "file",
             content: file.name, // In a real implementation, this would be the file path or ID
-            chars: 1000 // Mock character count - would be calculated after text extraction
+            chars: Math.floor(file.size / 4) // Rough estimate of character count
           }])
           .select();
           
         if (error) throw error;
         
         if (data) {
-          setSources(prev => [...(data as SourceItem[]), ...prev]);
+          const newSources = data as SourceItem[];
+          setSources(prev => [...newSources, ...prev]);
+          
+          // Process the new source with OpenAI
+          try {
+            const sourceId = newSources[0].id;
+            await processSourceWithOpenAI(sourceId);
+          } catch (processError: any) {
+            console.error("Error processing file with OpenAI:", processError);
+            toast.warning(`${file.name} added to database but failed to process with OpenAI`);
+          }
         }
       }
       
@@ -131,16 +181,20 @@ const SourcesTab = () => {
     setIsRetraining(true);
     
     try {
-      // In a real implementation, this would call an edge function
-      // to update the OpenAI assistant with the new sources
+      const retrainResponse = await supabase.functions.invoke('retrain-agent', {
+        body: { agentId }
+      });
       
-      // Mock delay for demo purposes
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      if (retrainResponse.error) {
+        console.error("Error retraining agent:", retrainResponse.error);
+        throw new Error(retrainResponse.error.message || "Failed to retrain agent");
+      }
       
+      console.log("Agent retrained successfully:", retrainResponse.data);
       toast.success("Agent retrained successfully");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error retraining agent:", error);
-      toast.error("Failed to retrain agent");
+      toast.error(error.message || "Failed to retrain agent");
     } finally {
       setIsRetraining(false);
     }
