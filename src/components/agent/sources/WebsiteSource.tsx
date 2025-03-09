@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Trash2, Globe } from "lucide-react";
+import { Trash2, Globe, Download } from "lucide-react";
 import { useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,7 +14,7 @@ const WebsiteSource = () => {
   const [url, setUrl] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isCrawlingComplete, setIsCrawlingComplete] = useState(true);
-  const [includedLinks, setIncludedLinks] = useState<{url: string, count: number}[]>([]);
+  const [includedLinks, setIncludedLinks] = useState<{url: string, count: number, sourceId?: string}[]>([]);
   
   const handleUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setUrl(e.target.value);
@@ -36,10 +36,10 @@ const WebsiteSource = () => {
     
     try {
       // Wywołanie handleAddWebsite z hooka useAgentSources
-      await handleAddWebsite(url);
+      const sourceId = await handleAddWebsite(url);
       
       // Dodaj URL do listy
-      const newLink = { url, count: 1 }; // Początkowo ustawiamy count na 1
+      const newLink = { url, count: 1, sourceId }; // Zapisujemy sourceId do późniejszego pobrania
       setIncludedLinks([...includedLinks, newLink]);
       toast.success("Strona została dodana do crawlowania");
       setUrl("");
@@ -61,6 +61,57 @@ const WebsiteSource = () => {
   const handleDeleteAllLinks = () => {
     setIncludedLinks([]);
     toast.success("Wszystkie linki zostały usunięte");
+  };
+
+  const handleDownloadContent = async (sourceId: string, url: string) => {
+    try {
+      const { data, error } = await supabase
+        .from("agent_sources")
+        .select("content")
+        .eq("id", sourceId)
+        .single();
+
+      if (error) {
+        throw error;
+      }
+
+      if (!data || !data.content) {
+        toast.error("Nie znaleziono zawartości dla tej strony");
+        return;
+      }
+
+      // Parsuj zawartość
+      let content = "";
+      try {
+        const parsedContent = JSON.parse(data.content);
+        content = parsedContent.crawled_content || "Brak zawartości";
+      } catch (e) {
+        content = data.content;
+      }
+
+      // Utwórz plik do pobrania
+      const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+      const urlObject = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = urlObject;
+      
+      // Przygotuj nazwę pliku na podstawie URL
+      const domain = new URL(url).hostname;
+      a.download = `crawled-content-${domain}.txt`;
+      
+      // Symuluj kliknięcie by pobrać plik
+      document.body.appendChild(a);
+      a.click();
+      
+      // Posprzątaj
+      document.body.removeChild(a);
+      URL.revokeObjectURL(urlObject);
+      
+      toast.success("Pobieranie rozpoczęte");
+    } catch (error: any) {
+      console.error("Błąd podczas pobierania zawartości:", error);
+      toast.error(`Nie udało się pobrać zawartości: ${error.message}`);
+    }
   };
 
   return (
@@ -121,8 +172,19 @@ const WebsiteSource = () => {
                   <div className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">Zaindeksowana</div>
                   <span className="truncate max-w-md">{link.url}</span>
                 </div>
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
                   <span className="text-gray-500">{link.count} elementów</span>
+                  {link.sourceId && (
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="text-blue-500 p-1 h-auto"
+                      onClick={() => handleDownloadContent(link.sourceId!, link.url)}
+                      title="Pobierz zawartość"
+                    >
+                      <Download className="h-4 w-4" />
+                    </Button>
+                  )}
                   <Button 
                     variant="ghost" 
                     size="sm" 

@@ -67,12 +67,13 @@ export const useAgentSources = (agentId: string | undefined) => {
     }
   };
 
-  const handleAddWebsite = async (url: string) => {
-    if (!agentId || !user) return;
+  const handleAddWebsite = async (url: string): Promise<string> => {
+    if (!agentId || !user) return "";
     setIsProcessingSource(true);
     
     try {
-      await addWebsiteSource(agentId, user.id, url, sources, setSources);
+      const sourceId = await addWebsiteSource(agentId, user.id, url, sources, setSources);
+      return sourceId;
     } finally {
       setIsProcessingSource(false);
     }

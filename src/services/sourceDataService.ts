@@ -182,7 +182,7 @@ export const addWebsiteSource = async (
   url: string, 
   sources: SourceItem[],
   setSourcesCallback: (sources: SourceItem[]) => void
-) => {
+): Promise<string> => {
   try {
     // Wywołanie edge function do crawlowania strony
     const crawlResponse = await supabase.functions.invoke('crawl-website', {
@@ -201,10 +201,20 @@ export const addWebsiteSource = async (
     const refreshedSources = await fetchAgentSources(agentId);
     setSourcesCallback(refreshedSources);
     
+    // Znajdź i zwróć ID dodanego źródła
+    const addedSource = refreshedSources.find(source => 
+      source.type === "website" && 
+      source.content && 
+      source.content.includes(url)
+    );
+    
     toast.success("Website crawled and added successfully");
+    
+    return addedSource?.id || "";
   } catch (error: any) {
     console.error("Error adding website:", error);
     toast.error(`Failed to add website: ${error.message}`);
+    return "";
   }
 };
 
