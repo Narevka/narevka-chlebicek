@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
 
@@ -320,6 +319,84 @@ serve(async (req) => {
       console.log(`Added file to vector store: ${JSON.stringify(addToVectorStoreData)}`);
       
       result = addToVectorStoreData;
+    } else if (sourceData.type === 'website') {
+      console.log(`Processing website source: ${sourceId}`);
+      
+      try {
+        // Parse website content from JSON string
+        let websiteData;
+        try {
+          websiteData = JSON.parse(sourceData.content);
+        } catch (e) {
+          // Legacy format or invalid JSON
+          websiteData = {
+            url: sourceData.content,
+            title: sourceData.content,
+            content: sourceData.content
+          };
+        }
+        
+        const { url, title, content } = websiteData;
+        
+        if (!content) {
+          throw new Error("Invalid website data: missing content");
+        }
+        
+        // Format the content with a clear structure and metadata
+        const formattedContent = `# ${title || 'Website Content'}\nURL: ${url || 'Unknown'}\n\n${content}`;
+        
+        // Create a file name based on the title or URL
+        let fileName = (title || url || 'website').trim();
+        // Limit to 50 chars and remove invalid filename characters
+        fileName = fileName.substring(0, 50).replace(/[/\\?%*:|"<>]/g, '_');
+        fileName = `website_${fileName}.txt`;
+        
+        // Create a file with OpenAI
+        const formData = new FormData();
+        formData.append('purpose', 'assistants');
+        formData.append('file', new Blob([formattedContent], { type: 'text/plain' }), fileName);
+        
+        const fileResponse = await fetch('https://api.openai.com/v1/files', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${OPENAI_API_KEY}`,
+          },
+          body: formData
+        });
+        
+        if (!fileResponse.ok) {
+          throw new Error(`Error uploading website file to OpenAI: ${await fileResponse.text()}`);
+        }
+        
+        const fileData = await fileResponse.json();
+        const fileId = fileData.id;
+        console.log(`Created website file in OpenAI: ${fileId}`);
+        
+        // Add the file to the vector store
+        const addToVectorStoreResponse = await fetch(`https://api.openai.com/v1/vector_stores/${vectorStoreId}/files`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${OPENAI_API_KEY}`,
+            'Content-Type': 'application/json',
+            'OpenAI-Beta': 'assistants=v2'
+          },
+          body: JSON.stringify({
+            file_id: fileId
+          })
+        });
+        
+        if (!addToVectorStoreResponse.ok) {
+          throw new Error(`Error adding website file to vector store: ${await addToVectorStoreResponse.text()}`);
+        }
+        
+        const addToVectorStoreData = await addToVectorStoreResponse.json();
+        console.log(`Added website file to vector store: ${JSON.stringify(addToVectorStoreData)}`);
+        
+        result = addToVectorStoreData;
+      } catch (err) {
+        console.error("Error processing website data:", err);
+        throw new Error(`Failed to process website data: ${err.message}`);
+      }
     } else {
       throw new Error(`Unsupported source type: ${sourceData.type}`);
     }
