@@ -131,16 +131,25 @@ serve(async (req) => {
 
         const crawlData = await crawlResponse.json();
         console.log('Crawl completed, processing data...');
+        console.log(`Received ${crawlData?.length || 0} crawled pages`);
         
         // Prepare content to save in database
         let aggregatedContent = '';
         let contentCount = 0;
+        let totalChars = 0;
         
         if (Array.isArray(crawlData)) {
           crawlData.forEach(item => {
             if (item.content && typeof item.content === 'string') {
+              // For debugging
+              if (contentCount < 3) {
+                console.log(`Page ${contentCount+1} URL: ${item.url || 'unknown'}, content length: ${item.content.length}`);
+              }
+              
+              aggregatedContent += `# ${item.url || 'Page ' + (contentCount + 1)}\n\n`;
               aggregatedContent += item.content + '\n\n';
               contentCount++;
+              totalChars += item.content.length;
             }
           });
         }
@@ -160,6 +169,15 @@ serve(async (req) => {
           return;
         }
         
+        // Store full content (some very large content might be truncated, but using a much larger limit)
+        // Using a reasonable limit to prevent DB errors
+        const MAX_CONTENT_LENGTH = 1000000; // 1MB limit
+        const storedContent = aggregatedContent.substring(0, MAX_CONTENT_LENGTH);
+        
+        if (storedContent.length < aggregatedContent.length) {
+          console.log(`Content truncated from ${aggregatedContent.length} to ${storedContent.length} characters`);
+        }
+        
         // Update the source record with the crawled content
         const { error: updateError } = await supabase
           .from('agent_sources')
@@ -167,10 +185,13 @@ serve(async (req) => {
             content: JSON.stringify({
               url: url,
               status: 'completed',
-              crawled_content: aggregatedContent.substring(0, 100000), // Limit content length
-              pages_crawled: contentCount
+              crawled_content: storedContent,
+              pages_crawled: contentCount,
+              total_chars: totalChars,
+              original_length: aggregatedContent.length,
+              stored_length: storedContent.length
             }),
-            chars: aggregatedContent.length
+            chars: storedContent.length
           })
           .eq('id', sourceId);
           
@@ -178,6 +199,7 @@ serve(async (req) => {
           console.error('Error updating source with crawled content:', updateError);
         } else {
           console.log(`Successfully updated source ${sourceId} with crawled content from ${contentCount} pages`);
+          console.log(`Content size: ${storedContent.length} characters from ${aggregatedContent.length} original chars`);
         }
       } catch (error) {
         console.error('Error in background crawl task:', error);
@@ -200,15 +222,16 @@ serve(async (req) => {
     console.log("Starting background crawl task");
     
     try {
-      // Try to use EdgeRuntime.waitUntil if available
-      // @ts-ignore - EdgeRuntime exists in Supabase Edge Functions
-      if (typeof EdgeRuntime !== 'undefined') {
+      // First try to use the built-in EdgeRuntime.waitUntil method
+      // @ts-ignore - Deno doesn't recognize EdgeRuntime by default
+      if (typeof EdgeRuntime !== 'undefined' && typeof EdgeRuntime.waitUntil === 'function') {
         console.log("Using EdgeRuntime.waitUntil for background task");
         // @ts-ignore
         EdgeRuntime.waitUntil(backgroundCrawl());
       } else {
         // Fallback for local development or when EdgeRuntime is not available
-        console.log("EdgeRuntime not available, running task in background");
+        console.log("EdgeRuntime.waitUntil not available, running task in background without waiting");
+        // Just start the task without awaiting it
         backgroundCrawl().catch(e => console.error('Error in background crawl:', e));
       }
     } catch (error) {

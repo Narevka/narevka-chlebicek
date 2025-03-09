@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
 
@@ -320,6 +319,19 @@ serve(async (req) => {
       console.log(`Added file to vector store: ${JSON.stringify(addToVectorStoreData)}`);
       
       result = addToVectorStoreData;
+    } else if (sourceData.type === 'website') {
+      // Parse the content to get the crawled text
+      try {
+        const contentObj = JSON.parse(sourceData.content);
+        if (contentObj.crawled_content) {
+          // Use the crawled content
+          return contentObj.crawled_content;
+        } else {
+          throw new Error('No crawled content found in website source');
+        }
+      } catch (e) {
+        throw new Error('Failed to parse website source content');
+      }
     } else {
       throw new Error(`Unsupported source type: ${sourceData.type}`);
     }

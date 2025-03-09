@@ -32,7 +32,7 @@ const WebsiteSource = () => {
       <h2 className="text-2xl font-bold mb-4">Website</h2>
       
       {includedLinks.some(link => link.status === 'crawling') && (
-        <Alert variant="info" className="mb-4 bg-blue-50 border-blue-200">
+        <Alert className="mb-4 bg-blue-50 border-blue-200">
           <AlertCircle className="h-4 w-4 text-blue-500" />
           <AlertDescription>
             Website crawling is in progress. You can navigate away from this page and the process will continue in the background.

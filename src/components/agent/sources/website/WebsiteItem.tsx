@@ -11,6 +11,7 @@ export interface WebsiteSourceItem {
   isProcessing?: boolean;
   status?: 'crawling' | 'completed' | 'error';
   error?: string;
+  chars?: number;
 }
 
 interface WebsiteItemProps {
@@ -44,6 +45,17 @@ const WebsiteItem: React.FC<WebsiteItemProps> = ({
     return null;
   };
 
+  // Format file size
+  const formatSize = (chars?: number): string => {
+    if (!chars) return "0 KB";
+    
+    const kb = Math.round(chars / 1024);
+    if (kb < 1024) return `${kb} KB`;
+    
+    const mb = (kb / 1024).toFixed(1);
+    return `${mb} MB`;
+  };
+
   return (
     <div className="flex items-center justify-between border rounded-md p-2">
       <div className="flex items-center gap-2">
@@ -51,7 +63,10 @@ const WebsiteItem: React.FC<WebsiteItemProps> = ({
         <span className="truncate max-w-md">{link.url}</span>
       </div>
       <div className="flex items-center gap-2">
-        <span className="text-gray-500">{link.count} pages</span>
+        <span className="text-gray-500 text-sm">{link.count} pages</span>
+        {link.chars !== undefined && link.chars > 0 && (
+          <span className="text-gray-500 text-sm">{formatSize(link.chars)}</span>
+        )}
         <Button 
           variant="ghost" 
           size="sm" 
@@ -91,6 +106,7 @@ const WebsiteItem: React.FC<WebsiteItemProps> = ({
           size="sm" 
           className="text-red-500 p-1 h-auto"
           onClick={() => onDelete(index)}
+          disabled={link.status === 'crawling'}
         >
           <Trash2 className="h-4 w-4" />
         </Button>
