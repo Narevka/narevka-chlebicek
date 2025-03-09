@@ -61,14 +61,12 @@ const WebsiteSource = () => {
 
   const handleAddWebsite = (website: WebsiteItem) => {
     setWebsites(prev => {
-      // Check if website already exists with the same ID
       const exists = prev.some(w => w.id === website.id);
       if (exists) {
         return prev.map(w => 
           w.id === website.id ? {...website, isProcessed: true} : w
         );
       }
-      // Otherwise add it
       return [website, ...prev];
     });
   };
