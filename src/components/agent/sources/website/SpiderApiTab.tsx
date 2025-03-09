@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Trash2, Globe, Loader2 } from "lucide-react";
+import { Trash2, Globe, Loader2, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -18,7 +18,9 @@ const SpiderApiTab = ({ onWebsitesAdded }: SpiderApiTabProps) => {
   const [spiderUrl, setSpiderUrl] = useState("");
   const [isSpiderLoading, setIsSpiderLoading] = useState(false);
   const [isFetching, setIsFetching] = useState(false);
+  const [isLoadingJobs, setIsLoadingJobs] = useState(true);
   const [jobs, setJobs] = useState<SpiderJob[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     if (agentId) {
@@ -27,15 +29,23 @@ const SpiderApiTab = ({ onWebsitesAdded }: SpiderApiTabProps) => {
   }, [agentId]);
 
   const loadSpiderJobs = async () => {
+    if (!agentId) return;
+    
+    setIsLoadingJobs(true);
+    setLoadError(null);
+    
     try {
-      // Fixed: Properly type the RPC call without type assertions - use explicit object parameter
+      console.log("Fetching spider jobs for agent:", agentId);
       const { data, error } = await supabase.functions.invoke('get_spider_jobs_function', {
         body: { agent_id_param: agentId }
       });
       
-      if (error) throw error;
+      if (error) {
+        console.error("Error from get_spider_jobs_function:", error);
+        throw new Error(error.message || "Failed to load Spider jobs");
+      }
       
-      if (data) {
+      if (data && Array.isArray(data)) {
         // Explicitly typing the response data
         const jobData: SpiderJob[] = data.map((item: any) => ({
           id: item.id,
@@ -47,10 +57,16 @@ const SpiderApiTab = ({ onWebsitesAdded }: SpiderApiTabProps) => {
         }));
         
         setJobs(jobData);
+      } else {
+        console.error("Unexpected response format:", data);
+        throw new Error("Unexpected response format from server");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error loading Spider jobs:", error);
-      toast.error("Failed to load Spider jobs");
+      setLoadError(error.message || "Failed to load Spider jobs");
+      toast.error(error.message || "Failed to load Spider jobs");
+    } finally {
+      setIsLoadingJobs(false);
     }
   };
 
@@ -63,6 +79,7 @@ const SpiderApiTab = ({ onWebsitesAdded }: SpiderApiTabProps) => {
     setIsSpiderLoading(true);
     
     try {
+      console.log("Starting spider crawl for URL:", spiderUrl);
       const response = await supabase.functions.invoke('spider-trigger', {
         body: { 
           url: spiderUrl,
@@ -72,6 +89,7 @@ const SpiderApiTab = ({ onWebsitesAdded }: SpiderApiTabProps) => {
       });
       
       if (response.error) {
+        console.error("Error from spider-trigger:", response.error);
         throw new Error(response.error.message || "Failed to start Spider crawl");
       }
       
@@ -79,9 +97,12 @@ const SpiderApiTab = ({ onWebsitesAdded }: SpiderApiTabProps) => {
         toast.success("Spider crawler started successfully");
         setSpiderUrl("");
         
+        // Refresh the job list
         await loadSpiderJobs();
       } else {
-        throw new Error("Spider crawler operation failed");
+        const errorMsg = response.data?.error || "Spider crawler operation failed";
+        console.error("Spider crawler failed:", errorMsg);
+        throw new Error(errorMsg);
       }
     } catch (error: any) {
       console.error("Error starting Spider crawl:", error);
@@ -100,6 +121,7 @@ const SpiderApiTab = ({ onWebsitesAdded }: SpiderApiTabProps) => {
     setIsFetching(true);
     
     try {
+      console.log("Fetching spider data for URL:", jobUrl);
       const response = await supabase.functions.invoke('spider-fetch', {
         body: { 
           url: jobUrl,
@@ -108,6 +130,7 @@ const SpiderApiTab = ({ onWebsitesAdded }: SpiderApiTabProps) => {
       });
       
       if (response.error) {
+        console.error("Error from spider-fetch:", response.error);
         throw new Error(response.error.message || "Failed to fetch Spider data");
       }
       
@@ -117,7 +140,9 @@ const SpiderApiTab = ({ onWebsitesAdded }: SpiderApiTabProps) => {
         onWebsitesAdded();
         await loadSpiderJobs();
       } else {
-        throw new Error("Spider data fetching operation failed");
+        const errorMsg = response.data?.error || "Spider data fetching operation failed";
+        console.error("Spider data fetching failed:", errorMsg);
+        throw new Error(errorMsg);
       }
     } catch (error: any) {
       console.error("Error fetching Spider data:", error);
@@ -129,19 +154,26 @@ const SpiderApiTab = ({ onWebsitesAdded }: SpiderApiTabProps) => {
 
   const handleDeleteJob = async (id: string) => {
     try {
-      // Fixed: Use an edge function instead of direct RPC call to avoid type issues
+      console.log("Deleting spider job:", id);
       const { data, error } = await supabase.functions.invoke('delete_spider_job_function', {
         body: { job_id: id }
       });
         
-      if (error) throw error;
+      if (error) {
+        console.error("Error from delete_spider_job_function:", error);
+        throw error;
+      }
       
       setJobs(prev => prev.filter(job => job.id !== id));
       toast.success("Spider job deleted");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error deleting Spider job:", error);
-      toast.error("Failed to delete Spider job");
+      toast.error(error.message || "Failed to delete Spider job");
     }
+  };
+
+  const handleRetry = () => {
+    loadSpiderJobs();
   };
 
   return (
@@ -187,7 +219,31 @@ const SpiderApiTab = ({ onWebsitesAdded }: SpiderApiTabProps) => {
       </p>
       
       <h3 className="font-medium mb-2">Spider Crawl Jobs</h3>
-      {jobs.length === 0 ? (
+      
+      {loadError && (
+        <Alert variant="destructive" className="mb-4">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Error loading jobs</AlertTitle>
+          <AlertDescription className="flex flex-col">
+            <span>{loadError}</span>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="mt-2 self-start"
+              onClick={handleRetry}
+            >
+              Retry
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
+      
+      {isLoadingJobs ? (
+        <div className="flex justify-center items-center py-8">
+          <Loader2 className="h-6 w-6 animate-spin text-purple-600" />
+          <span className="ml-2">Loading jobs...</span>
+        </div>
+      ) : jobs.length === 0 ? (
         <p className="text-sm text-gray-500">No Spider jobs yet. Start one above.</p>
       ) : (
         <div className="space-y-2">
