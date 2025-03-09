@@ -83,7 +83,7 @@ serve(async (req) => {
 
     const sourceId = sourceData[0].id;
 
-    // Start the background crawl task using modern waitUntil API
+    // Define the background crawl task
     const backgroundCrawl = async () => {
       try {
         console.log(`Background crawl started for source ${sourceId}`);
@@ -196,23 +196,24 @@ serve(async (req) => {
       }
     };
 
-    // Start the background task without waiting for it to complete
-    // Using the EdgeRuntime waitUntil API, which is the preferred way
-    // to handle background tasks in Deno Deploy edge functions
+    // Start the background task
+    console.log("Starting background crawl task");
+    
     try {
-      console.log("Starting background task with EdgeRuntime.waitUntil");
-      // @ts-ignore - EdgeRuntime is available in Deno Deploy
-      if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime.waitUntil) {
+      // Try to use EdgeRuntime.waitUntil if available
+      // @ts-ignore - EdgeRuntime exists in Supabase Edge Functions
+      if (typeof EdgeRuntime !== 'undefined') {
+        console.log("Using EdgeRuntime.waitUntil for background task");
         // @ts-ignore
         EdgeRuntime.waitUntil(backgroundCrawl());
       } else {
-        // Fallback for local development - just run it async
+        // Fallback for local development or when EdgeRuntime is not available
         console.log("EdgeRuntime not available, running task in background");
         backgroundCrawl().catch(e => console.error('Error in background crawl:', e));
       }
     } catch (error) {
       console.error('Error starting background task:', error);
-      // Fallback to normal async execution if waitUntil fails
+      // Just run it async as a fallback
       backgroundCrawl().catch(e => console.error('Error in background crawl:', e));
     }
     

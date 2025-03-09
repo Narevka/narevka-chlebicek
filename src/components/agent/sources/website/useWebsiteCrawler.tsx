@@ -15,6 +15,52 @@ export const useWebsiteCrawler = ({ agentId, handleAddWebsite }: UseWebsiteCrawl
   const [includedLinks, setIncludedLinks] = useState<WebsiteSourceItem[]>([]);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
+  // Load previously crawled websites when component mounts
+  useEffect(() => {
+    if (!agentId) return;
+    
+    fetchCrawledWebsites();
+  }, [agentId]);
+
+  // Fetch all crawled websites for this agent
+  const fetchCrawledWebsites = async () => {
+    if (!agentId) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from("agent_sources")
+        .select("*")
+        .eq("agent_id", agentId)
+        .eq("type", "website")
+        .order("created_at", { ascending: false });
+        
+      if (error) throw error;
+      
+      if (data && data.length > 0) {
+        const websiteSources: WebsiteSourceItem[] = data.map(source => {
+          let parsedContent: any = {};
+          
+          try {
+            parsedContent = JSON.parse(source.content);
+          } catch (e) {
+            console.error("Error parsing content:", e);
+          }
+          
+          return {
+            url: parsedContent.url || "Unknown URL",
+            count: parsedContent.pages_crawled || 0,
+            sourceId: source.id,
+            status: parsedContent.status || "completed"
+          };
+        });
+        
+        setIncludedLinks(websiteSources);
+      }
+    } catch (error) {
+      console.error("Error fetching crawled websites:", error);
+    }
+  };
+
   // Effect to periodically check the status of crawling sources
   useEffect(() => {
     const crawlingSources = includedLinks.filter(link => link.status === 'crawling');
@@ -73,12 +119,15 @@ export const useWebsiteCrawler = ({ agentId, handleAddWebsite }: UseWebsiteCrawl
 
       if (hasChanges) {
         setIncludedLinks(updatedLinks);
+        
+        // Update local storage to persist state across page refreshes
+        localStorage.setItem(`websiteSources-${agentId}`, JSON.stringify(updatedLinks));
       }
     };
 
     const intervalId = setInterval(checkCrawlStatus, 5000); // Check every 5 seconds
     return () => clearInterval(intervalId);
-  }, [includedLinks]);
+  }, [includedLinks, agentId]);
 
   const handleCrawlWebsite = async (url: string, crawlOptions: CrawlOptions) => {
     if (!agentId) {
@@ -104,8 +153,16 @@ export const useWebsiteCrawler = ({ agentId, handleAddWebsite }: UseWebsiteCrawl
         status: 'crawling'
       };
       
-      setIncludedLinks([...includedLinks, newLink]);
+      const updatedLinks = [newLink, ...includedLinks];
+      setIncludedLinks(updatedLinks);
+      
+      // Store in local storage to persist across page refreshes
+      localStorage.setItem(`websiteSources-${agentId}`, JSON.stringify(updatedLinks));
+      
       toast.success("Website crawl started");
+    } catch (error: any) {
+      console.error("Error starting crawl:", error);
+      toast.error(`Failed to start crawl: ${error.message}`);
     } finally {
       setIsLoading(false);
     }
@@ -115,10 +172,17 @@ export const useWebsiteCrawler = ({ agentId, handleAddWebsite }: UseWebsiteCrawl
     const newLinks = [...includedLinks];
     newLinks.splice(index, 1);
     setIncludedLinks(newLinks);
+    
+    // Update local storage
+    localStorage.setItem(`websiteSources-${agentId}`, JSON.stringify(newLinks));
   };
   
   const handleDeleteAllLinks = () => {
     setIncludedLinks([]);
+    
+    // Clear local storage
+    localStorage.removeItem(`websiteSources-${agentId}`);
+    
     toast.success("All links have been removed");
   };
 
@@ -193,6 +257,9 @@ export const useWebsiteCrawler = ({ agentId, handleAddWebsite }: UseWebsiteCrawl
     newLinks[index] = {...newLinks[index], isProcessing: true};
     setIncludedLinks(newLinks);
     
+    // Update local storage
+    localStorage.setItem(`websiteSources-${agentId}`, JSON.stringify(newLinks));
+    
     try {
       // Process the source using the process-agent-source function
       const { data: processResponse, error: processError } = await supabase.functions.invoke('process-agent-source', {
@@ -213,6 +280,9 @@ export const useWebsiteCrawler = ({ agentId, handleAddWebsite }: UseWebsiteCrawl
       const updatedLinks = [...includedLinks];
       updatedLinks[index] = {...updatedLinks[index], isProcessing: false};
       setIncludedLinks(updatedLinks);
+      
+      // Update local storage
+      localStorage.setItem(`websiteSources-${agentId}`, JSON.stringify(updatedLinks));
     } catch (error: any) {
       console.error("Error processing source:", error);
       toast.error(`Failed to process source: ${error.message}`);
@@ -221,6 +291,9 @@ export const useWebsiteCrawler = ({ agentId, handleAddWebsite }: UseWebsiteCrawl
       const updatedLinks = [...includedLinks];
       updatedLinks[index] = {...updatedLinks[index], isProcessing: false};
       setIncludedLinks(updatedLinks);
+      
+      // Update local storage
+      localStorage.setItem(`websiteSources-${agentId}`, JSON.stringify(updatedLinks));
     }
   };
 
@@ -256,6 +329,9 @@ export const useWebsiteCrawler = ({ agentId, handleAddWebsite }: UseWebsiteCrawl
         };
         
         setIncludedLinks(newLinks);
+        
+        // Update local storage
+        localStorage.setItem(`websiteSources-${agentId}`, JSON.stringify(newLinks));
         
         if (content.status === 'completed') {
           toast.success("Crawl has completed");
