@@ -6,9 +6,11 @@ import { Trash2, Globe } from "lucide-react";
 import { useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { useAgentSources } from "@/hooks/useAgentSources";
 
 const WebsiteSource = () => {
   const { id: agentId } = useParams<{ id: string }>();
+  const { handleAddWebsite } = useAgentSources(agentId);
   const [url, setUrl] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isCrawlingComplete, setIsCrawlingComplete] = useState(true);
@@ -33,27 +35,14 @@ const WebsiteSource = () => {
     setIsCrawlingComplete(false);
     
     try {
-      // Wywołanie edge function do crawlowania strony przez Spider.cloud
-      const crawlResponse = await supabase.functions.invoke('crawl-website', {
-        body: { 
-          url,
-          agentId,
-          limit: 5, // Domyślnie ograniczenie do 5 stron
-          returnFormat: "markdown"
-        }
-      });
+      // Wywołanie handleAddWebsite z hooka useAgentSources
+      await handleAddWebsite(url);
       
-      if (crawlResponse.error) {
-        throw new Error(crawlResponse.error.message || "Błąd podczas crawlowania strony");
-      }
-      
-      if (crawlResponse.data) {
-        // Dodaj URL do listy (w rzeczywistości będzie to lista URL z odpowiedzi)
-        const newLink = { url, count: crawlResponse.data.contentCount || 1 };
-        setIncludedLinks([...includedLinks, newLink]);
-        toast.success("Strona została pomyślnie dodana do bazy wiedzy asystenta");
-        setUrl("");
-      }
+      // Dodaj URL do listy
+      const newLink = { url, count: 1 }; // Początkowo ustawiamy count na 1
+      setIncludedLinks([...includedLinks, newLink]);
+      toast.success("Strona została dodana do crawlowania");
+      setUrl("");
     } catch (error: any) {
       console.error("Błąd podczas crawlowania strony:", error);
       toast.error(`Nie udało się crawlować strony: ${error.message}`);
