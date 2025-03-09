@@ -26,22 +26,45 @@ serve(async (req) => {
       { global: { headers: { Authorization: authHeader } } }
     );
 
-    const { url, agentId, options } = await req.json();
+    const requestData = await req.json();
+    console.log("Received request data:", JSON.stringify(requestData));
     
-    if (!url || !agentId) {
-      throw new Error('URL and Agent ID are required');
+    const { url, agentId, options } = requestData;
+    
+    if (!url) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'URL is required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    if (!agentId) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Agent ID is required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Get user ID from auth
     const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
     if (userError || !user) {
-      throw new Error('Error getting user: ' + (userError?.message || 'No user found'));
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'Error getting user: ' + (userError?.message || 'No user found') 
+        }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Start the Spider API crawling process
     const spiderApiKey = Deno.env.get('SPIDER_API_KEY');
     if (!spiderApiKey) {
-      throw new Error('Spider API key not configured');
+      console.error("Spider API key not configured in environment variables");
+      return new Response(
+        JSON.stringify({ success: false, error: 'Spider API key not configured' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     console.log(`Starting Spider API crawl for URL: ${url}`);
@@ -83,45 +106,81 @@ serve(async (req) => {
       .single();
 
     if (jobError) {
-      throw new Error('Error creating job record: ' + jobError.message);
+      console.error("Error creating job record:", jobError);
+      return new Response(
+        JSON.stringify({ success: false, error: 'Error creating job record: ' + jobError.message }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
-    // Call Spider API to start crawling
-    const spiderResponse = await fetch("https://api.spider.cloud/crawl", {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${spiderApiKey}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(crawlOptions)
-    });
+    console.log("Created job record:", jobData);
 
-    if (!spiderResponse.ok) {
-      const errorText = await spiderResponse.text();
-      throw new Error(`Spider API error: ${spiderResponse.status} - ${errorText}`);
-    }
+    try {
+      // Call Spider API to start crawling
+      console.log("Calling Spider API with options:", JSON.stringify(crawlOptions));
+      const spiderResponse = await fetch("https://api.spider.cloud/crawl", {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${spiderApiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(crawlOptions)
+      });
 
-    // Update job with success status
-    await supabaseClient
-      .from('spider_jobs')
-      .update({
-        status: 'completed',
-        job_id: jobData.id, // Use our own ID as job_id for reference
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', jobData.id);
+      const responseStatus = spiderResponse.status;
+      const responseText = await spiderResponse.text();
+      
+      console.log(`Spider API response status: ${responseStatus}`);
+      console.log(`Spider API response body: ${responseText}`);
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        message: "Spider crawling initiated successfully",
-        jobId: jobData.id,
-        url: fullUrl
-      }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      if (!spiderResponse.ok) {
+        throw new Error(`Spider API error: ${responseStatus} - ${responseText}`);
       }
-    );
+
+      // Update job with success status
+      await supabaseClient
+        .from('spider_jobs')
+        .update({
+          status: 'completed',
+          job_id: jobData.id,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', jobData.id);
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: "Spider crawling initiated successfully",
+          jobId: jobData.id,
+          url: fullUrl
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    } catch (spiderError) {
+      console.error("Error calling Spider API:", spiderError);
+      
+      // Update job with error status
+      await supabaseClient
+        .from('spider_jobs')
+        .update({
+          status: 'error',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', jobData.id);
+        
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: spiderError.message
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
   } catch (error) {
     console.error("Error in spider-trigger function:", error);
     
