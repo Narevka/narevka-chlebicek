@@ -1,14 +1,15 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Trash2, AlertCircle, Loader2 } from "lucide-react";
+import { Trash2, AlertCircle, Loader2, Spider } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useParams } from "react-router-dom";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { processSourceWithOpenAI } from "@/services/sourceProcessingService";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface WebsiteItem {
   id: string;
@@ -18,20 +19,35 @@ interface WebsiteItem {
   isProcessed?: boolean;
 }
 
+interface SpiderJob {
+  id: string;
+  url: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  result_count: number;
+}
+
 const WebsiteSource = () => {
   const { user } = useAuth();
   const { id: agentId } = useParams<{ id: string }>();
   const [url, setUrl] = useState("");
   const [sitemapUrl, setSitemapUrl] = useState("");
+  const [spiderUrl, setSpiderUrl] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isSpiderLoading, setIsSpiderLoading] = useState(false);
+  const [isFetching, setIsFetching] = useState(false);
   const [websites, setWebsites] = useState<WebsiteItem[]>([]);
   const [additionalLinks, setAdditionalLinks] = useState<string[]>([]);
   const [showLinks, setShowLinks] = useState(false);
+  const [jobs, setJobs] = useState<SpiderJob[]>([]);
+  const [activeTab, setActiveTab] = useState("manual");
 
-  // Load existing website sources on component mount
-  React.useEffect(() => {
+  // Load existing website sources and jobs on component mount
+  useEffect(() => {
     if (agentId) {
       loadWebsiteSources();
+      loadSpiderJobs();
     }
   }, [agentId]);
 
@@ -71,6 +87,23 @@ const WebsiteSource = () => {
     } catch (error) {
       console.error("Error loading website sources:", error);
       toast.error("Failed to load website sources");
+    }
+  };
+
+  const loadSpiderJobs = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("spider_jobs")
+        .select("*")
+        .eq("agent_id", agentId)
+        .order("created_at", { ascending: false });
+        
+      if (error) throw error;
+      
+      setJobs(data);
+    } catch (error) {
+      console.error("Error loading Spider jobs:", error);
+      toast.error("Failed to load Spider jobs");
     }
   };
 
@@ -191,7 +224,7 @@ const WebsiteSource = () => {
               w.id === savedSource.id ? {...w, isProcessed: true} : w
             ));
             toast.success("Link scraped and processed successfully");
-          } catch (processError) {
+          } catch (processError: any) {
             console.error("Error processing link with OpenAI:", processError);
             toast.warning("Link scraped but failed to process with OpenAI");
           }
@@ -248,6 +281,82 @@ const WebsiteSource = () => {
     }
   };
 
+  const handleStartSpiderCrawl = async () => {
+    if (!spiderUrl.trim() || !user?.id || !agentId) {
+      toast.error("Please enter a valid URL");
+      return;
+    }
+    
+    setIsSpiderLoading(true);
+    
+    try {
+      const response = await supabase.functions.invoke('spider-trigger', {
+        body: { 
+          url: spiderUrl,
+          agentId,
+          options: { limit: 100 }
+        }
+      });
+      
+      if (response.error) {
+        throw new Error(response.error.message || "Failed to start Spider crawl");
+      }
+      
+      if (response.data && response.data.success) {
+        toast.success("Spider crawler started successfully");
+        setSpiderUrl("");
+        
+        // Reload jobs list
+        await loadSpiderJobs();
+      } else {
+        throw new Error("Spider crawler operation failed");
+      }
+    } catch (error: any) {
+      console.error("Error starting Spider crawl:", error);
+      toast.error(error.message || "Failed to start Spider crawl");
+    } finally {
+      setIsSpiderLoading(false);
+    }
+  };
+
+  const handleFetchSpiderData = async (jobUrl: string) => {
+    if (!jobUrl || !user?.id || !agentId) {
+      toast.error("URL and authentication required");
+      return;
+    }
+    
+    setIsFetching(true);
+    
+    try {
+      const response = await supabase.functions.invoke('spider-fetch', {
+        body: { 
+          url: jobUrl,
+          agentId
+        }
+      });
+      
+      if (response.error) {
+        throw new Error(response.error.message || "Failed to fetch Spider data");
+      }
+      
+      if (response.data && response.data.success) {
+        toast.success(`Imported ${response.data.count} pages from Spider API`);
+        
+        // Reload website sources
+        await loadWebsiteSources();
+        // Reload jobs
+        await loadSpiderJobs();
+      } else {
+        throw new Error("Spider data fetching operation failed");
+      }
+    } catch (error: any) {
+      console.error("Error fetching Spider data:", error);
+      toast.error(error.message || "Failed to fetch Spider data");
+    } finally {
+      setIsFetching(false);
+    }
+  };
+
   const handleDeleteWebsite = async (id: string) => {
     try {
       const { error } = await supabase
@@ -285,92 +394,224 @@ const WebsiteSource = () => {
     }
   };
 
+  const handleDeleteJob = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from("spider_jobs")
+        .delete()
+        .eq("id", id);
+        
+      if (error) throw error;
+      
+      setJobs(prev => prev.filter(job => job.id !== id));
+      toast.success("Spider job deleted");
+    } catch (error) {
+      console.error("Error deleting Spider job:", error);
+      toast.error("Failed to delete Spider job");
+    }
+  };
+
   return (
     <div>
       <h2 className="text-2xl font-bold mb-4">Website</h2>
       
-      <div className="mb-6">
-        <h3 className="font-medium mb-2">Crawl</h3>
-        <div className="flex gap-2 mb-2">
-          <Input 
-            placeholder="https://www.example.com" 
-            className="flex-1"
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            disabled={isLoading}
-          />
-          <Button onClick={handleFetchLinks} disabled={isLoading}>
-            {isLoading ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Fetching...
-              </>
-            ) : (
-              "Fetch more links"
-            )}
-          </Button>
-        </div>
-        <p className="text-sm text-gray-500 mb-6">
-          This will crawl the page and extract links from it.
-        </p>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="mb-4">
+          <TabsTrigger value="manual">Manual Crawling</TabsTrigger>
+          <TabsTrigger value="spider">Spider API</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="manual">
+          <div className="mb-6">
+            <h3 className="font-medium mb-2">Crawl</h3>
+            <div className="flex gap-2 mb-2">
+              <Input 
+                placeholder="https://www.example.com" 
+                className="flex-1"
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                disabled={isLoading}
+              />
+              <Button onClick={handleFetchLinks} disabled={isLoading}>
+                {isLoading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Fetching...
+                  </>
+                ) : (
+                  "Fetch more links"
+                )}
+              </Button>
+            </div>
+            <p className="text-sm text-gray-500 mb-6">
+              This will crawl the page and extract links from it.
+            </p>
 
-        <div className="relative my-8">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-gray-300"></div>
-          </div>
-          <div className="relative flex justify-center">
-            <span className="bg-white px-4 text-sm text-gray-500">OR</span>
-          </div>
-        </div>
-
-        <h3 className="font-medium mb-2">Submit Sitemap</h3>
-        <div className="flex gap-2">
-          <Input 
-            placeholder="https://www.example.com/sitemap.xml" 
-            className="flex-1"
-            value={sitemapUrl}
-            onChange={(e) => setSitemapUrl(e.target.value)}
-            disabled={isLoading}
-          />
-          <Button onClick={handleSubmitSitemap} disabled={isLoading}>
-            {isLoading ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Loading...
-              </>
-            ) : (
-              "Load sitemap"
-            )}
-          </Button>
-        </div>
-      </div>
-
-      {showLinks && additionalLinks.length > 0 && (
-        <div className="mt-6 mb-8">
-          <h3 className="font-medium mb-2">Additional Links Found</h3>
-          <Alert>
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Found {additionalLinks.length} links</AlertTitle>
-            <AlertDescription>
-              Click on any link below to scrape and add it to your agent's knowledge base.
-            </AlertDescription>
-          </Alert>
-          <div className="mt-4 max-h-60 overflow-y-auto border rounded-md">
-            {additionalLinks.map((link, index) => (
-              <div key={index} className="border-b p-3 flex justify-between items-center hover:bg-gray-50">
-                <span className="truncate max-w-md text-sm">{link}</span>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={() => handleScrapeLink(link)}
-                >
-                  Scrape
-                </Button>
+            <div className="relative my-8">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-300"></div>
               </div>
-            ))}
+              <div className="relative flex justify-center">
+                <span className="bg-white px-4 text-sm text-gray-500">OR</span>
+              </div>
+            </div>
+
+            <h3 className="font-medium mb-2">Submit Sitemap</h3>
+            <div className="flex gap-2">
+              <Input 
+                placeholder="https://www.example.com/sitemap.xml" 
+                className="flex-1"
+                value={sitemapUrl}
+                onChange={(e) => setSitemapUrl(e.target.value)}
+                disabled={isLoading}
+              />
+              <Button onClick={handleSubmitSitemap} disabled={isLoading}>
+                {isLoading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Loading...
+                  </>
+                ) : (
+                  "Load sitemap"
+                )}
+              </Button>
+            </div>
           </div>
-        </div>
-      )}
+
+          {showLinks && additionalLinks.length > 0 && (
+            <div className="mt-6 mb-8">
+              <h3 className="font-medium mb-2">Additional Links Found</h3>
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Found {additionalLinks.length} links</AlertTitle>
+                <AlertDescription>
+                  Click on any link below to scrape and add it to your agent's knowledge base.
+                </AlertDescription>
+              </Alert>
+              <div className="mt-4 max-h-60 overflow-y-auto border rounded-md">
+                {additionalLinks.map((link, index) => (
+                  <div key={index} className="border-b p-3 flex justify-between items-center hover:bg-gray-50">
+                    <span className="truncate max-w-md text-sm">{link}</span>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => handleScrapeLink(link)}
+                    >
+                      Scrape
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </TabsContent>
+        
+        <TabsContent value="spider">
+          <div className="mb-6">
+            <Alert className="mb-4">
+              <Spider className="h-4 w-4" />
+              <AlertTitle>Spider API</AlertTitle>
+              <AlertDescription>
+                Spider API is more powerful for large websites and can handle anti-bot measures. 
+                Enter the URL below and click "Start Spider" to begin the crawling process.
+              </AlertDescription>
+            </Alert>
+            
+            <div className="flex gap-2 mb-2">
+              <Input 
+                placeholder="Enter website URL (e.g., example.com)" 
+                className="flex-1"
+                value={spiderUrl}
+                onChange={(e) => setSpiderUrl(e.target.value)}
+                disabled={isSpiderLoading}
+              />
+              <Button 
+                onClick={handleStartSpiderCrawl} 
+                disabled={isSpiderLoading}
+                className="bg-purple-600 hover:bg-purple-700"
+              >
+                {isSpiderLoading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Starting...
+                  </>
+                ) : (
+                  <>
+                    <Spider className="h-4 w-4 mr-2" />
+                    Start Spider
+                  </>
+                )}
+              </Button>
+            </div>
+            <p className="text-sm text-gray-500 mb-6">
+              Spider API will crawl the website and store the data. The process might take a few minutes 
+              for larger websites. After completion, you can fetch the data using the "Import Data" button.
+            </p>
+            
+            <h3 className="font-medium mb-2">Spider Crawl Jobs</h3>
+            {jobs.length === 0 ? (
+              <p className="text-sm text-gray-500">No Spider jobs yet. Start one above.</p>
+            ) : (
+              <div className="space-y-2">
+                {jobs.map((job) => (
+                  <div 
+                    key={job.id} 
+                    className="flex items-center justify-between border rounded-md p-3"
+                  >
+                    <div className="flex items-center gap-2">
+                      <div className={`
+                        ${job.status === 'completed' ? 'bg-green-100 text-green-800' : 
+                          job.status === 'imported' ? 'bg-blue-100 text-blue-800' : 
+                          job.status === 'processing' ? 'bg-yellow-100 text-yellow-800' : 
+                          'bg-gray-100 text-gray-800'} 
+                        text-xs px-2 py-1 rounded-full`}
+                      >
+                        {job.status}
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="font-medium">{job.url}</span>
+                        <span className="text-xs text-gray-500">
+                          {new Date(job.created_at).toLocaleString()}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {job.status === 'completed' && (
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          className="text-blue-500 border-blue-500"
+                          onClick={() => handleFetchSpiderData(job.url)}
+                          disabled={isFetching}
+                        >
+                          {isFetching ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            "Import Data"
+                          )}
+                        </Button>
+                      )}
+                      {job.status === 'imported' && (
+                        <span className="text-sm text-gray-500">
+                          Imported {job.result_count} pages
+                        </span>
+                      )}
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="text-red-500 p-1 h-auto"
+                        onClick={() => handleDeleteJob(job.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </TabsContent>
+      </Tabs>
 
       <div className="mt-8">
         <div className="flex justify-between items-center mb-2">
