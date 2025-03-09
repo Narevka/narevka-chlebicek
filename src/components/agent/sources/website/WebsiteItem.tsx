@@ -106,7 +106,7 @@ const WebsiteItem: React.FC<WebsiteItemProps> = ({
           size="sm" 
           className="text-red-500 p-1 h-auto"
           onClick={() => onDelete(index)}
-          disabled={link.status === 'crawling'}
+          title="Delete website"
         >
           <Trash2 className="h-4 w-4" />
         </Button>

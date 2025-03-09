@@ -15,18 +15,35 @@ export const useWebsiteCrawler = ({ agentId, handleAddWebsite }: UseWebsiteCrawl
   const [includedLinks, setIncludedLinks] = useState<WebsiteSourceItem[]>([]);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [lastCheckTime, setLastCheckTime] = useState(Date.now());
+  const [deletedSourceIds, setDeletedSourceIds] = useState<Set<string>>(new Set());
   const localStorageKey = `websiteSources-${agentId}`;
+  const deletedSourcesKey = `deletedSources-${agentId}`;
 
   // Load previously crawled websites when component mounts or when route changes
   useEffect(() => {
     if (!agentId) return;
+    
+    // Load deleted sources IDs from localStorage
+    const storedDeletedIds = localStorage.getItem(deletedSourcesKey);
+    if (storedDeletedIds) {
+      try {
+        const parsedIds = JSON.parse(storedDeletedIds);
+        setDeletedSourceIds(new Set(parsedIds));
+      } catch (e) {
+        console.error("Error parsing deleted source IDs:", e);
+      }
+    }
     
     // Try to load from localStorage first for immediate rendering
     const storedLinks = localStorage.getItem(localStorageKey);
     if (storedLinks) {
       try {
         const parsedLinks = JSON.parse(storedLinks);
-        setIncludedLinks(parsedLinks);
+        // Filter out deleted sources
+        const filteredLinks = parsedLinks.filter(link => 
+          !link.sourceId || !deletedSourceIds.has(link.sourceId)
+        );
+        setIncludedLinks(filteredLinks);
       } catch (e) {
         console.error("Error parsing stored links:", e);
       }
@@ -51,7 +68,10 @@ export const useWebsiteCrawler = ({ agentId, handleAddWebsite }: UseWebsiteCrawl
       if (error) throw error;
       
       if (data && data.length > 0) {
-        const websiteSources: WebsiteSourceItem[] = data.map(source => {
+        // Filter out deleted sources
+        const filteredData = data.filter(source => !deletedSourceIds.has(source.id));
+        
+        const websiteSources: WebsiteSourceItem[] = filteredData.map(source => {
           let parsedContent: any = {};
           
           try {
@@ -82,7 +102,10 @@ export const useWebsiteCrawler = ({ agentId, handleAddWebsite }: UseWebsiteCrawl
 
   // Effect to periodically check the status of crawling sources
   useEffect(() => {
-    const crawlingSources = includedLinks.filter(link => link.status === 'crawling');
+    const crawlingSources = includedLinks.filter(link => 
+      link.status === 'crawling' && !deletedSourceIds.has(link.sourceId || '')
+    );
+    
     if (crawlingSources.length === 0) return;
 
     const checkCrawlStatus = async () => {
@@ -95,7 +118,7 @@ export const useWebsiteCrawler = ({ agentId, handleAddWebsite }: UseWebsiteCrawl
       for (let i = 0; i < updatedLinks.length; i++) {
         const link = updatedLinks[i];
         
-        if (link.status === 'crawling' && link.sourceId) {
+        if (link.status === 'crawling' && link.sourceId && !deletedSourceIds.has(link.sourceId)) {
           try {
             const { data, error } = await supabase
               .from("agent_sources")
@@ -156,7 +179,7 @@ export const useWebsiteCrawler = ({ agentId, handleAddWebsite }: UseWebsiteCrawl
     
     // Clean up interval on unmount
     return () => clearInterval(intervalId);
-  }, [includedLinks, agentId, lastCheckTime]);
+  }, [includedLinks, agentId, lastCheckTime, deletedSourceIds]);
 
   const handleCrawlWebsite = async (url: string, crawlOptions: CrawlOptions) => {
     if (!agentId) {
@@ -201,36 +224,73 @@ export const useWebsiteCrawler = ({ agentId, handleAddWebsite }: UseWebsiteCrawl
     }
   };
   
-  const handleDeleteLink = (index: number) => {
+  const handleDeleteLink = async (index: number) => {
     const newLinks = [...includedLinks];
-    
-    // Check if this is a completed link with a sourceId before removing it
     const linkToDelete = newLinks[index];
-    if (linkToDelete.sourceId && linkToDelete.status === 'crawling') {
-      toast.warning("Cannot delete a link that is currently being crawled");
-      return;
+    
+    // If the link has a sourceId, add it to the deleted sources list
+    if (linkToDelete.sourceId) {
+      const newDeletedIds = new Set(deletedSourceIds);
+      newDeletedIds.add(linkToDelete.sourceId);
+      setDeletedSourceIds(newDeletedIds);
+      
+      // Save deleted IDs to localStorage
+      localStorage.setItem(deletedSourcesKey, JSON.stringify([...newDeletedIds]));
+      
+      // If the link is being crawled, try to cancel the crawl by updating the source status
+      if (linkToDelete.status === 'crawling') {
+        try {
+          const { error } = await supabase
+            .from("agent_sources")
+            .update({
+              content: JSON.stringify({
+                url: linkToDelete.url,
+                status: 'error',
+                error: 'Crawl cancelled by user'
+              })
+            })
+            .eq('id', linkToDelete.sourceId);
+            
+          if (error) {
+            console.error("Error cancelling crawl:", error);
+          }
+        } catch (error) {
+          console.error("Error updating source status:", error);
+        }
+      }
     }
     
+    // Remove from UI
     newLinks.splice(index, 1);
     setIncludedLinks(newLinks);
     
     // Update local storage
     localStorage.setItem(localStorageKey, JSON.stringify(newLinks));
+    
+    toast.success("Website source removed");
   };
   
   const handleDeleteAllLinks = () => {
-    // Check if there are any crawling links
-    if (includedLinks.some(link => link.status === 'crawling')) {
-      toast.warning("Cannot delete all links while some are being crawled");
-      return;
-    }
+    // Store all sourceIds as deleted
+    const newDeletedIds = new Set(deletedSourceIds);
+    includedLinks.forEach(link => {
+      if (link.sourceId) {
+        newDeletedIds.add(link.sourceId);
+      }
+    });
     
+    setDeletedSourceIds(newDeletedIds);
+    
+    // Save deleted IDs to localStorage
+    localStorage.setItem(deletedSourcesKey, JSON.stringify([...newDeletedIds]));
+    
+    // Clear the list from UI
     setIncludedLinks([]);
     
-    // Clear local storage
+    // Clear local storage for links
     localStorage.removeItem(localStorageKey);
     
-    toast.success("All links have been removed");
+    toast.success("All website sources have been removed");
   };
 
   const handleDownloadContent = async (sourceId: string, url: string) => {
@@ -398,6 +458,12 @@ export const useWebsiteCrawler = ({ agentId, handleAddWebsite }: UseWebsiteCrawl
     }
   };
 
+  // Clear the deleted sources list (for debugging)
+  const clearDeletedSources = () => {
+    setDeletedSourceIds(new Set());
+    localStorage.removeItem(deletedSourcesKey);
+  };
+
   return {
     isLoading,
     includedLinks,
@@ -407,6 +473,7 @@ export const useWebsiteCrawler = ({ agentId, handleAddWebsite }: UseWebsiteCrawl
     handleDeleteAllLinks,
     handleDownloadContent,
     handleProcessSource,
-    handleCheckStatus
+    handleCheckStatus,
+    clearDeletedSources
   };
 };
