@@ -34,22 +34,7 @@ export const useWebsiteCrawler = ({ agentId, handleAddWebsite }: UseWebsiteCrawl
       }
     }
     
-    // Try to load from localStorage first for immediate rendering
-    const storedLinks = localStorage.getItem(localStorageKey);
-    if (storedLinks) {
-      try {
-        const parsedLinks = JSON.parse(storedLinks);
-        // Filter out deleted sources
-        const filteredLinks = parsedLinks.filter(link => 
-          !link.sourceId || !deletedSourceIds.has(link.sourceId)
-        );
-        setIncludedLinks(filteredLinks);
-      } catch (e) {
-        console.error("Error parsing stored links:", e);
-      }
-    }
-    
-    // Then fetch from database to get most up-to-date data
+    // Fetch from database to get most up-to-date data
     fetchCrawledWebsites();
   }, [agentId]);
 
@@ -58,6 +43,20 @@ export const useWebsiteCrawler = ({ agentId, handleAddWebsite }: UseWebsiteCrawl
     if (!agentId) return;
     
     try {
+      // First, get our current set of deleted IDs
+      const storedDeletedIds = localStorage.getItem(deletedSourcesKey);
+      let deletedIds = new Set<string>();
+      
+      if (storedDeletedIds) {
+        try {
+          const parsedIds = JSON.parse(storedDeletedIds);
+          deletedIds = new Set(parsedIds);
+          setDeletedSourceIds(deletedIds);
+        } catch (e) {
+          console.error("Error parsing deleted source IDs:", e);
+        }
+      }
+      
       const { data, error } = await supabase
         .from("agent_sources")
         .select("*")
@@ -68,8 +67,8 @@ export const useWebsiteCrawler = ({ agentId, handleAddWebsite }: UseWebsiteCrawl
       if (error) throw error;
       
       if (data && data.length > 0) {
-        // Filter out deleted sources
-        const filteredData = data.filter(source => !deletedSourceIds.has(source.id));
+        // Filter out deleted sources - this is crucial for preventing deleted items from reappearing
+        const filteredData = data.filter(source => !deletedIds.has(source.id));
         
         const websiteSources: WebsiteSourceItem[] = filteredData.map(source => {
           let parsedContent: any = {};
@@ -92,8 +91,12 @@ export const useWebsiteCrawler = ({ agentId, handleAddWebsite }: UseWebsiteCrawl
         
         setIncludedLinks(websiteSources);
         
-        // Also update localStorage for persistence across page refreshes
+        // Update localStorage for persistence across page refreshes
         localStorage.setItem(localStorageKey, JSON.stringify(websiteSources));
+      } else {
+        // If no data, ensure we clear the displayed links
+        setIncludedLinks([]);
+        localStorage.removeItem(localStorageKey);
       }
     } catch (error) {
       console.error("Error fetching crawled websites:", error);
@@ -230,16 +233,18 @@ export const useWebsiteCrawler = ({ agentId, handleAddWebsite }: UseWebsiteCrawl
     
     // If the link has a sourceId, add it to the deleted sources list
     if (linkToDelete.sourceId) {
+      // Update the deletedSourceIds state
       const newDeletedIds = new Set(deletedSourceIds);
       newDeletedIds.add(linkToDelete.sourceId);
       setDeletedSourceIds(newDeletedIds);
       
-      // Save deleted IDs to localStorage
+      // Immediately save to localStorage to ensure persistence
       localStorage.setItem(deletedSourcesKey, JSON.stringify([...newDeletedIds]));
       
-      // If the link is being crawled, try to cancel the crawl by updating the source status
+      // If the link is being crawled, try to cancel the crawl
       if (linkToDelete.status === 'crawling') {
         try {
+          // Attempt to update the source status to cancelled
           const { error } = await supabase
             .from("agent_sources")
             .update({
@@ -264,7 +269,7 @@ export const useWebsiteCrawler = ({ agentId, handleAddWebsite }: UseWebsiteCrawl
     newLinks.splice(index, 1);
     setIncludedLinks(newLinks);
     
-    // Update local storage
+    // Update local storage for the links list
     localStorage.setItem(localStorageKey, JSON.stringify(newLinks));
     
     toast.success("Website source removed");
@@ -276,12 +281,31 @@ export const useWebsiteCrawler = ({ agentId, handleAddWebsite }: UseWebsiteCrawl
     includedLinks.forEach(link => {
       if (link.sourceId) {
         newDeletedIds.add(link.sourceId);
+        
+        // If the link is being crawled, try to cancel the crawl
+        if (link.status === 'crawling') {
+          try {
+            // Attempt to update the source status to cancelled - fire and forget
+            supabase
+              .from("agent_sources")
+              .update({
+                content: JSON.stringify({
+                  url: link.url,
+                  status: 'error',
+                  error: 'Crawl cancelled by user'
+                })
+              })
+              .eq('id', link.sourceId);
+          } catch (error) {
+            console.error("Error updating source status:", error);
+          }
+        }
       }
     });
     
     setDeletedSourceIds(newDeletedIds);
     
-    // Save deleted IDs to localStorage
+    // Save deleted IDs to localStorage IMMEDIATELY to ensure persistence
     localStorage.setItem(deletedSourcesKey, JSON.stringify([...newDeletedIds]));
     
     // Clear the list from UI
