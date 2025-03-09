@@ -28,10 +28,10 @@ const SpiderApiTab = ({ onWebsitesAdded }: SpiderApiTabProps) => {
 
   const loadSpiderJobs = async () => {
     try {
-      // Using the correct RPC call with type assertion
-      const { data, error } = await supabase.rpc('get_spider_jobs', { 
-        agent_id_param: agentId 
-      }) as { data: any[]; error: any };
+      // Fixed: Properly type the RPC call without type assertions - use explicit object parameter
+      const { data, error } = await supabase.functions.invoke('get_spider_jobs_function', {
+        body: { agent_id_param: agentId }
+      });
       
       if (error) throw error;
       
@@ -129,10 +129,10 @@ const SpiderApiTab = ({ onWebsitesAdded }: SpiderApiTabProps) => {
 
   const handleDeleteJob = async (id: string) => {
     try {
-      // Using the correct RPC call with type assertion
-      const { error } = await supabase.rpc('delete_spider_job', { 
-        job_id: id 
-      }) as { data: null, error: any };
+      // Fixed: Use an edge function instead of direct RPC call to avoid type issues
+      const { data, error } = await supabase.functions.invoke('delete_spider_job_function', {
+        body: { job_id: id }
+      });
         
       if (error) throw error;
       
