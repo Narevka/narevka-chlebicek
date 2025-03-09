@@ -174,6 +174,41 @@ export const addQASource = async (
 };
 
 /**
+ * Add a website source to an agent
+ */
+export const addWebsiteSource = async (
+  agentId: string, 
+  userId: string, 
+  url: string, 
+  sources: SourceItem[],
+  setSourcesCallback: (sources: SourceItem[]) => void
+) => {
+  try {
+    // Wywołanie edge function do crawlowania strony
+    const crawlResponse = await supabase.functions.invoke('crawl-website', {
+      body: { 
+        url,
+        agentId,
+        limit: 5 // Domyślnie ograniczenie do 5 stron
+      }
+    });
+    
+    if (crawlResponse.error) {
+      throw new Error(crawlResponse.error.message || "Failed to crawl website");
+    }
+    
+    // Refresh sources list after crawling
+    const refreshedSources = await fetchAgentSources(agentId);
+    setSourcesCallback(refreshedSources);
+    
+    toast.success("Website crawled and added successfully");
+  } catch (error: any) {
+    console.error("Error adding website:", error);
+    toast.error(`Failed to add website: ${error.message}`);
+  }
+};
+
+/**
  * Calculate source statistics
  */
 export const calculateSourceStats = (sources: SourceItem[]): SourceStats => {

@@ -2,67 +2,64 @@
 import React, { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Trash2 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { Trash2, Globe } from "lucide-react";
 import { useParams } from "react-router-dom";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 const WebsiteSource = () => {
   const { id: agentId } = useParams<{ id: string }>();
   const [url, setUrl] = useState("");
-  const [sitemap, setSitemap] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isCrawlingComplete, setIsCrawlingComplete] = useState(true);
   const [includedLinks, setIncludedLinks] = useState<{url: string, count: number}[]>([]);
   
   const handleUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setUrl(e.target.value);
   };
   
-  const handleSitemapChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSitemap(e.target.value);
-  };
-  
-  const handleFetchLinks = async () => {
+  const handleCrawlWebsite = async () => {
     if (!url) {
-      toast.error("Please enter a URL");
+      toast.error("Proszę podać adres URL strony");
+      return;
+    }
+    
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      toast.error("URL musi zaczynać się od http:// lub https://");
       return;
     }
     
     setIsLoading(true);
-    try {
-      // In a real implementation, you would fetch links from the URL
-      // For now, just add the URL as a demo
-      const newLink = { url, count: Math.floor(Math.random() * 1000) };
-      setIncludedLinks([...includedLinks, newLink]);
-      toast.success("URL added successfully");
-      setUrl("");
-    } catch (error) {
-      toast.error("Failed to fetch links");
-      console.error("Error fetching links:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-  
-  const handleLoadSitemap = async () => {
-    if (!sitemap) {
-      toast.error("Please enter a sitemap URL");
-      return;
-    }
+    setIsCrawlingComplete(false);
     
-    setIsLoading(true);
     try {
-      // In a real implementation, you would load the sitemap
-      // For now, just add the sitemap URL as a demo
-      const newLink = { url: sitemap, count: Math.floor(Math.random() * 1000) };
-      setIncludedLinks([...includedLinks, newLink]);
-      toast.success("Sitemap added successfully");
-      setSitemap("");
-    } catch (error) {
-      toast.error("Failed to load sitemap");
-      console.error("Error loading sitemap:", error);
+      // Wywołanie edge function do crawlowania strony przez Spider.cloud
+      const crawlResponse = await supabase.functions.invoke('crawl-website', {
+        body: { 
+          url,
+          agentId,
+          limit: 5, // Domyślnie ograniczenie do 5 stron
+          returnFormat: "markdown"
+        }
+      });
+      
+      if (crawlResponse.error) {
+        throw new Error(crawlResponse.error.message || "Błąd podczas crawlowania strony");
+      }
+      
+      if (crawlResponse.data) {
+        // Dodaj URL do listy (w rzeczywistości będzie to lista URL z odpowiedzi)
+        const newLink = { url, count: crawlResponse.data.contentCount || 1 };
+        setIncludedLinks([...includedLinks, newLink]);
+        toast.success("Strona została pomyślnie dodana do bazy wiedzy asystenta");
+        setUrl("");
+      }
+    } catch (error: any) {
+      console.error("Błąd podczas crawlowania strony:", error);
+      toast.error(`Nie udało się crawlować strony: ${error.message}`);
     } finally {
       setIsLoading(false);
+      setIsCrawlingComplete(true);
     }
   };
   
@@ -74,15 +71,15 @@ const WebsiteSource = () => {
   
   const handleDeleteAllLinks = () => {
     setIncludedLinks([]);
-    toast.success("All links deleted");
+    toast.success("Wszystkie linki zostały usunięte");
   };
 
   return (
     <div>
-      <h2 className="text-2xl font-bold mb-4">Website</h2>
+      <h2 className="text-2xl font-bold mb-4">Strona internetowa</h2>
       
       <div className="mb-6">
-        <h3 className="font-medium mb-2">Crawl</h3>
+        <h3 className="font-medium mb-2">Crawluj stronę</h3>
         <div className="flex gap-2 mb-2">
           <Input 
             placeholder="https://www.example.com" 
@@ -91,67 +88,52 @@ const WebsiteSource = () => {
             onChange={handleUrlChange}
           />
           <Button 
-            onClick={handleFetchLinks}
+            onClick={handleCrawlWebsite}
             disabled={isLoading}
+            className="gap-2"
           >
-            {isLoading ? "Loading..." : "Fetch more links"}
+            <Globe className="h-4 w-4" />
+            {isLoading ? "Pobieranie..." : "Crawluj stronę"}
           </Button>
         </div>
         <p className="text-sm text-gray-500 mb-6">
-          This will crawl all the links starting with the URL (not including files on the website).
+          Ta funkcja wykorzystuje Spider.cloud do crawlowania strony i dodania jej zawartości do bazy wiedzy asystenta.
         </p>
 
-        <div className="relative my-8">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-gray-300"></div>
+        {!isCrawlingComplete && (
+          <div className="my-4 p-4 bg-blue-50 rounded-md border border-blue-200">
+            <p className="text-blue-700">
+              Crawlowanie trwa. To może zająć kilka minut w zależności od rozmiaru strony. Możesz opuścić tę stronę, a proces będzie kontynuowany w tle.
+            </p>
           </div>
-          <div className="relative flex justify-center">
-            <span className="bg-white px-4 text-sm text-gray-500">OR</span>
-          </div>
-        </div>
-
-        <h3 className="font-medium mb-2">Submit Sitemap</h3>
-        <div className="flex gap-2">
-          <Input 
-            placeholder="https://www.example.com/sitemap.xml" 
-            className="flex-1"
-            value={sitemap}
-            onChange={handleSitemapChange}
-          />
-          <Button 
-            onClick={handleLoadSitemap}
-            disabled={isLoading}
-          >
-            Load additional sitemap
-          </Button>
-        </div>
+        )}
       </div>
 
       <div className="mt-8">
         <div className="flex justify-between items-center mb-2">
-          <h3 className="font-medium">Included Links</h3>
+          <h3 className="font-medium">Dodane strony</h3>
           <Button 
             variant="ghost" 
             className="text-red-500 hover:text-red-700 hover:bg-red-50 text-sm"
             onClick={handleDeleteAllLinks}
             disabled={includedLinks.length === 0}
           >
-            Delete all
+            Usuń wszystkie
           </Button>
         </div>
 
         <div className="space-y-2">
           {includedLinks.length === 0 ? (
-            <p className="text-gray-500 text-sm">No links added yet</p>
+            <p className="text-gray-500 text-sm">Nie dodano jeszcze żadnych stron</p>
           ) : (
             includedLinks.map((link, index) => (
               <div key={index} className="flex items-center justify-between border rounded-md p-2">
                 <div className="flex items-center gap-2">
-                  <div className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">Trained</div>
+                  <div className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">Zaindeksowana</div>
                   <span className="truncate max-w-md">{link.url}</span>
                 </div>
                 <div className="flex items-center gap-4">
-                  <span className="text-gray-500">{link.count}</span>
+                  <span className="text-gray-500">{link.count} elementów</span>
                   <Button 
                     variant="ghost" 
                     size="sm" 

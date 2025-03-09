@@ -19,6 +19,7 @@ const SourcesTab = () => {
     handleAddText,
     handleAddFiles,
     handleAddQA,
+    handleAddWebsite,
     handleRetrainAgent,
     getSourceStats
   } = useAgentSources(agentId);

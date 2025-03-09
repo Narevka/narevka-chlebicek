@@ -7,6 +7,7 @@ import {
   addTextSource, 
   addFileSource, 
   addQASource,
+  addWebsiteSource,
   calculateSourceStats 
 } from "@/services/sourceDataService";
 import { retrainAgent } from "@/services/sourceProcessingService";
@@ -66,6 +67,17 @@ export const useAgentSources = (agentId: string | undefined) => {
     }
   };
 
+  const handleAddWebsite = async (url: string) => {
+    if (!agentId || !user) return;
+    setIsProcessingSource(true);
+    
+    try {
+      await addWebsiteSource(agentId, user.id, url, sources, setSources);
+    } finally {
+      setIsProcessingSource(false);
+    }
+  };
+
   const handleRetrainAgent = async () => {
     if (!agentId) return;
     
@@ -89,6 +101,7 @@ export const useAgentSources = (agentId: string | undefined) => {
     handleAddText,
     handleAddFiles,
     handleAddQA,
+    handleAddWebsite,
     handleRetrainAgent,
     getSourceStats
   };
