@@ -28,15 +28,16 @@ const SpiderApiTab = ({ onWebsitesAdded }: SpiderApiTabProps) => {
 
   const loadSpiderJobs = async () => {
     try {
-      // Fixed type error by properly defining the response type
-      const { data, error } = await supabase
-        .rpc('get_spider_jobs', { agent_id_param: agentId })
-        
+      // Using the correct RPC call with type assertion
+      const { data, error } = await supabase.rpc('get_spider_jobs', { 
+        agent_id_param: agentId 
+      }) as { data: any[]; error: any };
+      
       if (error) throw error;
       
       if (data) {
         // Explicitly typing the response data
-        const jobData: SpiderJob[] = (data as any[]).map((item: any) => ({
+        const jobData: SpiderJob[] = data.map((item: any) => ({
           id: item.id,
           url: item.url,
           status: item.status,
@@ -128,9 +129,10 @@ const SpiderApiTab = ({ onWebsitesAdded }: SpiderApiTabProps) => {
 
   const handleDeleteJob = async (id: string) => {
     try {
-      // Fixed type error by properly handling the RPC call
-      const { error } = await supabase
-        .rpc('delete_spider_job', { job_id: id });
+      // Using the correct RPC call with type assertion
+      const { error } = await supabase.rpc('delete_spider_job', { 
+        job_id: id 
+      }) as { data: null, error: any };
         
       if (error) throw error;
       
