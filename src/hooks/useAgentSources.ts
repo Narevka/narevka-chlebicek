@@ -74,6 +74,9 @@ export const useAgentSources = (agentId: string | undefined) => {
     try {
       const sourceId = await addWebsiteSource(agentId, user.id, url, sources, setSources);
       return sourceId;
+    } catch (error) {
+      console.error("Error in handleAddWebsite:", error);
+      throw error;
     } finally {
       setIsProcessingSource(false);
     }

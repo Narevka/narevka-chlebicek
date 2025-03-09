@@ -15,6 +15,7 @@ const WebsiteSource = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isCrawlingComplete, setIsCrawlingComplete] = useState(true);
   const [includedLinks, setIncludedLinks] = useState<{url: string, count: number, sourceId?: string}[]>([]);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
   
   const handleUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setUrl(e.target.value);
@@ -37,6 +38,10 @@ const WebsiteSource = () => {
     try {
       // Wywołanie handleAddWebsite z hooka useAgentSources
       const sourceId = await handleAddWebsite(url);
+      
+      if (!sourceId) {
+        throw new Error("Nie udało się uzyskać ID źródła");
+      }
       
       // Dodaj URL do listy
       const newLink = { url, count: 1, sourceId }; // Zapisujemy sourceId do późniejszego pobrania
@@ -64,6 +69,13 @@ const WebsiteSource = () => {
   };
 
   const handleDownloadContent = async (sourceId: string, url: string) => {
+    if (!sourceId) {
+      toast.error("Brak ID źródła do pobrania");
+      return;
+    }
+
+    setDownloadingId(sourceId);
+    
     try {
       const { data, error } = await supabase
         .from("agent_sources")
@@ -111,6 +123,8 @@ const WebsiteSource = () => {
     } catch (error: any) {
       console.error("Błąd podczas pobierania zawartości:", error);
       toast.error(`Nie udało się pobrać zawartości: ${error.message}`);
+    } finally {
+      setDownloadingId(null);
     }
   };
 
@@ -180,6 +194,7 @@ const WebsiteSource = () => {
                       size="sm" 
                       className="text-blue-500 p-1 h-auto"
                       onClick={() => handleDownloadContent(link.sourceId!, link.url)}
+                      disabled={downloadingId === link.sourceId}
                       title="Pobierz zawartość"
                     >
                       <Download className="h-4 w-4" />

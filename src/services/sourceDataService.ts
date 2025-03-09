@@ -185,16 +185,23 @@ export const addWebsiteSource = async (
 ): Promise<string> => {
   try {
     // Wywołanie edge function do crawlowania strony
-    const crawlResponse = await supabase.functions.invoke('crawl-website', {
+    const { data: crawlResponse, error: crawlError } = await supabase.functions.invoke('crawl-website', {
       body: { 
         url,
         agentId,
+        userId, // Add this to pass user ID to the edge function
         limit: 5 // Domyślnie ograniczenie do 5 stron
       }
     });
     
-    if (crawlResponse.error) {
-      throw new Error(crawlResponse.error.message || "Failed to crawl website");
+    if (crawlError) {
+      console.error("Crawl error:", crawlError);
+      throw new Error(crawlError.message || "Failed to crawl website");
+    }
+    
+    if (!crawlResponse.success) {
+      console.error("Crawl response error:", crawlResponse.error);
+      throw new Error(crawlResponse.error || "Failed to crawl website");
     }
     
     // Refresh sources list after crawling
@@ -208,13 +215,17 @@ export const addWebsiteSource = async (
       source.content.includes(url)
     );
     
+    if (!addedSource || !addedSource.id) {
+      throw new Error("Failed to find added source ID");
+    }
+    
     toast.success("Website crawled and added successfully");
     
-    return addedSource?.id || "";
+    return addedSource.id;
   } catch (error: any) {
     console.error("Error adding website:", error);
     toast.error(`Failed to add website: ${error.message}`);
-    return "";
+    throw error; // Re-throw the error so it can be caught by the component
   }
 };
 

@@ -21,105 +21,125 @@ serve(async (req) => {
     }
 
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
-    const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY');
-    if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
       throw new Error('Brak konfiguracji Supabase');
     }
 
-    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    // Używamy service role key zamiast anon key do operacji na bazie danych
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
     
-    const { url, agentId, limit = 5, returnFormat = "markdown" } = await req.json();
+    const { url, agentId, userId, limit = 5, returnFormat = "markdown" } = await req.json();
     
-    if (!url || !agentId) {
-      throw new Error('Wymagane parametry: url i agentId');
+    if (!url || !agentId || !userId) {
+      throw new Error('Wymagane parametry: url, agentId i userId');
     }
 
-    console.log(`Rozpoczynam crawlowanie: ${url}, limit: ${limit}`);
+    console.log(`Rozpoczynam crawlowanie: ${url}, limit: ${limit}, agent: ${agentId}, user: ${userId}`);
     
     // Wywołaj API Spider.cloud do crawlowania
-    const crawlResponse = await fetch('https://api.spider.cloud/crawl', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${SPIDER_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        url: url,
-        limit: limit,
-        return_format: returnFormat,
-        store_data: true
-      }),
-    });
-
-    if (!crawlResponse.ok) {
-      const errorData = await crawlResponse.text();
-      console.error('Spider.cloud API error:', errorData);
-      throw new Error(`Spider.cloud API error: ${crawlResponse.status} ${errorData}`);
-    }
-
-    const crawlData = await crawlResponse.json();
-    console.log('Dane z crawlowania:', JSON.stringify(crawlData).substring(0, 200) + '...');
-    
-    // Przygotuj treść do zapisania w bazie danych
-    let aggregatedContent = '';
-    let contentCount = 0;
-    
-    if (Array.isArray(crawlData)) {
-      crawlData.forEach(item => {
-        if (item.content && typeof item.content === 'string') {
-          aggregatedContent += item.content + '\n\n';
-          contentCount++;
-        }
-      });
-    }
-    
-    // Zapisz wynik crawlowania w bazie danych jako źródło agenta
-    const { data: sourceData, error: sourceError } = await supabase
-      .from('agent_sources')
-      .insert([{
-        agent_id: agentId,
-        type: 'website',
-        content: JSON.stringify({
+    try {
+      const crawlResponse = await fetch('https://api.spider.cloud/crawl', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${SPIDER_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
           url: url,
-          crawled_content: aggregatedContent.substring(0, 100000) // Ograniczenie długości treści
+          limit: limit,
+          return_format: returnFormat,
+          store_data: true
         }),
-        chars: aggregatedContent.length
-      }])
-      .select();
-      
-    if (sourceError) {
-      throw new Error(`Błąd podczas zapisywania danych: ${sourceError.message}`);
-    }
-    
-    // Przetwórz źródło przez Open AI (podobnie jak inne typy źródeł)
-    if (sourceData && sourceData.length > 0) {
-      const sourceId = sourceData[0].id;
-      
-      const processResponse = await supabase.functions.invoke('process-agent-source', {
-        body: { 
-          sourceId, 
-          agentId,
-          operation: 'add'
-        }
       });
-      
-      if (processResponse.error) {
-        console.error("Błąd podczas przetwarzania źródła:", processResponse.error);
-        throw new Error(processResponse.error.message || "Nie udało się przetworzyć źródła");
-      }
-    }
 
-    return new Response(
-      JSON.stringify({ 
-        success: true, 
-        contentCount: contentCount,
-        message: `Pomyślnie crawlowano ${contentCount} stron z ${url}` 
-      }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200
+      if (!crawlResponse.ok) {
+        const errorData = await crawlResponse.text();
+        console.error('Spider.cloud API error:', errorData);
+        throw new Error(`Spider.cloud API error: ${crawlResponse.status} ${errorData}`);
       }
-    );
+
+      const crawlData = await crawlResponse.json();
+      console.log('Dane z crawlowania:', JSON.stringify(crawlData).substring(0, 200) + '...');
+      
+      // Przygotuj treść do zapisania w bazie danych
+      let aggregatedContent = '';
+      let contentCount = 0;
+      
+      if (Array.isArray(crawlData)) {
+        crawlData.forEach(item => {
+          if (item.content && typeof item.content === 'string') {
+            aggregatedContent += item.content + '\n\n';
+            contentCount++;
+          }
+        });
+      }
+      
+      if (aggregatedContent.trim().length === 0) {
+        throw new Error("Nie udało się pobrać zawartości strony");
+      }
+      
+      // Zapisz wynik crawlowania w bazie danych jako źródło agenta używając service role
+      const { data: sourceData, error: sourceError } = await supabase
+        .from('agent_sources')
+        .insert([{
+          agent_id: agentId,
+          user_id: userId,
+          type: 'website',
+          content: JSON.stringify({
+            url: url,
+            crawled_content: aggregatedContent.substring(0, 100000) // Ograniczenie długości treści
+          }),
+          chars: aggregatedContent.length
+        }])
+        .select();
+        
+      if (sourceError) {
+        console.error('Błąd podczas zapisywania danych:', sourceError);
+        throw new Error(`Błąd podczas zapisywania danych: ${sourceError.message}`);
+      }
+      
+      // Przetwórz źródło przez Open AI (podobnie jak inne typy źródeł)
+      if (sourceData && sourceData.length > 0) {
+        const sourceId = sourceData[0].id;
+        
+        try {
+          const processResponse = await supabase.functions.invoke('process-agent-source', {
+            body: { 
+              sourceId, 
+              agentId,
+              operation: 'add'
+            }
+          });
+          
+          if (processResponse.error) {
+            console.error("Błąd podczas przetwarzania źródła:", processResponse.error);
+            throw new Error(processResponse.error.message || "Nie udało się przetworzyć źródła");
+          }
+        } catch (processError) {
+          console.error("Błąd podczas przetwarzania źródła:", processError);
+          // Nie rzucamy wyjątku, aby mimo błędu w przetwarzaniu, źródło zostało zapisane
+        }
+      } else {
+        throw new Error("Nie udało się zapisać źródła");
+      }
+
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          contentCount: contentCount,
+          message: `Pomyślnie crawlowano ${contentCount} stron z ${url}`,
+          sourceId: sourceData && sourceData.length > 0 ? sourceData[0].id : null
+        }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200
+        }
+      );
+    } catch (spiderError) {
+      console.error('Błąd podczas wywoływania Spider.cloud API:', spiderError);
+      throw spiderError;
+    }
   } catch (error) {
     console.error('Błąd podczas wykonywania funkcji crawl-website:', error);
     
