@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { SourceItem, SourceStats } from "@/types/sources";
 import { toast } from "sonner";
 import { processSourceWithOpenAI, readFileAsBase64 } from "./sourceProcessingService";
+import { CrawlOptions } from "@/hooks/useAgentSources";
 
 /**
  * Fetch all sources for an agent
@@ -181,16 +182,25 @@ export const addWebsiteSource = async (
   userId: string, 
   url: string, 
   sources: SourceItem[],
-  setSourcesCallback: (sources: SourceItem[]) => void
+  setSourcesCallback: (sources: SourceItem[]) => void,
+  options?: CrawlOptions
 ): Promise<string> => {
   try {
-    // Call edge function to crawl the website
+    // Call edge function to crawl the website with advanced options
     const { data: crawlResponse, error: crawlError } = await supabase.functions.invoke('crawl-website', {
       body: { 
         url,
         agentId,
         userId,
-        limit: 5 // Default limit of 5 pages
+        limit: options?.limit || 5,
+        returnFormat: options?.returnFormat || "markdown",
+        requestType: options?.requestType || "smart",
+        enableProxies: options?.enableProxies || false,
+        enableMetadata: options?.enableMetadata !== undefined ? options.enableMetadata : true,
+        enableAntiBot: options?.enableAntiBot || false,
+        enableFullResources: options?.enableFullResources || false,
+        enableSubdomains: options?.enableSubdomains || false,
+        enableTlds: options?.enableTlds || false
       }
     });
     

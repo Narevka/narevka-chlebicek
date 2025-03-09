@@ -29,13 +29,28 @@ serve(async (req) => {
     // Use service role key for database operations
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
     
-    const { url, agentId, userId, limit = 5, returnFormat = "markdown" } = await req.json();
+    // Extract parameters from request
+    const { 
+      url, 
+      agentId, 
+      userId, 
+      limit = 5, 
+      returnFormat = "markdown",
+      requestType = "smart", // 'http', 'headless', or 'smart'
+      enableProxies = false,
+      enableMetadata = true,
+      enableAntiBot = false,
+      enableFullResources = false,
+      enableSubdomains = false,
+      enableTlds = false
+    } = await req.json();
     
     if (!url || !agentId || !userId) {
       throw new Error('Required parameters: url, agentId, and userId');
     }
 
     console.log(`Starting crawl: ${url}, limit: ${limit}, agent: ${agentId}, user: ${userId}`);
+    console.log(`Advanced options: requestType=${requestType}, proxies=${enableProxies}, antiBot=${enableAntiBot}`);
     
     // Call Spider.cloud API for crawling
     try {
@@ -49,6 +64,13 @@ serve(async (req) => {
           url: url,
           limit: limit,
           return_format: returnFormat,
+          request: requestType,
+          premium_proxies: enableProxies,
+          metadata: enableMetadata,
+          anti_bot: enableAntiBot,
+          full_resources: enableFullResources,
+          subdomains: enableSubdomains,
+          tld: enableTlds,
           store_data: true
         }),
       });
@@ -99,8 +121,7 @@ serve(async (req) => {
         throw new Error(`Error saving data: ${sourceError.message}`);
       }
       
-      // Don't process with OpenAI here, just return success
-      // We'll let the frontend handle the processing separately to avoid timeout issues
+      // Return success with source ID for later processing
       if (sourceData && sourceData.length > 0) {
         const sourceId = sourceData[0].id;
         

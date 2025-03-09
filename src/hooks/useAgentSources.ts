@@ -12,6 +12,19 @@ import {
 } from "@/services/sourceDataService";
 import { retrainAgent } from "@/services/sourceProcessingService";
 
+// Define interface for crawler options
+export interface CrawlOptions {
+  limit?: number;
+  returnFormat?: string;
+  requestType?: string;
+  enableProxies?: boolean;
+  enableMetadata?: boolean;
+  enableAntiBot?: boolean;
+  enableFullResources?: boolean;
+  enableSubdomains?: boolean;
+  enableTlds?: boolean;
+}
+
 export const useAgentSources = (agentId: string | undefined) => {
   const { user } = useAuth();
   const [sources, setSources] = useState<SourceItem[]>([]);
@@ -67,12 +80,12 @@ export const useAgentSources = (agentId: string | undefined) => {
     }
   };
 
-  const handleAddWebsite = async (url: string): Promise<string> => {
+  const handleAddWebsite = async (url: string, options?: CrawlOptions): Promise<string> => {
     if (!agentId || !user) return "";
     setIsProcessingSource(true);
     
     try {
-      const sourceId = await addWebsiteSource(agentId, user.id, url, sources, setSources);
+      const sourceId = await addWebsiteSource(agentId, user.id, url, sources, setSources, options);
       return sourceId;
     } catch (error) {
       console.error("Error in handleAddWebsite:", error);

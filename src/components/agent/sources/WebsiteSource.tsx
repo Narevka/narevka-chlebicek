@@ -2,11 +2,27 @@
 import React, { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Trash2, Globe, Download, RotateCw } from "lucide-react";
+import { Trash2, Globe, Download, RotateCw, Settings, ChevronDown, ChevronUp } from "lucide-react";
 import { useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAgentSources } from "@/hooks/useAgentSources";
+import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Slider } from "@/components/ui/slider";
+
+// Crawl options types
+interface CrawlOptions {
+  limit: number;
+  returnFormat: string;
+  requestType: string;
+  enableProxies: boolean;
+  enableMetadata: boolean;
+  enableAntiBot: boolean;
+  enableFullResources: boolean;
+  enableSubdomains: boolean;
+  enableTlds: boolean;
+}
 
 const WebsiteSource = () => {
   const { id: agentId } = useParams<{ id: string }>();
@@ -16,6 +32,20 @@ const WebsiteSource = () => {
   const [isCrawlingComplete, setIsCrawlingComplete] = useState(true);
   const [includedLinks, setIncludedLinks] = useState<{url: string, count: number, sourceId?: string, isProcessing?: boolean}[]>([]);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
+  
+  // Crawl options
+  const [crawlOptions, setCrawlOptions] = useState<CrawlOptions>({
+    limit: 5,
+    returnFormat: "markdown",
+    requestType: "smart",
+    enableProxies: false,
+    enableMetadata: true,
+    enableAntiBot: false,
+    enableFullResources: false,
+    enableSubdomains: false,
+    enableTlds: false
+  });
   
   const handleUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setUrl(e.target.value);
@@ -36,8 +66,8 @@ const WebsiteSource = () => {
     setIsCrawlingComplete(false);
     
     try {
-      // Call handleAddWebsite from useAgentSources hook
-      const sourceId = await handleAddWebsite(url);
+      // Call handleAddWebsite from useAgentSources hook with advanced options
+      const sourceId = await handleAddWebsite(url, crawlOptions);
       
       if (!sourceId) {
         throw new Error("Failed to get source ID");
@@ -170,6 +200,14 @@ const WebsiteSource = () => {
     }
   };
 
+  // Update a specific option
+  const updateCrawlOption = (key: keyof CrawlOptions, value: any) => {
+    setCrawlOptions({
+      ...crawlOptions,
+      [key]: value
+    });
+  };
+
   return (
     <div>
       <h2 className="text-2xl font-bold mb-4">Website</h2>
@@ -192,14 +230,162 @@ const WebsiteSource = () => {
             {isLoading ? "Fetching..." : "Crawl website"}
           </Button>
         </div>
-        <p className="text-sm text-gray-500 mb-6">
+        <p className="text-sm text-gray-500 mb-2">
           This feature uses Spider.cloud to crawl the website and add its content to your assistant's knowledge base.
         </p>
+
+        {/* Advanced options toggler */}
+        <Button
+          variant="outline" 
+          size="sm"
+          onClick={() => setShowAdvancedOptions(!showAdvancedOptions)}
+          className="mb-2 gap-1"
+        >
+          <Settings className="h-3.5 w-3.5" />
+          Advanced Options
+          {showAdvancedOptions ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+        </Button>
+
+        {/* Advanced options panel */}
+        {showAdvancedOptions && (
+          <div className="p-4 border rounded-md mb-4 bg-gray-50 dark:bg-gray-900 space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Request Type */}
+              <div>
+                <label className="block text-sm font-medium mb-1">Request Type</label>
+                <Select 
+                  value={crawlOptions.requestType} 
+                  onValueChange={(v) => updateCrawlOption('requestType', v)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Request Type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="http">HTTP</SelectItem>
+                    <SelectItem value="headless">Headless</SelectItem>
+                    <SelectItem value="smart">Smart</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-gray-500 mt-1">Smart uses HTTP first and Chrome headless when needed</p>
+              </div>
+
+              {/* Return Format */}
+              <div>
+                <label className="block text-sm font-medium mb-1">Return Format</label>
+                <Select 
+                  value={crawlOptions.returnFormat} 
+                  onValueChange={(v) => updateCrawlOption('returnFormat', v)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Return Format" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="markdown">Markdown</SelectItem>
+                    <SelectItem value="commonmark">CommonMark</SelectItem>
+                    <SelectItem value="raw">Raw (HTML)</SelectItem>
+                    <SelectItem value="text">Text</SelectItem>
+                    <SelectItem value="bytes">Bytes</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-gray-500 mt-1">How content should be formatted</p>
+              </div>
+
+              {/* Crawl Limit */}
+              <div>
+                <label className="block text-sm font-medium mb-1">Page Limit: {crawlOptions.limit}</label>
+                <Slider 
+                  value={[crawlOptions.limit]} 
+                  min={1} 
+                  max={300} 
+                  step={1} 
+                  onValueChange={(value) => updateCrawlOption('limit', value[0])}
+                  className="mb-1"
+                />
+                <p className="text-xs text-gray-500">Maximum number of pages to crawl (1-300)</p>
+              </div>
+
+              {/* Toggle options */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="text-sm font-medium">Premium Proxies</label>
+                    <p className="text-xs text-gray-500">Use premium proxies to avoid detection</p>
+                  </div>
+                  <Switch 
+                    checked={crawlOptions.enableProxies} 
+                    onCheckedChange={(checked) => updateCrawlOption('enableProxies', checked)}
+                  />
+                </div>
+                
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="text-sm font-medium">Anti-Bot Mode</label>
+                    <p className="text-xs text-gray-500">Techniques to avoid being blocked</p>
+                  </div>
+                  <Switch 
+                    checked={crawlOptions.enableAntiBot} 
+                    onCheckedChange={(checked) => updateCrawlOption('enableAntiBot', checked)}
+                  />
+                </div>
+              </div>
+              
+              {/* More toggle options */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="text-sm font-medium">Metadata</label>
+                    <p className="text-xs text-gray-500">Store metadata like title, description</p>
+                  </div>
+                  <Switch 
+                    checked={crawlOptions.enableMetadata} 
+                    onCheckedChange={(checked) => updateCrawlOption('enableMetadata', checked)}
+                  />
+                </div>
+                
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="text-sm font-medium">Full Resources</label>
+                    <p className="text-xs text-gray-500">Scrape all resources (CSS, JS, images)</p>
+                  </div>
+                  <Switch 
+                    checked={crawlOptions.enableFullResources} 
+                    onCheckedChange={(checked) => updateCrawlOption('enableFullResources', checked)}
+                  />
+                </div>
+              </div>
+              
+              {/* Even more toggle options */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="text-sm font-medium">Subdomains</label>
+                    <p className="text-xs text-gray-500">Crawl subdomains of the site</p>
+                  </div>
+                  <Switch 
+                    checked={crawlOptions.enableSubdomains} 
+                    onCheckedChange={(checked) => updateCrawlOption('enableSubdomains', checked)}
+                  />
+                </div>
+                
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="text-sm font-medium">TLD Variants</label>
+                    <p className="text-xs text-gray-500">Crawl other TLD variants of site</p>
+                  </div>
+                  <Switch 
+                    checked={crawlOptions.enableTlds} 
+                    onCheckedChange={(checked) => updateCrawlOption('enableTlds', checked)}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {!isCrawlingComplete && (
           <div className="my-4 p-4 bg-blue-50 rounded-md border border-blue-200">
             <p className="text-blue-700">
-              Crawling in progress. This may take a few minutes depending on the website size. You can leave this page and the process will continue in the background.
+              Crawling in progress. This may take a few minutes depending on the website size and options selected. You can leave this page and the process will continue in the background.
             </p>
           </div>
         )}
