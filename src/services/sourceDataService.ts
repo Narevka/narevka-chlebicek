@@ -184,13 +184,13 @@ export const addWebsiteSource = async (
   setSourcesCallback: (sources: SourceItem[]) => void
 ): Promise<string> => {
   try {
-    // Wywołanie edge function do crawlowania strony
+    // Call edge function to crawl the website
     const { data: crawlResponse, error: crawlError } = await supabase.functions.invoke('crawl-website', {
       body: { 
         url,
         agentId,
-        userId, // Add this to pass user ID to the edge function
-        limit: 5 // Domyślnie ograniczenie do 5 stron
+        userId,
+        limit: 5 // Default limit of 5 pages
       }
     });
     
@@ -208,20 +208,16 @@ export const addWebsiteSource = async (
     const refreshedSources = await fetchAgentSources(agentId);
     setSourcesCallback(refreshedSources);
     
-    // Znajdź i zwróć ID dodanego źródła
-    const addedSource = refreshedSources.find(source => 
-      source.type === "website" && 
-      source.content && 
-      source.content.includes(url)
-    );
+    // Get the source ID from the response
+    const sourceId = crawlResponse.sourceId;
     
-    if (!addedSource || !addedSource.id) {
-      throw new Error("Failed to find added source ID");
+    if (!sourceId) {
+      throw new Error("Failed to get source ID from crawl response");
     }
     
-    toast.success("Website crawled and added successfully");
+    toast.success("Website crawled successfully. You can process it with OpenAI using the process button.");
     
-    return addedSource.id;
+    return sourceId;
   } catch (error: any) {
     console.error("Error adding website:", error);
     toast.error(`Failed to add website: ${error.message}`);

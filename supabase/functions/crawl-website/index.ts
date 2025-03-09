@@ -9,7 +9,7 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
-  // Obsługa zapytań CORS preflight
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -17,27 +17,27 @@ serve(async (req) => {
   try {
     const SPIDER_API_KEY = Deno.env.get('SPIDER_API_KEY');
     if (!SPIDER_API_KEY) {
-      throw new Error('Brak klucza API Spider.cloud');
+      throw new Error('Missing Spider.cloud API key');
     }
 
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-      throw new Error('Brak konfiguracji Supabase');
+      throw new Error('Missing Supabase configuration');
     }
 
-    // Używamy service role key zamiast anon key do operacji na bazie danych
+    // Use service role key for database operations
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
     
     const { url, agentId, userId, limit = 5, returnFormat = "markdown" } = await req.json();
     
     if (!url || !agentId || !userId) {
-      throw new Error('Wymagane parametry: url, agentId i userId');
+      throw new Error('Required parameters: url, agentId, and userId');
     }
 
-    console.log(`Rozpoczynam crawlowanie: ${url}, limit: ${limit}, agent: ${agentId}, user: ${userId}`);
+    console.log(`Starting crawl: ${url}, limit: ${limit}, agent: ${agentId}, user: ${userId}`);
     
-    // Wywołaj API Spider.cloud do crawlowania
+    // Call Spider.cloud API for crawling
     try {
       const crawlResponse = await fetch('https://api.spider.cloud/crawl', {
         method: 'POST',
@@ -60,9 +60,9 @@ serve(async (req) => {
       }
 
       const crawlData = await crawlResponse.json();
-      console.log('Dane z crawlowania:', JSON.stringify(crawlData).substring(0, 200) + '...');
+      console.log('Crawl data:', JSON.stringify(crawlData).substring(0, 200) + '...');
       
-      // Przygotuj treść do zapisania w bazie danych
+      // Prepare content to save in database
       let aggregatedContent = '';
       let contentCount = 0;
       
@@ -76,10 +76,10 @@ serve(async (req) => {
       }
       
       if (aggregatedContent.trim().length === 0) {
-        throw new Error("Nie udało się pobrać zawartości strony");
+        throw new Error("Failed to retrieve page content");
       }
       
-      // Zapisz wynik crawlowania w bazie danych jako źródło agenta używając service role
+      // Save crawl result in database as agent source
       const { data: sourceData, error: sourceError } = await supabase
         .from('agent_sources')
         .insert([{
@@ -88,65 +88,48 @@ serve(async (req) => {
           type: 'website',
           content: JSON.stringify({
             url: url,
-            crawled_content: aggregatedContent.substring(0, 100000) // Ograniczenie długości treści
+            crawled_content: aggregatedContent.substring(0, 100000) // Limit content length
           }),
           chars: aggregatedContent.length
         }])
         .select();
         
       if (sourceError) {
-        console.error('Błąd podczas zapisywania danych:', sourceError);
-        throw new Error(`Błąd podczas zapisywania danych: ${sourceError.message}`);
+        console.error('Error saving data:', sourceError);
+        throw new Error(`Error saving data: ${sourceError.message}`);
       }
       
-      // Przetwórz źródło przez Open AI (podobnie jak inne typy źródeł)
+      // Don't process with OpenAI here, just return success
+      // We'll let the frontend handle the processing separately to avoid timeout issues
       if (sourceData && sourceData.length > 0) {
         const sourceId = sourceData[0].id;
         
-        try {
-          const processResponse = await supabase.functions.invoke('process-agent-source', {
-            body: { 
-              sourceId, 
-              agentId,
-              operation: 'add'
-            }
-          });
-          
-          if (processResponse.error) {
-            console.error("Błąd podczas przetwarzania źródła:", processResponse.error);
-            throw new Error(processResponse.error.message || "Nie udało się przetworzyć źródła");
+        return new Response(
+          JSON.stringify({ 
+            success: true, 
+            contentCount: contentCount,
+            message: `Successfully crawled ${contentCount} pages from ${url}`,
+            sourceId: sourceId
+          }),
+          { 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 200
           }
-        } catch (processError) {
-          console.error("Błąd podczas przetwarzania źródła:", processError);
-          // Nie rzucamy wyjątku, aby mimo błędu w przetwarzaniu, źródło zostało zapisane
-        }
+        );
       } else {
-        throw new Error("Nie udało się zapisać źródła");
+        throw new Error("Failed to save source");
       }
-
-      return new Response(
-        JSON.stringify({ 
-          success: true, 
-          contentCount: contentCount,
-          message: `Pomyślnie crawlowano ${contentCount} stron z ${url}`,
-          sourceId: sourceData && sourceData.length > 0 ? sourceData[0].id : null
-        }),
-        { 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 200
-        }
-      );
     } catch (spiderError) {
-      console.error('Błąd podczas wywoływania Spider.cloud API:', spiderError);
+      console.error('Error calling Spider.cloud API:', spiderError);
       throw spiderError;
     }
   } catch (error) {
-    console.error('Błąd podczas wykonywania funkcji crawl-website:', error);
+    console.error('Error executing crawl-website function:', error);
     
     return new Response(
       JSON.stringify({ 
         success: false, 
-        error: error.message || 'Wystąpił nieznany błąd' 
+        error: error.message || 'Unknown error occurred' 
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Trash2, Globe, Download } from "lucide-react";
+import { Trash2, Globe, Download, RotateCw } from "lucide-react";
 import { useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,7 +14,7 @@ const WebsiteSource = () => {
   const [url, setUrl] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isCrawlingComplete, setIsCrawlingComplete] = useState(true);
-  const [includedLinks, setIncludedLinks] = useState<{url: string, count: number, sourceId?: string}[]>([]);
+  const [includedLinks, setIncludedLinks] = useState<{url: string, count: number, sourceId?: string, isProcessing?: boolean}[]>([]);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   
   const handleUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -23,12 +23,12 @@ const WebsiteSource = () => {
   
   const handleCrawlWebsite = async () => {
     if (!url) {
-      toast.error("Proszę podać adres URL strony");
+      toast.error("Please provide a website URL");
       return;
     }
     
     if (!url.startsWith('http://') && !url.startsWith('https://')) {
-      toast.error("URL musi zaczynać się od http:// lub https://");
+      toast.error("URL must start with http:// or https://");
       return;
     }
     
@@ -36,21 +36,21 @@ const WebsiteSource = () => {
     setIsCrawlingComplete(false);
     
     try {
-      // Wywołanie handleAddWebsite z hooka useAgentSources
+      // Call handleAddWebsite from useAgentSources hook
       const sourceId = await handleAddWebsite(url);
       
       if (!sourceId) {
-        throw new Error("Nie udało się uzyskać ID źródła");
+        throw new Error("Failed to get source ID");
       }
       
-      // Dodaj URL do listy
-      const newLink = { url, count: 1, sourceId }; // Zapisujemy sourceId do późniejszego pobrania
+      // Add URL to list
+      const newLink = { url, count: 1, sourceId }; // Save sourceId for later download
       setIncludedLinks([...includedLinks, newLink]);
-      toast.success("Strona została dodana do crawlowania");
+      toast.success("Website added for crawling");
       setUrl("");
     } catch (error: any) {
-      console.error("Błąd podczas crawlowania strony:", error);
-      toast.error(`Nie udało się crawlować strony: ${error.message}`);
+      console.error("Error crawling website:", error);
+      toast.error(`Failed to crawl website: ${error.message}`);
     } finally {
       setIsLoading(false);
       setIsCrawlingComplete(true);
@@ -65,12 +65,12 @@ const WebsiteSource = () => {
   
   const handleDeleteAllLinks = () => {
     setIncludedLinks([]);
-    toast.success("Wszystkie linki zostały usunięte");
+    toast.success("All links have been removed");
   };
 
   const handleDownloadContent = async (sourceId: string, url: string) => {
     if (!sourceId) {
-      toast.error("Brak ID źródła do pobrania");
+      toast.error("No source ID to download");
       return;
     }
 
@@ -88,52 +88,94 @@ const WebsiteSource = () => {
       }
 
       if (!data || !data.content) {
-        toast.error("Nie znaleziono zawartości dla tej strony");
+        toast.error("No content found for this website");
         return;
       }
 
-      // Parsuj zawartość
+      // Parse content
       let content = "";
       try {
         const parsedContent = JSON.parse(data.content);
-        content = parsedContent.crawled_content || "Brak zawartości";
+        content = parsedContent.crawled_content || "No content";
       } catch (e) {
         content = data.content;
       }
 
-      // Utwórz plik do pobrania
+      // Create file for download
       const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
       const urlObject = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = urlObject;
       
-      // Przygotuj nazwę pliku na podstawie URL
+      // Prepare filename based on URL
       const domain = new URL(url).hostname;
       a.download = `crawled-content-${domain}.txt`;
       
-      // Symuluj kliknięcie by pobrać plik
+      // Simulate click to download file
       document.body.appendChild(a);
       a.click();
       
-      // Posprzątaj
+      // Clean up
       document.body.removeChild(a);
       URL.revokeObjectURL(urlObject);
       
-      toast.success("Pobieranie rozpoczęte");
+      toast.success("Download started");
     } catch (error: any) {
-      console.error("Błąd podczas pobierania zawartości:", error);
-      toast.error(`Nie udało się pobrać zawartości: ${error.message}`);
+      console.error("Error downloading content:", error);
+      toast.error(`Failed to download content: ${error.message}`);
     } finally {
       setDownloadingId(null);
     }
   };
 
+  const handleProcessSource = async (sourceId: string, index: number) => {
+    if (!sourceId || !agentId) {
+      toast.error("Missing source ID or agent ID");
+      return;
+    }
+
+    // Update state to show processing
+    const newLinks = [...includedLinks];
+    newLinks[index] = {...newLinks[index], isProcessing: true};
+    setIncludedLinks(newLinks);
+    
+    try {
+      // Process the source using the process-agent-source function
+      const { data: processResponse, error: processError } = await supabase.functions.invoke('process-agent-source', {
+        body: { 
+          sourceId, 
+          agentId,
+          operation: 'add'
+        }
+      });
+      
+      if (processError) {
+        throw new Error(processError.message || "Failed to process source");
+      }
+      
+      toast.success("Website content processed successfully");
+      
+      // Update state to show processing complete
+      const updatedLinks = [...includedLinks];
+      updatedLinks[index] = {...updatedLinks[index], isProcessing: false};
+      setIncludedLinks(updatedLinks);
+    } catch (error: any) {
+      console.error("Error processing source:", error);
+      toast.error(`Failed to process source: ${error.message}`);
+      
+      // Update state to show processing failed
+      const updatedLinks = [...includedLinks];
+      updatedLinks[index] = {...updatedLinks[index], isProcessing: false};
+      setIncludedLinks(updatedLinks);
+    }
+  };
+
   return (
     <div>
-      <h2 className="text-2xl font-bold mb-4">Strona internetowa</h2>
+      <h2 className="text-2xl font-bold mb-4">Website</h2>
       
       <div className="mb-6">
-        <h3 className="font-medium mb-2">Crawluj stronę</h3>
+        <h3 className="font-medium mb-2">Crawl a website</h3>
         <div className="flex gap-2 mb-2">
           <Input 
             placeholder="https://www.example.com" 
@@ -147,17 +189,17 @@ const WebsiteSource = () => {
             className="gap-2"
           >
             <Globe className="h-4 w-4" />
-            {isLoading ? "Pobieranie..." : "Crawluj stronę"}
+            {isLoading ? "Fetching..." : "Crawl website"}
           </Button>
         </div>
         <p className="text-sm text-gray-500 mb-6">
-          Ta funkcja wykorzystuje Spider.cloud do crawlowania strony i dodania jej zawartości do bazy wiedzy asystenta.
+          This feature uses Spider.cloud to crawl the website and add its content to your assistant's knowledge base.
         </p>
 
         {!isCrawlingComplete && (
           <div className="my-4 p-4 bg-blue-50 rounded-md border border-blue-200">
             <p className="text-blue-700">
-              Crawlowanie trwa. To może zająć kilka minut w zależności od rozmiaru strony. Możesz opuścić tę stronę, a proces będzie kontynuowany w tle.
+              Crawling in progress. This may take a few minutes depending on the website size. You can leave this page and the process will continue in the background.
             </p>
           </div>
         )}
@@ -165,40 +207,52 @@ const WebsiteSource = () => {
 
       <div className="mt-8">
         <div className="flex justify-between items-center mb-2">
-          <h3 className="font-medium">Dodane strony</h3>
+          <h3 className="font-medium">Added websites</h3>
           <Button 
             variant="ghost" 
             className="text-red-500 hover:text-red-700 hover:bg-red-50 text-sm"
             onClick={handleDeleteAllLinks}
             disabled={includedLinks.length === 0}
           >
-            Usuń wszystkie
+            Remove all
           </Button>
         </div>
 
         <div className="space-y-2">
           {includedLinks.length === 0 ? (
-            <p className="text-gray-500 text-sm">Nie dodano jeszcze żadnych stron</p>
+            <p className="text-gray-500 text-sm">No websites added yet</p>
           ) : (
             includedLinks.map((link, index) => (
               <div key={index} className="flex items-center justify-between border rounded-md p-2">
                 <div className="flex items-center gap-2">
-                  <div className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">Zaindeksowana</div>
+                  <div className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">Crawled</div>
                   <span className="truncate max-w-md">{link.url}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-gray-500">{link.count} elementów</span>
+                  <span className="text-gray-500">{link.count} items</span>
                   {link.sourceId && (
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      className="text-blue-500 p-1 h-auto"
-                      onClick={() => handleDownloadContent(link.sourceId!, link.url)}
-                      disabled={downloadingId === link.sourceId}
-                      title="Pobierz zawartość"
-                    >
-                      <Download className="h-4 w-4" />
-                    </Button>
+                    <>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="text-blue-500 p-1 h-auto"
+                        onClick={() => handleProcessSource(link.sourceId!, index)}
+                        disabled={link.isProcessing}
+                        title="Process with OpenAI"
+                      >
+                        <RotateCw className={`h-4 w-4 ${link.isProcessing ? 'animate-spin' : ''}`} />
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="text-blue-500 p-1 h-auto"
+                        onClick={() => handleDownloadContent(link.sourceId!, link.url)}
+                        disabled={downloadingId === link.sourceId}
+                        title="Download content"
+                      >
+                        <Download className="h-4 w-4" />
+                      </Button>
+                    </>
                   )}
                   <Button 
                     variant="ghost" 
