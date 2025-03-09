@@ -1,8 +1,8 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Trash2, Globe, Download, RotateCw, Settings, ChevronDown, ChevronUp } from "lucide-react";
+import { Trash2, Globe, Download, RotateCw, Settings, ChevronDown, ChevronUp, RefreshCw } from "lucide-react";
 import { useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -10,6 +10,7 @@ import { useAgentSources } from "@/hooks/useAgentSources";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
+import { Badge } from "@/components/ui/badge";
 
 // Crawl options types
 interface CrawlOptions {
@@ -24,13 +25,22 @@ interface CrawlOptions {
   enableTlds: boolean;
 }
 
+// Define interface for website source item with status
+interface WebsiteSourceItem {
+  url: string;
+  count: number;
+  sourceId?: string;
+  isProcessing?: boolean;
+  status?: 'crawling' | 'completed' | 'error';
+  error?: string;
+}
+
 const WebsiteSource = () => {
   const { id: agentId } = useParams<{ id: string }>();
   const { handleAddWebsite } = useAgentSources(agentId);
   const [url, setUrl] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [isCrawlingComplete, setIsCrawlingComplete] = useState(true);
-  const [includedLinks, setIncludedLinks] = useState<{url: string, count: number, sourceId?: string, isProcessing?: boolean}[]>([]);
+  const [includedLinks, setIncludedLinks] = useState<WebsiteSourceItem[]>([]);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
   
@@ -47,6 +57,71 @@ const WebsiteSource = () => {
     enableTlds: false
   });
   
+  // Effect to periodically check the status of crawling sources
+  useEffect(() => {
+    const crawlingSources = includedLinks.filter(link => link.status === 'crawling');
+    if (crawlingSources.length === 0) return;
+
+    const checkCrawlStatus = async () => {
+      const updatedLinks = [...includedLinks];
+      let hasChanges = false;
+
+      for (let i = 0; i < updatedLinks.length; i++) {
+        const link = updatedLinks[i];
+        
+        if (link.status === 'crawling' && link.sourceId) {
+          try {
+            const { data, error } = await supabase
+              .from("agent_sources")
+              .select("content")
+              .eq("id", link.sourceId)
+              .single();
+
+            if (error) {
+              console.error("Error checking crawl status:", error);
+              continue;
+            }
+
+            if (data && data.content) {
+              let content;
+              try {
+                content = JSON.parse(data.content);
+              } catch (e) {
+                console.error("Error parsing content:", e);
+                continue;
+              }
+
+              if (content.status && content.status !== link.status) {
+                updatedLinks[i] = {
+                  ...link,
+                  status: content.status,
+                  error: content.error,
+                  count: content.pages_crawled || link.count
+                };
+                hasChanges = true;
+
+                if (content.status === 'completed') {
+                  toast.success(`Crawl completed for ${link.url}`);
+                } else if (content.status === 'error') {
+                  toast.error(`Crawl failed for ${link.url}: ${content.error}`);
+                }
+              }
+            }
+          } catch (error) {
+            console.error("Error checking source status:", error);
+          }
+        }
+      }
+
+      if (hasChanges) {
+        setIncludedLinks(updatedLinks);
+      }
+    };
+
+    const intervalId = setInterval(checkCrawlStatus, 5000); // Check every 5 seconds
+    return () => clearInterval(intervalId);
+  }, [includedLinks]);
+
   const handleUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setUrl(e.target.value);
   };
@@ -63,7 +138,6 @@ const WebsiteSource = () => {
     }
     
     setIsLoading(true);
-    setIsCrawlingComplete(false);
     
     try {
       // Call handleAddWebsite from useAgentSources hook with advanced options
@@ -74,16 +148,21 @@ const WebsiteSource = () => {
       }
       
       // Add URL to list
-      const newLink = { url, count: 1, sourceId }; // Save sourceId for later download
+      const newLink: WebsiteSourceItem = { 
+        url, 
+        count: 0, 
+        sourceId,
+        status: 'crawling'
+      };
+      
       setIncludedLinks([...includedLinks, newLink]);
-      toast.success("Website added for crawling");
+      toast.success("Website crawl started");
       setUrl("");
     } catch (error: any) {
       console.error("Error crawling website:", error);
-      toast.error(`Failed to crawl website: ${error.message}`);
+      toast.error(`Failed to start website crawl: ${error.message}`);
     } finally {
       setIsLoading(false);
-      setIsCrawlingComplete(true);
     }
   };
   
@@ -200,12 +279,71 @@ const WebsiteSource = () => {
     }
   };
 
+  // Check crawl status manually
+  const handleCheckStatus = async (sourceId: string, index: number) => {
+    if (!sourceId) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from("agent_sources")
+        .select("content")
+        .eq("id", sourceId)
+        .single();
+
+      if (error) throw error;
+      
+      if (data && data.content) {
+        let content;
+        try {
+          content = JSON.parse(data.content);
+        } catch (e) {
+          toast.error("Could not parse source content");
+          return;
+        }
+        
+        // Update the link with current status
+        const newLinks = [...includedLinks];
+        newLinks[index] = {
+          ...newLinks[index],
+          status: content.status || newLinks[index].status,
+          error: content.error,
+          count: content.pages_crawled || newLinks[index].count
+        };
+        
+        setIncludedLinks(newLinks);
+        
+        if (content.status === 'completed') {
+          toast.success("Crawl has completed");
+        } else if (content.status === 'error') {
+          toast.error(`Crawl error: ${content.error}`);
+        } else if (content.status === 'crawling') {
+          toast.info("Crawl is still in progress");
+        }
+      }
+    } catch (error: any) {
+      console.error("Error checking status:", error);
+      toast.error(`Failed to check status: ${error.message}`);
+    }
+  };
+
   // Update a specific option
   const updateCrawlOption = (key: keyof CrawlOptions, value: any) => {
     setCrawlOptions({
       ...crawlOptions,
       [key]: value
     });
+  };
+
+  // Function to get badge for current status
+  const getStatusBadge = (status?: string) => {
+    if (!status || status === 'crawling') {
+      return <Badge variant="outline" className="bg-yellow-100 text-yellow-800">Crawling</Badge>;
+    } else if (status === 'completed') {
+      return <Badge variant="outline" className="bg-green-100 text-green-800">Completed</Badge>;
+    } else if (status === 'error') {
+      return <Badge variant="outline" className="bg-red-100 text-red-800">Error</Badge>;
+    }
+    return null;
   };
 
   return (
@@ -227,7 +365,7 @@ const WebsiteSource = () => {
             className="gap-2"
           >
             <Globe className="h-4 w-4" />
-            {isLoading ? "Fetching..." : "Crawl website"}
+            {isLoading ? "Starting..." : "Crawl website"}
           </Button>
         </div>
         <p className="text-sm text-gray-500 mb-2">
@@ -382,13 +520,10 @@ const WebsiteSource = () => {
           </div>
         )}
 
-        {!isCrawlingComplete && (
-          <div className="my-4 p-4 bg-blue-50 rounded-md border border-blue-200">
-            <p className="text-blue-700">
-              Crawling in progress. This may take a few minutes depending on the website size and options selected. You can leave this page and the process will continue in the background.
-            </p>
-          </div>
-        )}
+        <p className="text-sm text-blue-600 mt-2">
+          Note: For crawls that take longer than 60 seconds, the process will continue in the background.
+          You can check the status using the refresh button on each item.
+        </p>
       </div>
 
       <div className="mt-8">
@@ -411,12 +546,22 @@ const WebsiteSource = () => {
             includedLinks.map((link, index) => (
               <div key={index} className="flex items-center justify-between border rounded-md p-2">
                 <div className="flex items-center gap-2">
-                  <div className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">Crawled</div>
+                  {getStatusBadge(link.status)}
                   <span className="truncate max-w-md">{link.url}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-gray-500">{link.count} items</span>
-                  {link.sourceId && (
+                  <span className="text-gray-500">{link.count} pages</span>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="text-blue-500 p-1 h-auto"
+                    onClick={() => handleCheckStatus(link.sourceId!, index)}
+                    disabled={!link.sourceId}
+                    title="Check status"
+                  >
+                    <RefreshCw className="h-4 w-4" />
+                  </Button>
+                  {link.sourceId && link.status === 'completed' && (
                     <>
                       <Button 
                         variant="ghost" 

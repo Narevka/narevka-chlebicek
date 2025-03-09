@@ -120,6 +120,7 @@ export const useAgentSources = (agentId: string | undefined) => {
     handleAddQA,
     handleAddWebsite,
     handleRetrainAgent,
-    getSourceStats
+    getSourceStats,
+    loadSources // Export this to allow manual refreshing
   };
 };

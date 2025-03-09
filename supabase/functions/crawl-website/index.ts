@@ -52,107 +52,182 @@ serve(async (req) => {
     console.log(`Starting crawl: ${url}, limit: ${limit}, agent: ${agentId}, user: ${userId}`);
     console.log(`Advanced options: requestType=${requestType}, proxies=${enableProxies}, antiBot=${enableAntiBot}`);
     
-    // Call Spider.cloud API for crawling
-    try {
-      const crawlResponse = await fetch('https://api.spider.cloud/crawl', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${SPIDER_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+    // Create a placeholder source record with status "crawling"
+    const { data: sourceData, error: sourceInsertError } = await supabase
+      .from('agent_sources')
+      .insert([{
+        agent_id: agentId,
+        user_id: userId,
+        type: 'website',
+        content: JSON.stringify({
           url: url,
-          limit: limit,
-          return_format: returnFormat,
-          request: requestType,
-          premium_proxies: enableProxies,
-          metadata: enableMetadata,
-          anti_bot: enableAntiBot,
-          full_resources: enableFullResources,
-          subdomains: enableSubdomains,
-          tld: enableTlds,
-          store_data: true
+          status: 'crawling',
+          crawl_options: {
+            limit, returnFormat, requestType,
+            enableProxies, enableMetadata, enableAntiBot,
+            enableFullResources, enableSubdomains, enableTlds
+          }
         }),
-      });
+        chars: 0 // Will be updated when crawl completes
+      }])
+      .select();
 
-      if (!crawlResponse.ok) {
-        const errorData = await crawlResponse.text();
-        console.error('Spider.cloud API error:', errorData);
-        throw new Error(`Spider.cloud API error: ${crawlResponse.status} ${errorData}`);
-      }
-
-      const crawlData = await crawlResponse.json();
-      console.log('Crawl data:', JSON.stringify(crawlData).substring(0, 200) + '...');
-      
-      // Prepare content to save in database
-      let aggregatedContent = '';
-      let contentCount = 0;
-      
-      if (Array.isArray(crawlData)) {
-        crawlData.forEach(item => {
-          if (item.content && typeof item.content === 'string') {
-            aggregatedContent += item.content + '\n\n';
-            contentCount++;
-          }
-        });
-      }
-      
-      if (aggregatedContent.trim().length === 0) {
-        throw new Error("Failed to retrieve page content");
-      }
-      
-      // Save crawl result in database as agent source
-      const { data: sourceData, error: sourceError } = await supabase
-        .from('agent_sources')
-        .insert([{
-          agent_id: agentId,
-          user_id: userId,
-          type: 'website',
-          content: JSON.stringify({
-            url: url,
-            crawled_content: aggregatedContent.substring(0, 100000) // Limit content length
-          }),
-          chars: aggregatedContent.length
-        }])
-        .select();
-        
-      if (sourceError) {
-        console.error('Error saving data:', sourceError);
-        throw new Error(`Error saving data: ${sourceError.message}`);
-      }
-      
-      // Return success with source ID for later processing
-      if (sourceData && sourceData.length > 0) {
-        const sourceId = sourceData[0].id;
-        
-        return new Response(
-          JSON.stringify({ 
-            success: true, 
-            contentCount: contentCount,
-            message: `Successfully crawled ${contentCount} pages from ${url}`,
-            sourceId: sourceId
-          }),
-          { 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: 200
-          }
-        );
-      } else {
-        throw new Error("Failed to save source");
-      }
-    } catch (spiderError) {
-      console.error('Error calling Spider.cloud API:', spiderError);
-      throw spiderError;
+    if (sourceInsertError) {
+      console.error('Error creating placeholder source:', sourceInsertError);
+      throw new Error(`Error creating placeholder source: ${sourceInsertError.message}`);
     }
+
+    if (!sourceData || sourceData.length === 0) {
+      throw new Error('Failed to create source record');
+    }
+
+    const sourceId = sourceData[0].id;
+
+    // Start the background crawl task without waiting for it to complete
+    const backgroundCrawl = async () => {
+      try {
+        console.log(`Background crawl started for source ${sourceId}`);
+        
+        // Call Spider.cloud API for crawling
+        const crawlResponse = await fetch('https://api.spider.cloud/crawl', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${SPIDER_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            url: url,
+            limit: limit,
+            return_format: returnFormat,
+            request: requestType,
+            premium_proxies: enableProxies,
+            metadata: enableMetadata,
+            anti_bot: enableAntiBot,
+            full_resources: enableFullResources,
+            subdomains: enableSubdomains,
+            tld: enableTlds,
+            store_data: true
+          }),
+        });
+
+        if (!crawlResponse.ok) {
+          const errorData = await crawlResponse.text();
+          console.error('Spider.cloud API error:', errorData);
+          
+          // Update the source record with the error
+          await supabase
+            .from('agent_sources')
+            .update({
+              content: JSON.stringify({
+                url: url,
+                status: 'error',
+                error: `Spider.cloud API error: ${crawlResponse.status} ${errorData}`
+              })
+            })
+            .eq('id', sourceId);
+
+          return;
+        }
+
+        const crawlData = await crawlResponse.json();
+        console.log('Crawl completed, processing data...');
+        
+        // Prepare content to save in database
+        let aggregatedContent = '';
+        let contentCount = 0;
+        
+        if (Array.isArray(crawlData)) {
+          crawlData.forEach(item => {
+            if (item.content && typeof item.content === 'string') {
+              aggregatedContent += item.content + '\n\n';
+              contentCount++;
+            }
+          });
+        }
+        
+        if (aggregatedContent.trim().length === 0) {
+          // Update the source record with the error
+          await supabase
+            .from('agent_sources')
+            .update({
+              content: JSON.stringify({
+                url: url,
+                status: 'error',
+                error: "Failed to retrieve page content"
+              })
+            })
+            .eq('id', sourceId);
+          return;
+        }
+        
+        // Update the source record with the crawled content
+        const { error: updateError } = await supabase
+          .from('agent_sources')
+          .update({
+            content: JSON.stringify({
+              url: url,
+              status: 'completed',
+              crawled_content: aggregatedContent.substring(0, 100000), // Limit content length
+              pages_crawled: contentCount
+            }),
+            chars: aggregatedContent.length
+          })
+          .eq('id', sourceId);
+          
+        if (updateError) {
+          console.error('Error updating source with crawled content:', updateError);
+        } else {
+          console.log(`Successfully updated source ${sourceId} with crawled content from ${contentCount} pages`);
+        }
+      } catch (error) {
+        console.error('Error in background crawl task:', error);
+        
+        // Update the source record with the error
+        await supabase
+          .from('agent_sources')
+          .update({
+            content: JSON.stringify({
+              url: url,
+              status: 'error',
+              error: error.message || 'Unknown error occurred'
+            })
+          })
+          .eq('id', sourceId);
+      }
+    };
+
+    // Start the background task without waiting for it to complete
+    try {
+      // deno-lint-ignore no-explicit-any
+      (Deno as any).core.ops.op_spawn(backgroundCrawl);
+    } catch (error) {
+      console.error('Error spawning background task:', error);
+      // Fallback to normal async execution if spawn fails
+      backgroundCrawl().catch(e => console.error('Error in background crawl:', e));
+    }
+    
+    // Return success immediately with the sourceId
+    return new Response(
+      JSON.stringify({
+        success: true,
+        message: `Crawl started for ${url}`,
+        sourceId: sourceId,
+        status: 'crawling'
+      }),
+      {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200
+      }
+    );
   } catch (error) {
     console.error('Error executing crawl-website function:', error);
     
     return new Response(
-      JSON.stringify({ 
-        success: false, 
-        error: error.message || 'Unknown error occurred' 
+      JSON.stringify({
+        success: false,
+        error: error.message || 'Unknown error occurred'
       }),
-      { 
+      {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 500
       }
