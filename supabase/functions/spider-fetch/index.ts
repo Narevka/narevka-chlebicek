@@ -26,7 +26,7 @@ serve(async (req) => {
       { global: { headers: { Authorization: authHeader } } }
     );
 
-    const { url, jobId, agentId } = await req.json();
+    const { url, agentId } = await req.json();
     
     if (!url || !agentId) {
       throw new Error('URL and Agent ID are required');
@@ -38,28 +38,22 @@ serve(async (req) => {
       throw new Error('Error getting user: ' + (userError?.message || 'No user found'));
     }
 
-    // Standardize URL (add protocol if missing)
-    let fullUrl = url;
-    if (!url.startsWith('http')) {
-      fullUrl = 'https://' + url;
-    }
-
-    // Get Spider API key
+    // Start the data fetching process
     const spiderApiKey = Deno.env.get('SPIDER_API_KEY');
     if (!spiderApiKey) {
       throw new Error('Spider API key not configured');
     }
 
-    console.log(`Fetching Spider API data for URL: ${fullUrl}`);
+    console.log(`Fetching data from Spider API for URL: ${url}`);
 
-    // Call Spider API to get stored data
+    // Call Spider API to fetch stored data
     const spiderResponse = await fetch("https://api.spider.cloud/data/query", {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${spiderApiKey}`,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ url: fullUrl })
+      body: JSON.stringify({ url })
     });
 
     if (!spiderResponse.ok) {
@@ -67,95 +61,60 @@ serve(async (req) => {
       throw new Error(`Spider API error: ${spiderResponse.status} - ${errorText}`);
     }
 
-    // Parse response as JSON
-    const pageDataList = await spiderResponse.json();
+    // Parse the response
+    const spiderData = await spiderResponse.json();
     
-    if (!Array.isArray(pageDataList) || pageDataList.length === 0) {
+    if (!Array.isArray(spiderData) || spiderData.length === 0) {
       throw new Error('No data found for this URL in Spider API');
     }
 
-    console.log(`Found ${pageDataList.length} pages of content`);
+    console.log(`Found ${spiderData.length} pages in Spider API`);
 
-    // Process each page and add to agent_sources
-    let totalCharCount = 0;
-    const sources = [];
-
-    for (let i = 0; i < pageDataList.length; i++) {
-      const page = pageDataList[i];
+    // Process and save each page to agent_sources
+    let successCount = 0;
+    
+    for (const page of spiderData) {
+      if (!page.content || !page.url) continue;
       
-      // Skip pages without content
-      if (!page.content || typeof page.content !== 'string') {
-        continue;
-      }
-
-      const title = page.metadata?.title || page.url || fullUrl;
-      const content = page.content;
-      const pageUrl = page.url || fullUrl;
-      const charCount = content.length;
-      totalCharCount += charCount;
-
-      // Add to agent_sources
-      const { data: sourceData, error: sourceError } = await supabaseClient
+      // Create a record in agent_sources
+      const content = {
+        url: page.url,
+        title: page.metadata?.title || page.url,
+        content: page.content,
+        source: 'spider_api'
+      };
+      
+      const { error: insertError } = await supabaseClient
         .from('agent_sources')
         .insert({
           agent_id: agentId,
           user_id: user.id,
           type: 'website',
-          content: JSON.stringify({
-            url: pageUrl,
-            title: title,
-            content: content
-          }),
-          chars: charCount
-        })
-        .select();
-
-      if (sourceError) {
-        console.error(`Error adding page ${i} to agent_sources:`, sourceError);
+          chars: page.content.length,
+          content: JSON.stringify(content)
+        });
+      
+      if (insertError) {
+        console.error(`Error inserting page ${page.url}:`, insertError);
         continue;
       }
-
-      if (sourceData && sourceData.length > 0) {
-        sources.push(sourceData[0]);
-        
-        // Process source with OpenAI
-        try {
-          const processResponse = await supabaseClient.functions.invoke('process-agent-source', {
-            body: { 
-              sourceId: sourceData[0].id, 
-              agentId,
-              operation: 'add'
-            }
-          });
-          
-          if (processResponse.error) {
-            console.error(`Error processing page ${i} with OpenAI:`, processResponse.error);
-          }
-        } catch (processError) {
-          console.error(`Error calling process-agent-source for page ${i}:`, processError);
-        }
-      }
+      
+      successCount++;
     }
 
-    // Update job status and counts
-    if (jobId) {
-      await supabaseClient
-        .from('spider_jobs')
-        .update({
-          status: 'imported',
-          result_count: sources.length,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', jobId);
-    }
+    // Update job status
+    await supabaseClient.rpc('update_spider_job_status', { 
+      url_param: url,
+      agent_id_param: agentId,
+      status_param: 'imported',
+      count_param: successCount
+    });
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: "Spider data fetched and added to agent successfully",
-        count: sources.length,
-        totalChars: totalCharCount,
-        sourcesAdded: sources.map(s => ({ id: s.id, chars: s.chars }))
+        message: `Successfully imported ${successCount} pages from Spider API`,
+        count: successCount
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }

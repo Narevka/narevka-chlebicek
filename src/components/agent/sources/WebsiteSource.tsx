@@ -1,8 +1,7 @@
-
 import React, { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Trash2, AlertCircle, Loader2, Spider } from "lucide-react";
+import { Trash2, AlertCircle, Loader2, Globe } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -43,7 +42,6 @@ const WebsiteSource = () => {
   const [jobs, setJobs] = useState<SpiderJob[]>([]);
   const [activeTab, setActiveTab] = useState("manual");
 
-  // Load existing website sources and jobs on component mount
   useEffect(() => {
     if (agentId) {
       loadWebsiteSources();
@@ -93,14 +91,22 @@ const WebsiteSource = () => {
   const loadSpiderJobs = async () => {
     try {
       const { data, error } = await supabase
-        .from("spider_jobs")
-        .select("*")
-        .eq("agent_id", agentId)
-        .order("created_at", { ascending: false });
+        .rpc('get_spider_jobs', { agent_id_param: agentId })
+        .select()
+        .order('created_at', { ascending: false });
         
       if (error) throw error;
       
-      setJobs(data);
+      const jobData: SpiderJob[] = (data || []).map(item => ({
+        id: item.id,
+        url: item.url,
+        status: item.status,
+        created_at: item.created_at,
+        updated_at: item.updated_at,
+        result_count: item.result_count || 0
+      }));
+      
+      setJobs(jobData);
     } catch (error) {
       console.error("Error loading Spider jobs:", error);
       toast.error("Failed to load Spider jobs");
@@ -133,7 +139,6 @@ const WebsiteSource = () => {
       if (response.data && response.data.success) {
         const { links, savedSource } = response.data.result;
         
-        // Update the list of websites
         if (savedSource) {
           const newWebsite = {
             id: savedSource.id,
@@ -145,10 +150,8 @@ const WebsiteSource = () => {
           
           setWebsites(prev => [newWebsite, ...prev]);
           
-          // Process the source with OpenAI
           try {
             await processSourceWithOpenAI(savedSource.id, agentId);
-            // Update the processed status
             setWebsites(prev => prev.map(w => 
               w.id === savedSource.id ? {...w, isProcessed: true} : w
             ));
@@ -159,7 +162,6 @@ const WebsiteSource = () => {
           }
         }
         
-        // Show additional links
         if (links && links.length > 0) {
           setAdditionalLinks(links);
           setShowLinks(true);
@@ -201,7 +203,6 @@ const WebsiteSource = () => {
       if (response.data && response.data.success) {
         const { savedSource } = response.data.result;
         
-        // Update the list of websites
         if (savedSource) {
           const newWebsite = {
             id: savedSource.id,
@@ -213,13 +214,10 @@ const WebsiteSource = () => {
           
           setWebsites(prev => [newWebsite, ...prev]);
           
-          // Remove the link from the additional links
           setAdditionalLinks(prev => prev.filter(link => link !== linkUrl));
           
-          // Process the source with OpenAI
           try {
             await processSourceWithOpenAI(savedSource.id, agentId);
-            // Update the processed status
             setWebsites(prev => prev.map(w => 
               w.id === savedSource.id ? {...w, isProcessed: true} : w
             ));
@@ -306,7 +304,6 @@ const WebsiteSource = () => {
         toast.success("Spider crawler started successfully");
         setSpiderUrl("");
         
-        // Reload jobs list
         await loadSpiderJobs();
       } else {
         throw new Error("Spider crawler operation failed");
@@ -342,9 +339,7 @@ const WebsiteSource = () => {
       if (response.data && response.data.success) {
         toast.success(`Imported ${response.data.count} pages from Spider API`);
         
-        // Reload website sources
         await loadWebsiteSources();
-        // Reload jobs
         await loadSpiderJobs();
       } else {
         throw new Error("Spider data fetching operation failed");
@@ -354,6 +349,21 @@ const WebsiteSource = () => {
       toast.error(error.message || "Failed to fetch Spider data");
     } finally {
       setIsFetching(false);
+    }
+  };
+
+  const handleDeleteJob = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .rpc('delete_spider_job', { job_id: id });
+        
+      if (error) throw error;
+      
+      setJobs(prev => prev.filter(job => job.id !== id));
+      toast.success("Spider job deleted");
+    } catch (error) {
+      console.error("Error deleting Spider job:", error);
+      toast.error("Failed to delete Spider job");
     }
   };
 
@@ -391,23 +401,6 @@ const WebsiteSource = () => {
     } catch (error) {
       console.error("Error deleting all website sources:", error);
       toast.error("Failed to delete all website sources");
-    }
-  };
-
-  const handleDeleteJob = async (id: string) => {
-    try {
-      const { error } = await supabase
-        .from("spider_jobs")
-        .delete()
-        .eq("id", id);
-        
-      if (error) throw error;
-      
-      setJobs(prev => prev.filter(job => job.id !== id));
-      toast.success("Spider job deleted");
-    } catch (error) {
-      console.error("Error deleting Spider job:", error);
-      toast.error("Failed to delete Spider job");
     }
   };
 
@@ -509,7 +502,7 @@ const WebsiteSource = () => {
         <TabsContent value="spider">
           <div className="mb-6">
             <Alert className="mb-4">
-              <Spider className="h-4 w-4" />
+              <Globe className="h-4 w-4" />
               <AlertTitle>Spider API</AlertTitle>
               <AlertDescription>
                 Spider API is more powerful for large websites and can handle anti-bot measures. 
@@ -537,7 +530,7 @@ const WebsiteSource = () => {
                   </>
                 ) : (
                   <>
-                    <Spider className="h-4 w-4 mr-2" />
+                    <Globe className="h-4 w-4 mr-2" />
                     Start Spider
                   </>
                 )}
