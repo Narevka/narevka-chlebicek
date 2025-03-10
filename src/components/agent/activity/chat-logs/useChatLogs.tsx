@@ -89,7 +89,7 @@ export const useChatLogs = () => {
   const handleDeleteConversation = async (conversationId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     
-    toast.promise(
+    await toast.promise(
       (async () => {
         const success = await deleteConversation(conversationId);
         
@@ -103,14 +103,15 @@ export const useChatLogs = () => {
             setConversationMessages([]);
           }
           
-          return true;
+          await loadConversations();
+          return "Conversation deleted successfully";
         } else {
           throw new Error("Failed to delete conversation");
         }
       })(),
       {
         loading: "Deleting conversation...",
-        success: "Conversation deleted successfully",
+        success: (msg) => msg,
         error: "Failed to delete conversation"
       }
     );
