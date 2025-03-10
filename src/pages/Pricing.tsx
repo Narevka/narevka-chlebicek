@@ -73,7 +73,7 @@ const Pricing = () => {
             price="Let's chat!"
             isPriceMonthly={false}
             features={[
-              "Unlimited active projects",
+              "customowe akcje",
               "Unlimited documents",
               "Unlimited users"
             ]}
