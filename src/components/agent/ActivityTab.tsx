@@ -19,20 +19,21 @@ const ActivityTab = () => {
   }
 
   return (
-    <div className="p-6">
-      <h1 className="text-3xl font-bold mb-4">Activity</h1>
-      
-      <p className="text-gray-600 mb-6">
-        This section shows the chats log of the conversations done by the AI Agent and the Leads form filled by the users.
-      </p>
-      
-      <SubTabs activeTab={activeTab} setActiveTab={setActiveTab} />
-      
-      {activeTab === "chatLogs" ? (
-        <ChatLogsSection />
-      ) : (
-        <LeadsSection />
-      )}
+    <div className="flex min-h-screen">
+      {/* Left sidebar with icons */}
+      <div className="w-[240px] border-r bg-white p-4">
+        <h1 className="text-2xl font-bold mb-6">Activity</h1>
+        <SubTabs activeTab={activeTab} setActiveTab={setActiveTab} />
+      </div>
+
+      {/* Main content area */}
+      <div className="flex-1 p-6">
+        {activeTab === "chatLogs" ? (
+          <ChatLogsSection />
+        ) : (
+          <LeadsSection />
+        )}
+      </div>
     </div>
   );
 };

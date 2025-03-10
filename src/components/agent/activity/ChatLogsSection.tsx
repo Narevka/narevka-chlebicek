@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { RefreshCw, Download, Filter } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
@@ -97,18 +96,12 @@ const ChatLogsSection = () => {
 
   return (
     <div>
-      <div className="mb-4">
-        <p className="text-gray-600 mb-4">
-          The chats log is divided into two parts: the conversations list and the playground where you can view the selected conversation messages.
-        </p>
-      </div>
-
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-xl font-bold">Chat logs</h2>
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-xl font-semibold">Chat logs</h2>
         <div className="flex space-x-2">
           <Button 
             variant="outline" 
-            size="sm" 
+            size="sm"
             className="flex items-center"
             onClick={loadConversations}
           >
@@ -118,7 +111,7 @@ const ChatLogsSection = () => {
           
           <Button 
             variant="outline" 
-            size="sm" 
+            size="sm"
             className="flex items-center"
             onClick={() => setShowFilterPanel(!showFilterPanel)}
           >
@@ -126,66 +119,19 @@ const ChatLogsSection = () => {
             Filter
           </Button>
           
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="bg-black text-white hover:bg-gray-800 flex items-center">
-                <Download className="h-4 w-4 mr-2" />
-                Export
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <DropdownMenuItem onClick={() => handleExport("JSON")}>JSON</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleExport("PDF")}>PDF</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleExport("CSV")}>CSV</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <Button 
+            variant="default" 
+            size="sm"
+            className="bg-black text-white hover:bg-gray-800 flex items-center"
+          >
+            <Download className="h-4 w-4 mr-2" />
+            Export
+          </Button>
         </div>
       </div>
 
-      <div className="mb-4 space-y-4">
-        <SearchBar searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
-
-        {showFilterPanel && (
-          <div className="bg-gray-50 p-4 rounded-md border mb-4">
-            <h3 className="text-sm font-medium mb-2">Filter by:</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-              <div>
-                <p className="text-xs text-gray-500 mb-1">Date</p>
-                {/* Date filter component would go here */}
-              </div>
-              <div>
-                <p className="text-xs text-gray-500 mb-1">Confidence Score</p>
-                {/* Confidence score filter component would go here */}
-              </div>
-              <div>
-                <p className="text-xs text-gray-500 mb-1">Source</p>
-                {/* Source filter component would go here */}
-              </div>
-              <div>
-                <p className="text-xs text-gray-500 mb-1">Feedback</p>
-                {/* Feedback filter component would go here */}
-              </div>
-              <div>
-                <p className="text-xs text-gray-500 mb-1">Sentiment</p>
-                {/* Sentiment filter component would go here */}
-              </div>
-              <div>
-                <p className="text-xs text-gray-500 mb-1">Topic</p>
-                {/* Topic filter component would go here */}
-              </div>
-            </div>
-          </div>
-        )}
-
-        <ConversationsFilter 
-          sources={sources} 
-          activeFilters={filters} 
-          onFilterChange={handleFilterChange} 
-        />
-      </div>
-
-      <div className="bg-white rounded-md border overflow-hidden">
-        <div className="max-h-[600px] overflow-y-auto scrollbar-thin">
+      <div className="bg-white rounded-lg border">
+        <div className="max-h-[600px] overflow-y-auto">
           <ConversationsList 
             conversations={filteredConversations} 
             isLoading={isLoading} 
@@ -203,6 +149,7 @@ const ChatLogsSection = () => {
         )}
       </div>
 
+      {/* Dialog for conversation details */}
       <ConversationDetails 
         selectedConversation={selectedConversation}
         conversationMessages={conversationMessages}
