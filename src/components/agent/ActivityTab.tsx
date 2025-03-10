@@ -19,15 +19,15 @@ const ActivityTab = () => {
   }
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex h-screen bg-white">
       {/* Left sidebar with icons */}
-      <div className="w-[240px] border-r bg-white p-4">
+      <div className="w-[240px] border-r p-4">
         <h1 className="text-2xl font-bold mb-6">Activity</h1>
         <SubTabs activeTab={activeTab} setActiveTab={setActiveTab} />
       </div>
 
       {/* Main content area */}
-      <div className="flex-1 p-6">
+      <div className="flex-1">
         {activeTab === "chatLogs" ? (
           <ChatLogsSection />
         ) : (

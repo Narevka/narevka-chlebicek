@@ -10,7 +10,6 @@ import ConversationsFilter from "./ConversationsFilter";
 import PaginationControls from "./PaginationControls";
 import SearchBar from "./SearchBar";
 import { fetchConversations, fetchMessagesForConversation, deleteConversation } from "./conversationService";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 const ChatLogsSection = () => {
   const { user } = useAuth();
@@ -95,43 +94,40 @@ const ChatLogsSection = () => {
   };
 
   return (
-    <div>
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-xl font-semibold">Chat logs</h2>
-        <div className="flex space-x-2">
-          <Button 
-            variant="outline" 
-            size="sm"
-            className="flex items-center"
-            onClick={loadConversations}
-          >
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Refresh
-          </Button>
-          
-          <Button 
-            variant="outline" 
-            size="sm"
-            className="flex items-center"
-            onClick={() => setShowFilterPanel(!showFilterPanel)}
-          >
-            <Filter className="h-4 w-4 mr-2" />
-            Filter
-          </Button>
-          
-          <Button 
-            variant="default" 
-            size="sm"
-            className="bg-black text-white hover:bg-gray-800 flex items-center"
-          >
-            <Download className="h-4 w-4 mr-2" />
-            Export
-          </Button>
+    <div className="flex h-full">
+      <div className="w-[400px] border-r">
+        <div className="p-4 border-b">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-xl font-semibold">Chat logs</h2>
+            <div className="flex space-x-2">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={loadConversations}
+              >
+                <RefreshCw className="h-4 w-4" />
+              </Button>
+              
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setShowFilterPanel(!showFilterPanel)}
+              >
+                <Filter className="h-4 w-4" />
+              </Button>
+              
+              <Button 
+                variant="default" 
+                size="sm"
+                className="bg-black text-white hover:bg-gray-800"
+              >
+                <Download className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
         </div>
-      </div>
 
-      <div className="bg-white rounded-lg border">
-        <div className="max-h-[600px] overflow-y-auto">
+        <div className="overflow-y-auto h-[calc(100vh-200px)]">
           <ConversationsList 
             conversations={filteredConversations} 
             isLoading={isLoading} 
@@ -141,21 +137,30 @@ const ChatLogsSection = () => {
         </div>
         
         {pagination.totalItems > 0 && (
-          <PaginationControls 
-            pagination={pagination}
-            totalPages={totalPages}
-            onPageChange={handlePageChange}
-          />
+          <div className="border-t p-4">
+            <PaginationControls 
+              pagination={pagination}
+              totalPages={totalPages}
+              onPageChange={handlePageChange}
+            />
+          </div>
         )}
       </div>
 
-      {/* Dialog for conversation details */}
-      <ConversationDetails 
-        selectedConversation={selectedConversation}
-        conversationMessages={conversationMessages}
-        isLoadingMessages={isLoadingMessages}
-        onClose={() => setSelectedConversation(null)}
-      />
+      <div className="flex-1 bg-gray-50">
+        {selectedConversation ? (
+          <ConversationDetails 
+            selectedConversation={selectedConversation}
+            conversationMessages={conversationMessages}
+            isLoadingMessages={isLoadingMessages}
+            onClose={() => setSelectedConversation(null)}
+          />
+        ) : (
+          <div className="h-full flex items-center justify-center text-gray-500">
+            Select a conversation to view details
+          </div>
+        )}
+      </div>
     </div>
   );
 };
