@@ -76,6 +76,11 @@
       align-items: center;
       justify-content: center;
     }
+    .error-container {
+      padding: 20px;
+      text-align: center;
+      color: #e53e3e;
+    }
   </style>
 </head>
 <body>
@@ -102,7 +107,7 @@
     document.addEventListener('DOMContentLoaded', function() {
       // Get chat ID from URL
       const urlParams = new URLSearchParams(window.location.search);
-      const chatId = urlParams.get('id') || 'default';
+      const chatId = new URL(window.location.href).pathname.split('/').pop() || 'default';
       
       const messagesContainer = document.getElementById('messages');
       const messageInput = document.getElementById('message-input');
@@ -111,7 +116,19 @@
       // Set chat title if available in URL params
       const chatTitle = urlParams.get('title') || 'AI Assistant';
       document.getElementById('chat-title').textContent = chatTitle;
+
+      // Function to check if the server API is available
+      function checkServerConnection() {
+        // Add your server check here
+        // This is a placeholder function
+        return new Promise((resolve) => {
+          // For demo purposes, we're resolving after 1s
+          // In a real implementation, you'd check if your server API is responsive
+          setTimeout(() => resolve(true), 1000);
+        });
+      }
       
+      // Handle sending messages
       function sendMessage() {
         const messageText = messageInput.value.trim();
         if (messageText) {
@@ -124,16 +141,27 @@
           // Clear input
           messageInput.value = '';
           
-          // Simulate response (in a real implementation, this would be an API call)
-          setTimeout(function() {
-            const botMessageElement = document.createElement('div');
-            botMessageElement.className = 'message bot-message';
-            botMessageElement.textContent = `This is a simulated response to: "${messageText}"`;
-            messagesContainer.appendChild(botMessageElement);
-            
-            // Scroll to bottom
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
-          }, 1000);
+          // In a real implementation, this would make an API call to your backend
+          checkServerConnection().then(isConnected => {
+            if (isConnected) {
+              // Simulate API response
+              setTimeout(function() {
+                const botMessageElement = document.createElement('div');
+                botMessageElement.className = 'message bot-message';
+                botMessageElement.textContent = `This is a response from your own server to: "${messageText}"`;
+                messagesContainer.appendChild(botMessageElement);
+                
+                // Scroll to bottom
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+              }, 1000);
+            } else {
+              // Show error if server is not available
+              const errorElement = document.createElement('div');
+              errorElement.className = 'message bot-message';
+              errorElement.innerHTML = '<span style="color: #e53e3e;">Unable to connect to the chat server. Please try again later.</span>';
+              messagesContainer.appendChild(errorElement);
+            }
+          });
           
           // Scroll to bottom
           messagesContainer.scrollTop = messagesContainer.scrollHeight;
