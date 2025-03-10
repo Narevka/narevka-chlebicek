@@ -8,13 +8,16 @@ const PORT = process.env.PORT || 3000;
 // Enable CORS for all routes
 app.use(cors());
 
-// Serve static files
+// Serve static files from the dist directory
+app.use(express.static('dist'));
+
+// Serve public files
 app.use(express.static('public'));
 
 // Parse JSON request bodies
 app.use(express.json());
 
-// Serve embed.min.js from root
+// Serve embed.min.js from public directory
 app.get('/embed.min.js', (req, res) => {
   res.sendFile(path.join(__dirname, 'public/embed.min.js'));
 });
@@ -34,13 +37,11 @@ app.post('/functions/chat-with-assistant', async (req, res) => {
   try {
     const { message, agentId, conversationId } = req.body;
     
-    // URL of your Supabase Edge Function
-    const supabaseUrl = process.env.SUPABASE_URL || 'https://qaopcduyhmweewrcwkoy.supabase.co';
+    const supabaseUrl = process.env.SUPABASE_URL;
     const functionUrl = `${supabaseUrl}/functions/v1/chat-with-assistant`;
     
     console.log(`Proxying request to ${functionUrl}`);
     
-    // Forward the request to Supabase
     const response = await fetch(functionUrl, {
       method: 'POST',
       headers: {
@@ -62,10 +63,13 @@ app.post('/functions/chat-with-assistant', async (req, res) => {
   }
 });
 
-// For Vercel serverless functions, we need to export the Express app
+// Catch-all route to serve the frontend app
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'dist/index.html'));
+});
+
 module.exports = app;
 
-// Only start the server if this file is run directly
 if (require.main === module) {
   app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
