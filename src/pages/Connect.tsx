@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,6 +13,8 @@ import CodeSnippet from "@/components/connect/CodeSnippet";
 import { useToast } from "@/hooks/use-toast";
 import { v4 as uuidv4 } from "uuid";
 
+const EMBED_BASE_URL = window.location.origin;
+
 const Connect = () => {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
@@ -22,8 +23,6 @@ const Connect = () => {
   const [website, setWebsite] = useState("www.example.com");
   const { toast } = useToast();
   const [secretKey] = useState(() => {
-    // Generate a random UUID as the secret key if none exists
-    // In a real application, this would be stored in the database
     return uuidv4();
   });
   const [copied, setCopied] = useState(false);
@@ -31,7 +30,6 @@ const Connect = () => {
   const [activeTab, setActiveTab] = useState("embed");
   const [customDomain, setCustomDomain] = useState("https://www.narevka.com");
 
-  // Update active tab based on URL hash
   useEffect(() => {
     if (!location.hash || location.hash === "#embed") {
       setActiveTab("embed");
@@ -42,7 +40,6 @@ const Connect = () => {
     }
   }, [location.hash]);
 
-  // Generate dynamic embed codes based on selected options and agent ID
   const bubbleCode = `<script>
   window.chatbaseConfig = {
     chatbotId: "${id}",
@@ -109,7 +106,6 @@ window.chatbaseConfig = {
         duration: 3000,
       });
       
-      // Reset copied state after 2 seconds
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
       toast({
@@ -121,7 +117,6 @@ window.chatbaseConfig = {
     }
   };
 
-  // Only show content when agent is loaded
   if (loading) {
     return (
       <div className="flex min-h-screen">
