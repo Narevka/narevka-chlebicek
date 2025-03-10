@@ -7,7 +7,8 @@ import { Message } from "./types";
 export const getAssistantResponse = async (
   message: string,
   agentId: string,
-  threadId: string | null
+  threadId: string | null,
+  source: string = "Playground"
 ) => {
   try {
     // Call our edge function to get a response from the assistant
@@ -15,7 +16,8 @@ export const getAssistantResponse = async (
       body: { 
         message: message,
         agentId: agentId,
-        conversationId: threadId
+        conversationId: threadId,
+        source: source // Pass source to the edge function
       }
     });
     
