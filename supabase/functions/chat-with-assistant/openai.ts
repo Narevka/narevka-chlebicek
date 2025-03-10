@@ -208,12 +208,12 @@ export async function getAgentData(agentId: string): Promise<{ openai_assistant_
 }
 
 /**
- * Generates a unique ID for a thread
- * @returns A unique ID string
+ * Generates a unique ID for conversations
+ * @returns A unique string ID prefixed with 'thread_'
  */
 export function generateId(): string {
-  // Generate a random UUID-like string
-  return crypto.randomUUID();
+  // Create a thread ID that starts with 'thread_' to ensure proper format
+  return `thread_${crypto.randomUUID()}`;
 }
 
 /**

@@ -11,6 +11,14 @@ export const getAssistantResponse = async (
   source: string = "Playground"
 ) => {
   try {
+    // Log the request details for debugging
+    console.log("Sending request to chat-with-assistant:", { 
+      message, 
+      agentId, 
+      conversationId: threadId,
+      source 
+    });
+    
     // Call our edge function to get a response from the assistant
     const responseData = await supabase.functions.invoke('chat-with-assistant', {
       body: { 
@@ -22,8 +30,11 @@ export const getAssistantResponse = async (
     });
     
     if (responseData.error) {
+      console.error("Error from chat-with-assistant:", responseData.error);
       throw new Error(responseData.error.message || "Failed to get assistant response");
     }
+    
+    console.log("Response from chat-with-assistant:", responseData.data);
     
     const newThreadId = responseData.data.threadId || null;
     

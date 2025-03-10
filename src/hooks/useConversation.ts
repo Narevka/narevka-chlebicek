@@ -70,7 +70,7 @@ export const useConversation = (userId: string | undefined, agentId: string | un
     
     try {
       // Ensure source is passed to the assistant API
-      console.log(`Sending message with source: ${validSource}`);
+      console.log(`Sending message with source: ${validSource} and threadId: ${threadId}`);
       const { botResponse, threadId: newThreadId } = await getAssistantResponse(
         message, 
         agentId, 
@@ -78,8 +78,11 @@ export const useConversation = (userId: string | undefined, agentId: string | un
         validSource // Pass source to the assistant API
       );
       
-      // Update thread ID if it's a new conversation
-      if (newThreadId && !threadId) {
+      console.log(`Received response with threadId: ${newThreadId}`);
+      
+      // Update thread ID if received
+      if (newThreadId) {
+        console.log(`Setting new threadId: ${newThreadId}`);
         setThreadId(newThreadId);
       }
       
@@ -97,6 +100,8 @@ export const useConversation = (userId: string | undefined, agentId: string | un
       if (messages.length === 1) {
         updateConversationTitle(conversationId, userId, message);
       }
+    } catch (error) {
+      console.error("Error in handleSendMessage:", error);
     } finally {
       setSendingMessage(false);
     }

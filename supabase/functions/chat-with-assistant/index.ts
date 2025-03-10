@@ -43,31 +43,24 @@ serve(async (req) => {
     const agent = agents[0]
     
     // Get either existing thread or create a new one
+    // Make sure to handle the conversationId format correctly
     let threadId = conversationId
+    
+    // If we don't have a threadId yet or it doesn't start with "thread_",
+    // we'll create a new properly formatted one
+    if (!threadId || (typeof threadId === 'string' && !threadId.startsWith('thread_'))) {
+      threadId = openai.generateId() // This will generate a thread_* ID
+      console.log(`Creating new thread ID: ${threadId}`)
+    } else {
+      console.log(`Using existing thread ID: ${threadId}`)
+    }
     
     // Get response from the agent
     const { response, confidence } = await openai.getAgentResponse(agent, message, threadId)
     
-    // Update conversationId if it's new
-    if (!threadId) {
-      threadId = openai.generateId()
-      
-      // If we created a new thread, update its source if provided
-      if (source && source !== "Playground") {
-        console.log(`Updating conversation source to: ${source}`)
-        await fetch(`${supabaseUrl}/rest/v1/conversations?id=eq.${threadId}`, {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-            'apikey': supabaseAnonKey,
-            'Authorization': `Bearer ${supabaseServiceRoleKey}`,
-            'Prefer': 'return=minimal'
-          },
-          body: JSON.stringify({ source: source })
-        })
-      }
-    }
+    console.log(`Got response from agent with threadId: ${threadId}`)
     
+    // Return the response with the properly formatted threadId
     return new Response(
       JSON.stringify({ response, threadId, confidence }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
