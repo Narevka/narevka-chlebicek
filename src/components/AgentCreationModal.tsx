@@ -5,6 +5,8 @@ import { useAuth } from "@/context/AuthContext";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import { Globe, Info } from "lucide-react";
 import { 
   Dialog,
   DialogContent,
@@ -30,6 +32,7 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [instructions, setInstructions] = useState("");
+  const [isPublic, setIsPublic] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -57,6 +60,7 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({
             name: name.trim(),
             description: description.trim() || null,
             instructions: instructions.trim() || null,
+            is_public: isPublic
           }
         ])
         .select();
@@ -90,6 +94,7 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({
       setName("");
       setDescription("");
       setInstructions("");
+      setIsPublic(false);
     } catch (error: any) {
       console.error("Error creating agent:", error);
       toast.error(error.message || "Failed to create agent");
@@ -156,6 +161,35 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({
                 Instructions that tell the AI how to behave and what to do.
               </p>
             </div>
+            
+            <div className="flex items-center justify-between p-3 border rounded-md bg-gray-50">
+              <div className="flex gap-2 items-start">
+                <Globe className="h-4 w-4 text-gray-600 mt-0.5" />
+                <div>
+                  <label htmlFor="is-public" className="text-sm font-medium cursor-pointer">
+                    Make this agent public
+                  </label>
+                  <p className="text-xs text-gray-500">
+                    Allow anyone to use this agent without authentication
+                  </p>
+                </div>
+              </div>
+              <Switch
+                id="is-public"
+                checked={isPublic}
+                onCheckedChange={setIsPublic}
+              />
+            </div>
+            
+            {isPublic && (
+              <div className="flex p-3 bg-blue-50 border border-blue-100 rounded-md">
+                <Info className="h-4 w-4 text-blue-600 mt-0.5 mr-2 flex-shrink-0" />
+                <p className="text-sm text-blue-800">
+                  Public agents can be accessed by anyone who has the link, without requiring login.
+                  This is ideal for agents embedded on your website.
+                </p>
+              </div>
+            )}
           </div>
           
           <DialogFooter>

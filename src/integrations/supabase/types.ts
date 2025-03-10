@@ -54,6 +54,7 @@ export type Database = {
           id: string
           instructions: string | null
           is_active: boolean
+          is_public: boolean
           name: string
           openai_assistant_id: string | null
           updated_at: string
@@ -65,6 +66,7 @@ export type Database = {
           id?: string
           instructions?: string | null
           is_active?: boolean
+          is_public?: boolean
           name: string
           openai_assistant_id?: string | null
           updated_at?: string
@@ -76,6 +78,7 @@ export type Database = {
           id?: string
           instructions?: string | null
           is_active?: boolean
+          is_public?: boolean
           name?: string
           openai_assistant_id?: string | null
           updated_at?: string

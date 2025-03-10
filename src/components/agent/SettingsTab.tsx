@@ -5,9 +5,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
-import { AlertTriangle, Trash2 } from "lucide-react";
+import { AlertTriangle, Trash2, Globe, Lock } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,6 +28,7 @@ const SettingsTab = () => {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [instructions, setInstructions] = useState("");
+  const [isPublic, setIsPublic] = useState(false);
   const [openaiAssistantId, setOpenaiAssistantId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -39,7 +41,7 @@ const SettingsTab = () => {
       try {
         const { data, error } = await supabase
           .from("agents")
-          .select("name, description, instructions, openai_assistant_id")
+          .select("name, description, instructions, openai_assistant_id, is_public")
           .eq("id", id)
           .eq("user_id", user.id)
           .single();
@@ -53,6 +55,7 @@ const SettingsTab = () => {
         setName(data?.name || "");
         setDescription(data?.description || "");
         setInstructions(data?.instructions || "");
+        setIsPublic(data?.is_public || false);
         setOpenaiAssistantId(data?.openai_assistant_id);
       } catch (error) {
         console.error("Error fetching agent settings:", error);
@@ -77,7 +80,8 @@ const SettingsTab = () => {
         .update({
           name,
           description,
-          instructions
+          instructions,
+          is_public: isPublic
         })
         .eq("id", id)
         .eq("user_id", user.id);
@@ -213,6 +217,38 @@ const SettingsTab = () => {
             Detailed instructions that guide how your agent behaves and responds to users.
             Good instructions lead to better, more consistent responses.
           </p>
+        </div>
+        
+        <div className="space-y-2 border rounded-md p-4 bg-gray-50">
+          <div className="flex items-center justify-between">
+            <div>
+              <label htmlFor="is-public" className="text-sm font-medium flex items-center gap-2">
+                {isPublic ? (
+                  <Globe className="h-4 w-4 text-green-600" />
+                ) : (
+                  <Lock className="h-4 w-4 text-gray-600" />
+                )}
+                Public Access
+              </label>
+              <p className="text-xs text-gray-500 mt-1">
+                Allow anyone to use this agent without authentication.
+              </p>
+            </div>
+            <Switch
+              id="is-public"
+              checked={isPublic}
+              onCheckedChange={setIsPublic}
+            />
+          </div>
+          
+          {isPublic && (
+            <div className="mt-3 p-3 bg-amber-50 border border-amber-100 rounded-md">
+              <p className="text-sm text-amber-800">
+                <strong>Note:</strong> Making this agent public will allow anyone with the link 
+                to interact with it without signing in. All usage will count towards your API quota.
+              </p>
+            </div>
+          )}
         </div>
         
         {openaiAssistantId && (
