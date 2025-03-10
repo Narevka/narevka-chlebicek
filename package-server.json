@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "description": "Server for chatbot embedding",
   "main": "server.js",
+  "type": "module",
   "scripts": {
     "start": "node server.js"
   },

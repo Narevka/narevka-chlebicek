@@ -3,12 +3,11 @@
   "version": 2,
   "builds": [
     { 
-      "src": "package.json",
-      "use": "@vercel/node" 
-    },
-    { 
       "src": "server.js",
-      "use": "@vercel/node"
+      "use": "@vercel/node",
+      "config": {
+        "includeFiles": ["dist/**", "public/**"]
+      }
     }
   ],
   "routes": [

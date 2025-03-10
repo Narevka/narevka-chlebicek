@@ -1,7 +1,13 @@
 
-const express = require('express');
-const path = require('path');
-const cors = require('cors');
+import express from 'express';
+import path from 'path';
+import cors from 'cors';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -74,10 +80,10 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 // For Vercel deployment
-module.exports = app;
+export default app;
 
 // Start the server if running directly
-if (require.main === module) {
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
   app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
   });
