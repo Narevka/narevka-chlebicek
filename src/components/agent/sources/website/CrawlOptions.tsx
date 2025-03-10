@@ -84,18 +84,7 @@ const CrawlOptions: React.FC<CrawlOptionsProps> = ({
       
       <h5 className="font-medium mb-2">Advanced Options</h5>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Metadata Option */}
-        <div className="flex items-center space-x-2">
-          <Switch
-            id="enableMetadata"
-            checked={crawlOptions.enableMetadata !== false}
-            onCheckedChange={(checked) => updateCrawlOption('enableMetadata', checked)}
-          />
-          <Label htmlFor="enableMetadata" className="cursor-pointer">
-            Include Metadata
-          </Label>
-          <p className="text-xs text-gray-500 ml-auto">Get page titles, descriptions, etc.</p>
-        </div>
+        {/* Removed metadata option as it's not supported by Firecrawl API */}
 
         {/* Subdomain Option */}
         <div className="flex items-center space-x-2">

@@ -82,6 +82,9 @@ const WebsiteItemDetails: React.FC<WebsiteItemDetailsProps> = ({
                 <p><strong>Smallest Page:</strong> {formatSize(crawlReport.processingStats.smallestPage)}</p>
               </>
             )}
+            {crawlReport.creditsUsed && (
+              <p><strong>Firecrawl Credits Used:</strong> {crawlReport.creditsUsed}</p>
+            )}
           </div>
           
           {crawlReport.pageSizes && crawlReport.pageSizes.length > 0 && (

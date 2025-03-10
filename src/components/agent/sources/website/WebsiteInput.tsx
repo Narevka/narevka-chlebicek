@@ -21,7 +21,6 @@ const WebsiteInput: React.FC<WebsiteInputProps> = ({ onCrawlWebsite, isLoading }
     returnFormat: "markdown",
     requestType: "smart",
     enableProxies: false,
-    enableMetadata: true,
     enableAntiBot: false,
     enableFullResources: false,
     enableSubdomains: false,
@@ -80,7 +79,7 @@ const WebsiteInput: React.FC<WebsiteInputProps> = ({ onCrawlWebsite, isLoading }
         </Button>
       </div>
       <p className="text-sm text-gray-500 mb-2">
-        This feature uses Spider.cloud to crawl the website and add its content to your assistant's knowledge base.
+        This feature uses Firecrawl to crawl the website and add its content to your assistant's knowledge base.
       </p>
 
       {/* Advanced options toggler */}

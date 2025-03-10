@@ -116,13 +116,13 @@ serve(async (req) => {
         // Add log entry for crawl start
         await updateSourceWithLog(supabase, sourceId, "info", `Background crawl process started for ${url}`);
         
-        // Prepare the request body for Firecrawl API
+        // Prepare the request body for Firecrawl API - FIX: Updated to match Firecrawl API requirements
         const firecrawlRequestBody = {
           url: url,
           limit: limit,
           scrapeOptions: {
-            formats: [returnFormat],
-            metadata: enableMetadata
+            formats: [returnFormat]
+            // Remove metadata key as it's not supported in Firecrawl API
           },
           allowSubdomains: enableSubdomains,
           // Firecrawl-specific settings, mapped from our original options
@@ -197,7 +197,7 @@ serve(async (req) => {
               content: JSON.stringify({
                 url: url,
                 status: 'error',
-                error: `Firecrawl API error: ${crawlResponse.status} ${errorData}`,
+                error: `Firecrawl API error: ${errorData}`,
                 crawl_options: firecrawlRequestBody
               })
             })
