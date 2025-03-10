@@ -9,7 +9,7 @@ import { getAssistantResponse } from "./conversation/assistantApi";
 // Export the Message type with the correct syntax for isolatedModules
 export type { Message };
 
-export const useConversation = (userId: string | undefined, agentId: string | undefined) => {
+export const useConversation = (userId: string | undefined, agentId: string | undefined, source: string = "Playground") => {
   const [messages, setMessages] = useState<Array<Message>>([
     { content: "Hi! What can I help you with?", isUser: false }
   ]);
@@ -23,7 +23,7 @@ export const useConversation = (userId: string | undefined, agentId: string | un
     const initConversation = async () => {
       if (!userId) return;
 
-      const newConversationId = await createConversation(userId);
+      const newConversationId = await createConversation(userId, source);
       
       if (newConversationId) {
         setConversationId(newConversationId);
@@ -38,7 +38,7 @@ export const useConversation = (userId: string | undefined, agentId: string | un
     };
 
     initConversation();
-  }, [userId]);
+  }, [userId, source]);
 
   const handleSendMessage = useCallback(async (message: string) => {
     if (!message.trim() || !conversationId || !agentId) return;
@@ -92,7 +92,7 @@ export const useConversation = (userId: string | undefined, agentId: string | un
     if (!userId) return;
 
     // Create a new conversation
-    const newConversationId = await createConversation(userId);
+    const newConversationId = await createConversation(userId, source);
     
     if (newConversationId) {
       setConversationId(newConversationId);
@@ -110,7 +110,7 @@ export const useConversation = (userId: string | undefined, agentId: string | un
     } else {
       toast.error("Failed to reset conversation");
     }
-  }, [userId]);
+  }, [userId, source]);
 
   return {
     messages,

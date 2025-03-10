@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { RefreshCw, Download, Filter } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
@@ -10,6 +11,8 @@ import ConversationsFilter from "./ConversationsFilter";
 import PaginationControls from "./PaginationControls";
 import SearchBar from "./SearchBar";
 import { fetchConversations, fetchMessagesForConversation, deleteConversation } from "./conversationService";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 
 const ChatLogsSection = () => {
   const { user } = useAuth();
@@ -31,6 +34,7 @@ const ChatLogsSection = () => {
     totalItems: 0
   });
   const [showFilterPanel, setShowFilterPanel] = useState(false);
+  const [availableSources, setAvailableSources] = useState<string[]>(['Playground', 'Website', 'WordPress', 'Bubble']);
 
   useEffect(() => {
     if (!user) return;
@@ -49,6 +53,13 @@ const ChatLogsSection = () => {
       ...prev,
       totalItems: totalItems
     }));
+    
+    // Extract unique sources for the filter dropdown
+    const sources = Array.from(new Set(loadedConversations.map(convo => convo.source)));
+    if (sources.length > 0) {
+      setAvailableSources(['all', ...sources]);
+    }
+    
     setIsLoading(false);
   };
 
@@ -65,14 +76,18 @@ const ChatLogsSection = () => {
     const success = await deleteConversation(conversationId);
     if (success) {
       setConversations(conversations.filter(convo => convo.id !== conversationId));
+      if (selectedConversation?.id === conversationId) {
+        setSelectedConversation(null);
+        setConversationMessages([]);
+      }
     }
   };
 
-  const sources = conversations.map(convo => convo.source);
-
   const filteredConversations = conversations.filter(convo => {
-    const matchesSearch = convo.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                         (convo.last_message && convo.last_message.toLowerCase().includes(searchTerm.toLowerCase()));
+    const matchesSearch = 
+      (convo.title && convo.title.toLowerCase().includes(searchTerm.toLowerCase())) || 
+      (convo.user_message && convo.user_message.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (convo.last_message && convo.last_message.toLowerCase().includes(searchTerm.toLowerCase()));
     return matchesSearch;
   });
 
@@ -125,9 +140,59 @@ const ChatLogsSection = () => {
               </Button>
             </div>
           </div>
+
+          <div className="mb-4">
+            <SearchBar 
+              searchTerm={searchTerm}
+              setSearchTerm={setSearchTerm}
+            />
+          </div>
+
+          {showFilterPanel && (
+            <div className="mb-4 p-3 border rounded-md bg-gray-50">
+              <h3 className="text-sm font-medium mb-3">Filters</h3>
+              <div className="space-y-3">
+                <div>
+                  <Label htmlFor="source-filter" className="text-xs">Source</Label>
+                  <Select 
+                    value={filters.source || 'all'} 
+                    onValueChange={(value) => handleFilterChange('source', value === 'all' ? null : value)}
+                  >
+                    <SelectTrigger id="source-filter" className="h-8 text-xs">
+                      <SelectValue placeholder="All sources" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableSources.map(source => (
+                        <SelectItem key={source} value={source} className="text-xs">
+                          {source === 'all' ? 'All sources' : source}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div>
+                  <Label htmlFor="date-filter" className="text-xs">Date</Label>
+                  <Select 
+                    value={filters.dateRange || 'all_time'} 
+                    onValueChange={(value) => handleFilterChange('dateRange', value === 'all_time' ? null : value)}
+                  >
+                    <SelectTrigger id="date-filter" className="h-8 text-xs">
+                      <SelectValue placeholder="All time" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all_time" className="text-xs">All time</SelectItem>
+                      <SelectItem value="last_7_days" className="text-xs">Last 7 days</SelectItem>
+                      <SelectItem value="last_30_days" className="text-xs">Last 30 days</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
-        <div className="overflow-y-auto h-[calc(100vh-200px)]">
+        <div className="overflow-y-auto h-[calc(100vh-320px)]">
           <ConversationsList 
             conversations={filteredConversations} 
             isLoading={isLoading} 

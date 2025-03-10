@@ -1,7 +1,7 @@
 
 import React, { useState } from "react";
 import { format } from "date-fns";
-import { Loader2, BarChart, Edit } from "lucide-react";
+import { Loader2, BarChart, Edit, X } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -47,6 +47,9 @@ const ConversationDetails = ({
             {format(new Date(selectedConversation.created_at), "PPP")}
           </div>
         </div>
+        <Button variant="ghost" size="icon" onClick={onClose}>
+          <X className="h-4 w-4" />
+        </Button>
       </div>
 
       <div className="flex-1 p-6 overflow-y-auto">
@@ -56,9 +59,9 @@ const ConversationDetails = ({
           </div>
         ) : conversationMessages.length > 0 ? (
           <div className="space-y-6">
-            {conversationMessages.map((msg) => (
+            {conversationMessages.map((msg, index) => (
               <div 
-                key={msg.id} 
+                key={msg.id || index} 
                 className={`flex ${msg.is_bot ? 'justify-start' : 'justify-end'}`}
               >
                 <div 
@@ -69,7 +72,10 @@ const ConversationDetails = ({
                   }`}
                 >
                   <p className="text-base leading-relaxed">{msg.content}</p>
-                  {msg.confidence && msg.is_bot && (
+                  <div className="mt-2 text-xs text-gray-400">
+                    {msg.created_at && format(new Date(msg.created_at), "d MMM yyyy, h:mm a")}
+                  </div>
+                  {msg.confidence !== null && msg.confidence !== undefined && msg.is_bot && (
                     <div className="mt-3 flex items-center space-x-3">
                       <div className="bg-purple-500 text-xs text-white px-2 py-1 rounded-full flex items-center">
                         <BarChart className="h-3 w-3 mr-1" />

@@ -8,12 +8,14 @@ export const fetchConversations = async (
   filters: FilterState
 ) => {
   try {
-    let query = supabase
+    // Build the count query first to get total items
+    let countQuery = supabase
       .from('conversations')
-      .select('*', { count: 'exact', head: true });
+      .select('*', { count: 'exact' });
     
-    if (filters.source) {
-      query = query.eq('source', filters.source);
+    // Apply filters to count query
+    if (filters.source && filters.source !== 'all') {
+      countQuery = countQuery.eq('source', filters.source);
     }
     
     if (filters.dateRange) {
@@ -22,16 +24,17 @@ export const fetchConversations = async (
       sevenDaysAgo.setDate(today.getDate() - 7);
       
       if (filters.dateRange === "last_7_days") {
-        query = query.gte('created_at', sevenDaysAgo.toISOString());
+        countQuery = countQuery.gte('created_at', sevenDaysAgo.toISOString());
       }
     }
     
-    const { count, error: countError } = await query;
+    const { count, error: countError } = await countQuery;
     
     if (countError) throw countError;
     
     const totalItems = count || 0;
     
+    // Build the main query for fetching conversations
     let conversationsQuery = supabase
       .from('conversations')
       .select('*')
@@ -41,7 +44,8 @@ export const fetchConversations = async (
         pagination.currentPage * pagination.pageSize - 1
       );
     
-    if (filters.source) {
+    // Apply same filters to main query
+    if (filters.source && filters.source !== 'all') {
       conversationsQuery = conversationsQuery.eq('source', filters.source);
     }
     
@@ -59,85 +63,76 @@ export const fetchConversations = async (
     
     if (conversationsError) throw conversationsError;
     
-    const conversationsWithLastMessage = await Promise.all(
+    // For each conversation, fetch the first user message and last bot message
+    const conversationsWithMessages = await Promise.all(
       (conversationsData || []).map(async (conversation) => {
-        let messagesQuery = supabase
+        // Get the first user message (for showing what the user asked)
+        const { data: userMessageData } = await supabase
           .from('messages')
-          .select('content, is_bot, confidence')
+          .select('content, created_at')
           .eq('conversation_id', conversation.id)
+          .eq('is_bot', false)
+          .order('created_at', { ascending: true })
+          .limit(1);
+          
+        // Get the last bot message
+        const { data: botMessageData } = await supabase
+          .from('messages')
+          .select('content, confidence')
+          .eq('conversation_id', conversation.id)
+          .eq('is_bot', true)
           .order('created_at', { ascending: false })
           .limit(1);
         
-        if (filters.confidenceScore) {
-          const threshold = parseFloat(filters.confidenceScore.replace('< ', ''));
-          messagesQuery = messagesQuery.lt('confidence', threshold);
+        // For the list preview, show the user's message followed by AI's response
+        let preview = '';
+        if (userMessageData && userMessageData.length > 0) {
+          preview = `User: ${userMessageData[0].content.substring(0, 30)}${userMessageData[0].content.length > 30 ? '...' : ''}`;
+        }
+        if (botMessageData && botMessageData.length > 0) {
+          if (preview) preview += ' • ';
+          preview += `AI: ${botMessageData[0].content.substring(0, 30)}${botMessageData[0].content.length > 30 ? '...' : ''}`;
         }
         
-        const { data: lastMessageData, error: lastMessageError } = await messagesQuery.maybeSingle();
-        
-        if (lastMessageError && lastMessageError.code !== 'PGRST116') {
-          console.error("Error fetching last message:", lastMessageError);
-          return conversation;
-        }
-        
+        // Return the conversation with added information
         return {
           ...conversation,
-          last_message: lastMessageData?.is_bot ? "AI: " + lastMessageData?.content : lastMessageData?.content,
-          confidence: lastMessageData?.confidence
+          user_message: userMessageData && userMessageData.length > 0 ? userMessageData[0].content : null,
+          last_message: preview || "Empty conversation",
+          confidence: botMessageData && botMessageData.length > 0 ? botMessageData[0].confidence : null
         };
       })
     );
     
-    let filteredConversations = conversationsWithLastMessage;
+    // Handle confidence filtering (if required)
+    let filteredConversations = conversationsWithMessages;
+    if (filters.confidenceScore) {
+      const threshold = parseFloat(filters.confidenceScore.replace('< ', ''));
+      filteredConversations = filteredConversations.filter(convo => 
+        convo.confidence !== null && convo.confidence < threshold
+      );
+    }
     
-    // Handle feedback filter separately if the feedback columns exist in the database
+    // Handle feedback filter
     if (filters.feedback) {
       try {
-        // Check if columns exist before filtering
-        const { data: messagesData, error: columnsCheckError } = await supabase
-          .from('messages')
-          .select('*')
-          .limit(1);
-        
-        if (columnsCheckError) {
-          console.error("Error checking message columns:", columnsCheckError);
-          return { conversations: filteredConversations, totalItems: pagination.totalItems };
-        }
-        
-        // Only filter by feedback if we have data to check against
-        if (messagesData && messagesData.length > 0) {
-          // Type assertion to allow property access check
-          const sampleMessage = messagesData[0] as Record<string, unknown>;
-          const hasFeedbackColumns = 'has_thumbs_up' in sampleMessage || 'has_thumbs_down' in sampleMessage;
-          
-          if (hasFeedbackColumns) {
-            const conversationsWithFeedback = await Promise.all(
-              filteredConversations.map(async (conversation) => {
-                const { data } = await supabase
-                  .from('messages')
-                  .select('*')
-                  .eq('conversation_id', conversation.id);
-                
-                if (!data || data.length === 0) {
-                  return { ...conversation, hasFeedback: false };
-                }
-                
-                // Use type assertion for each message to safely check properties
-                const hasFeedback = data.some(msg => {
-                  const message = msg as Message;
-                  return (
-                    (filters.feedback === "thumbs_up" && message.has_thumbs_up) || 
-                    (filters.feedback === "thumbs_down" && message.has_thumbs_down)
-                  );
-                });
-                
-                return { ...conversation, hasFeedback };
-              })
+        filteredConversations = await Promise.all(
+          filteredConversations.map(async (conversation) => {
+            const { data } = await supabase
+              .from('messages')
+              .select('has_thumbs_up, has_thumbs_down')
+              .eq('conversation_id', conversation.id);
+            
+            const hasFeedback = data?.some(msg => 
+              (filters.feedback === 'thumbs_up' && msg.has_thumbs_up) || 
+              (filters.feedback === 'thumbs_down' && msg.has_thumbs_down)
             );
             
-            filteredConversations = conversationsWithFeedback.filter(conv => conv.hasFeedback);
-          }
-        }
+            return { ...conversation, hasFeedback };
+          })
+        );
+        
+        filteredConversations = filteredConversations.filter(conv => conv.hasFeedback);
       } catch (error) {
         console.error("Error with feedback filtering:", error);
       }
@@ -145,7 +140,7 @@ export const fetchConversations = async (
     
     return { 
       conversations: filteredConversations, 
-      totalItems: pagination.totalItems 
+      totalItems 
     };
   } catch (error) {
     console.error("Error fetching conversations:", error);
@@ -174,6 +169,15 @@ export const fetchMessagesForConversation = async (conversationId: string) => {
 
 export const deleteConversation = async (conversationId: string) => {
   try {
+    // Delete associated messages first
+    const { error: messagesError } = await supabase
+      .from('messages')
+      .delete()
+      .eq('conversation_id', conversationId);
+    
+    if (messagesError) throw messagesError;
+    
+    // Then delete the conversation
     const { error } = await supabase
       .from('conversations')
       .delete()

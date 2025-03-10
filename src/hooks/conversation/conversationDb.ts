@@ -20,14 +20,14 @@ export const saveMessageToDb = async (messageData: {
   }
 };
 
-export const createConversation = async (userId: string) => {
+export const createConversation = async (userId: string, source: string = "Playground") => {
   try {
     const { data, error } = await supabase
       .from('conversations')
       .insert({
         user_id: userId,
         title: "New conversation",
-        source: "Playground"
+        source: source
       })
       .select('id')
       .single();
@@ -53,5 +53,20 @@ export const updateConversationTitle = async (conversationId: string, userId: st
     if (error) throw error;
   } catch (error) {
     console.error("Error updating conversation title:", error);
+  }
+};
+
+export const updateConversationSource = async (conversationId: string, source: string) => {
+  if (!conversationId) return;
+
+  try {
+    const { error } = await supabase
+      .from('conversations')
+      .update({ source: source })
+      .eq('id', conversationId);
+
+    if (error) throw error;
+  } catch (error) {
+    console.error("Error updating conversation source:", error);
   }
 };

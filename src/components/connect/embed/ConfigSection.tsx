@@ -32,7 +32,8 @@ const ConfigSection: React.FC<ConfigSectionProps> = ({
     domain: "${customDomain}",
     title: "${agentName || 'Chat with our AI'}",
     description: "${agentDescription || 'Ask me anything!'}",
-    primaryColor: "#6366f1"
+    primaryColor: "#6366f1",
+    source: "Website" // This tracks the source of conversations
   }
   
   console.log('Initializing chat widget...');
@@ -63,7 +64,7 @@ const ConfigSection: React.FC<ConfigSectionProps> = ({
 </script>`;
 
   const iframeCode = `<iframe
-  src="${customDomain}/chatbot-iframe/${agentId}"
+  src="${customDomain}/chatbot-iframe/${agentId}?source=WordPress"
   width="100%"
   style="height: 100%; min-height: 700px"
   frameborder="0"

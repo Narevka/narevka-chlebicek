@@ -42,25 +42,33 @@ const ConversationsList = ({
           className="p-4 border-b hover:bg-gray-50 cursor-pointer"
           onClick={() => onSelectConversation(convo)}
         >
-          <div className="flex justify-between items-start">
-            <div>
-              <h3 className="font-medium text-gray-900">{convo.title}</h3>
-              <p className="text-sm text-gray-500 mt-1">{convo.last_message || "No messages"}</p>
-            </div>
-            <div className="flex items-center space-x-4">
-              <span className="text-xs text-gray-500">
-                {format(new Date(convo.updated_at), "d MMM yyyy")} ({format(new Date(convo.updated_at), "h:mm a")})
-              </span>
+          <div className="flex justify-between items-start mb-2">
+            <div className="flex items-center">
+              <h3 className="font-medium text-gray-900 mr-3">
+                {convo.title && convo.title !== "New conversation" 
+                  ? convo.title 
+                  : convo.user_message 
+                    ? convo.user_message.substring(0, 40) + (convo.user_message.length > 40 ? '...' : '')
+                    : "New conversation"}
+              </h3>
               <div className="bg-gray-100 text-xs px-2 py-1 rounded">
                 {convo.source}
               </div>
-              <button 
-                className="text-red-500 hover:text-red-700"
-                onClick={(e) => onDeleteConversation(convo.id, e)}
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
             </div>
+            <span className="text-xs text-gray-500 whitespace-nowrap">
+              {format(new Date(convo.updated_at), "d MMM yyyy")} ({format(new Date(convo.updated_at), "h:mm a")})
+            </span>
+          </div>
+          
+          <p className="text-sm text-gray-500 mt-1">{convo.last_message || "No messages"}</p>
+          
+          <div className="flex justify-end mt-2">
+            <button 
+              className="text-red-500 hover:text-red-700"
+              onClick={(e) => onDeleteConversation(convo.id, e)}
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
           </div>
         </div>
       ))}

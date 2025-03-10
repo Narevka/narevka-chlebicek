@@ -1,21 +1,26 @@
 
 export interface Conversation {
   id: string;
+  user_id: string;
   title: string;
-  source: string;
   created_at: string;
   updated_at: string;
+  source: string;
+  is_public?: boolean;
+  // Added properties for UI display
   last_message?: string;
-  confidence?: number;
+  user_message?: string;
+  confidence?: number | null;
   hasFeedback?: boolean;
 }
 
 export interface Message {
-  id: string;
+  id?: string;
+  conversation_id: string;
   content: string;
   is_bot: boolean;
-  confidence?: number;
   created_at: string;
+  confidence?: number;
   has_thumbs_up?: boolean;
   has_thumbs_down?: boolean;
 }
