@@ -3,7 +3,7 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import * as openai from './openai.ts'
 import { validateRequest } from './validation.ts'
 import { corsHeaders } from './cors.ts'
-import { handleErrors } from './error-handler.ts'
+import { handleError } from './error-handler.ts'
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL') || ''
 const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') || ''
@@ -73,6 +73,6 @@ serve(async (req) => {
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   } catch (error) {
-    return handleErrors(error)
+    return handleError(error)
   }
 })
