@@ -2,7 +2,6 @@
 const express = require('express');
 const path = require('path');
 const cors = require('cors');
-const fs = require('fs');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -39,6 +38,8 @@ app.post('/functions/chat-with-assistant', async (req, res) => {
     const supabaseUrl = process.env.SUPABASE_URL || 'https://qaopcduyhmweewrcwkoy.supabase.co';
     const functionUrl = `${supabaseUrl}/functions/v1/chat-with-assistant`;
     
+    console.log(`Proxying request to ${functionUrl}`);
+    
     // Forward the request to Supabase
     const response = await fetch(functionUrl, {
       method: 'POST',
@@ -61,11 +62,12 @@ app.post('/functions/chat-with-assistant', async (req, res) => {
   }
 });
 
-// Catch-all route for SPA
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public/index.html'));
-});
+// For Vercel serverless functions, we need to export the Express app
+module.exports = app;
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+// Only start the server if this file is run directly
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+  });
+}

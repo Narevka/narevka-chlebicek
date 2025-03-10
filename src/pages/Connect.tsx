@@ -10,15 +10,13 @@ import EmbedTab from "@/components/connect/EmbedTab";
 import ShareTab from "@/components/connect/ShareTab";
 import IntegrationsTab from "@/components/connect/IntegrationsTab";
 
-const EMBED_BASE_URL = window.location.origin;
-
 const Connect = () => {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
   const { agent, loading } = useAgentDetail(id || "", user?.id);
   const location = useLocation();
   const [activeTab, setActiveTab] = useState("embed");
-  const [customDomain, setCustomDomain] = useState("https://www.narevka.com");
+  const [customDomain, setCustomDomain] = useState(window.location.origin);
   const [secretKey] = useState(() => {
     return uuidv4();
   });

@@ -112,10 +112,10 @@ const EmbedTab: React.FC<EmbedTabProps> = ({
                   value={customDomain} 
                   onChange={(e) => setCustomDomain(e.target.value)} 
                   className="max-w-md"
-                  placeholder="https://www.narevka.com"
+                  placeholder={window.location.origin}
                 />
                 <p className="text-sm text-gray-500 mt-1">
-                  Enter the full URL (including https://) where your chatbot server is hosted
+                  Enter the full URL (including https://) where your chatbot server is hosted. By default, this can be your Vercel app URL.
                 </p>
               </div>
               
@@ -135,12 +135,12 @@ const EmbedTab: React.FC<EmbedTabProps> = ({
                 <div>
                   <p className="text-amber-800 font-medium">Important</p>
                   <p className="text-amber-700">
-                    Make sure that your server at <strong>{customDomain}</strong> has the necessary backend services:
+                    Your server at <strong>{customDomain}</strong> is already configured with the necessary backend services through Vercel:
                   </p>
                   <ul className="list-disc pl-5 mt-2 text-amber-700">
-                    <li>The <code>/embed.min.js</code> file must be served from your domain</li>
-                    <li>The <code>/chatbot-iframe/{agentId}</code> endpoint must be configured</li>
-                    <li>Your domain must handle API calls from the chatbot client</li>
+                    <li>The <code>/embed.min.js</code> file is served from your Vercel domain</li>
+                    <li>The <code>/chatbot-iframe/{agentId}</code> endpoint is configured</li>
+                    <li>Your domain handles API calls from the chatbot client</li>
                   </ul>
                 </div>
               </div>
@@ -152,37 +152,32 @@ const EmbedTab: React.FC<EmbedTabProps> = ({
       </div>
 
       <div className="mb-10">
-        <h2 className="text-2xl font-semibold mb-4">Required Backend Services</h2>
+        <h2 className="text-2xl font-semibold mb-4">Backend Services Status</h2>
         <Card>
           <CardContent className="pt-6">
-            <p className="mb-4">To self-host this chatbot on your domain, you need to set up these key components:</p>
+            <p className="mb-4">Your chatbot backend is hosted on Vercel using the same repository as your app. The required components are:</p>
             
             <ol className="list-decimal pl-5 space-y-3 mb-6">
               <li className="text-gray-800">
-                <strong>Static file hosting</strong>: Serve the <code>embed.min.js</code> file from your domain's root
+                <strong>Static file hosting</strong>: The <code>embed.min.js</code> file is served from your Vercel domain
               </li>
               <li className="text-gray-800">
-                <strong>Chatbot iframe endpoint</strong>: Create a route for <code>/chatbot-iframe/:id</code> that renders the chatbot interface
+                <strong>Chatbot iframe endpoint</strong>: The route <code>/chatbot-iframe/:id</code> shows the chatbot interface
               </li>
               <li className="text-gray-800">
-                <strong>API endpoints</strong>: Set up an endpoint at <code>/functions/chat-with-assistant</code> to handle message exchanges
-              </li>
-              <li className="text-gray-800">
-                <strong>AI processing</strong>: Connect the API to your chosen AI service (like OpenAI)
+                <strong>API endpoint</strong>: The endpoint at <code>/functions/chat-with-assistant</code> handles messages
               </li>
             </ol>
             
             <div className="bg-blue-50 border border-blue-200 p-4 rounded-md">
-              <p className="text-blue-800 font-medium mb-2">Backend implementation</p>
+              <p className="text-blue-800 font-medium mb-2">Vercel Deployment</p>
               <p className="text-blue-700 mb-3">
-                We've provided all the necessary files in the project for you to implement your backend:
+                When you push your changes to GitHub, Vercel will automatically deploy your updated app with the backend server.
               </p>
               <ul className="list-disc pl-5 text-blue-700 space-y-2">
-                <li><code>public/embed.min.js</code> - The client-side script for embedding the chatbot</li>
-                <li><code>public/chatbot-iframe-template.html</code> - The template for the chatbot iframe</li>
-                <li><code>public/chatbot.html</code> - A standalone chatbot page</li>
-                <li><code>server-implementation.js</code> - A reference Node.js server implementation</li>
-                <li><code>BACKEND_SETUP.md</code> - Detailed instructions for setting up your backend</li>
+                <li>Updated <code>vercel.json</code> routes requests correctly to your server</li>
+                <li>The Express server handles both static files and API proxying</li>
+                <li>No additional hosting services are required</li>
               </ul>
             </div>
           </CardContent>
