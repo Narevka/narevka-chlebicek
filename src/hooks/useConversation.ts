@@ -15,12 +15,17 @@ export const useConversation = (userId: string | undefined, agentId: string | un
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [threadId, setThreadId] = useState<string | null>(null);
   
+  // Use a safer source default value with validation
+  const validSource = typeof source === 'string' && source.trim() !== '' 
+    ? source.trim() 
+    : "Website";
+  
   useEffect(() => {
     const initConversation = async () => {
       if (!userId) return;
 
-      console.log(`useConversation: Initializing conversation with source: ${source}`);
-      const newConversationId = await createConversation(userId, source);
+      console.log(`useConversation: Initializing conversation with source: ${validSource}`);
+      const newConversationId = await createConversation(userId, validSource);
       
       if (newConversationId) {
         setConversationId(newConversationId);
@@ -40,15 +45,15 @@ export const useConversation = (userId: string | undefined, agentId: string | un
     };
 
     initConversation();
-  }, [userId, source]);
+  }, [userId, validSource]);
   
   useEffect(() => {
     // Update conversation source whenever it changes
-    if (conversationId && source) {
-      console.log(`Updating conversation source for ${conversationId} to ${source}`);
-      updateConversationSource(conversationId, source);
+    if (conversationId && validSource) {
+      console.log(`Updating conversation source for ${conversationId} to ${validSource}`);
+      updateConversationSource(conversationId, validSource);
     }
-  }, [conversationId, source]);
+  }, [conversationId, validSource]);
 
   const handleSendMessage = useCallback(async (message: string) => {
     if (!message.trim() || !conversationId || !agentId) return;
@@ -69,12 +74,12 @@ export const useConversation = (userId: string | undefined, agentId: string | un
     });
     
     try {
-      console.log(`Sending message with source: ${source} and threadId: ${threadId}`);
+      console.log(`Sending message with source: ${validSource} and threadId: ${threadId}`);
       const { botResponse, threadId: newThreadId } = await getAssistantResponse(
         message, 
         agentId, 
         threadId,
-        source
+        validSource
       );
       
       console.log(`Received response with threadId: ${newThreadId}`);
@@ -104,13 +109,13 @@ export const useConversation = (userId: string | undefined, agentId: string | un
     }
     
     setInputMessage("");
-  }, [conversationId, threadId, agentId, userId, messages.length, source]);
+  }, [conversationId, threadId, agentId, userId, messages.length, validSource]);
 
   const resetConversation = useCallback(async () => {
     if (!userId) return;
 
-    console.log(`Resetting conversation with source: ${source}`);
-    const newConversationId = await createConversation(userId, source);
+    console.log(`Resetting conversation with source: ${validSource}`);
+    const newConversationId = await createConversation(userId, validSource);
     
     if (newConversationId) {
       setConversationId(newConversationId);
@@ -127,7 +132,7 @@ export const useConversation = (userId: string | undefined, agentId: string | un
     } else {
       toast.error("Failed to reset conversation");
     }
-  }, [userId, source]);
+  }, [userId, validSource]);
 
   return {
     messages,

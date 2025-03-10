@@ -185,6 +185,81 @@
         }
       }
       
+      // Save messages to session storage for persistence
+      function saveMessages(messages) {
+        try {
+          const storageKey = `chat_messages_${chatId}`;
+          sessionStorage.setItem(storageKey, JSON.stringify(messages));
+        } catch (e) {
+          console.error('Error saving messages to session storage:', e);
+        }
+      }
+      
+      // Load messages from session storage
+      function loadMessages() {
+        try {
+          const storageKey = `chat_messages_${chatId}`;
+          const savedMessages = sessionStorage.getItem(storageKey);
+          if (savedMessages) {
+            return JSON.parse(savedMessages);
+          }
+        } catch (e) {
+          console.error('Error loading messages from session storage:', e);
+        }
+        return null;
+      }
+      
+      // Load thread ID from session storage
+      function loadThreadId() {
+        try {
+          const storageKey = `chat_thread_${chatId}`;
+          return sessionStorage.getItem(storageKey);
+        } catch (e) {
+          console.error('Error loading thread ID from session storage:', e);
+        }
+        return null;
+      }
+      
+      // Save thread ID to session storage
+      function saveThreadId(id) {
+        try {
+          const storageKey = `chat_thread_${chatId}`;
+          sessionStorage.setItem(storageKey, id);
+        } catch (e) {
+          console.error('Error saving thread ID to session storage:', e);
+        }
+      }
+      
+      // Restore previous chat state if available
+      function restoreChatState() {
+        const savedMessages = loadMessages();
+        const savedThreadId = loadThreadId();
+        
+        if (savedThreadId) {
+          threadId = savedThreadId;
+          console.log(`Restored thread ID: ${threadId}`);
+        }
+        
+        if (savedMessages && savedMessages.length > 0) {
+          // Clear default welcome message
+          messagesContainer.innerHTML = '';
+          
+          // Add saved messages
+          savedMessages.forEach(msg => {
+            const messageElement = document.createElement('div');
+            messageElement.className = `message ${msg.isUser ? 'user-message' : 'bot-message'}`;
+            messageElement.textContent = msg.text;
+            messagesContainer.appendChild(messageElement);
+          });
+          
+          messagesContainer.scrollTop = messagesContainer.scrollHeight;
+          console.log(`Restored ${savedMessages.length} messages from session storage`);
+        }
+      }
+      
+      // Initialize chat state
+      restoreChatState();
+      
       // Handle sending messages
       async function sendMessage() {
         const messageText = messageInput.value.trim();
@@ -205,7 +280,19 @@
         // Show typing indicator
         addTypingIndicator();
         
+        // Save the user message to session storage
+        const currentMessages = loadMessages() || [];
+        currentMessages.push({ text: messageText, isUser: true });
+        saveMessages(currentMessages);
+        
         try {
+          // Log request for debugging
+          console.log("[Chatbot info] Sending message", {
+            text: messageText,
+            agentId: chatId,
+            conversationId: threadId
+          });
+          
           const response = await fetch('/functions/chat-with-assistant', {
             method: 'POST',
             headers: {
@@ -214,11 +301,13 @@
             body: JSON.stringify({
               message: messageText,
               agentId: chatId,
-              conversationId: threadId
+              conversationId: threadId,
+              source: urlParams.get('source') || 'Website' // Use source from URL params if available
             })
           });
           
           const data = await response.json();
+          console.log("[Chatbot info] Response data", data);
           
           // Remove typing indicator
           removeTypingIndicator();
@@ -233,13 +322,21 @@
             // Save thread ID for conversation continuity
             if (data.threadId) {
               threadId = data.threadId;
+              saveThreadId(threadId);
+              console.log("[Chatbot info] Thread ID saved", threadId);
             }
             
             // Add bot response
+            const botResponse = data.response || "I'm sorry, I couldn't generate a response.";
             const botMessageElement = document.createElement('div');
             botMessageElement.className = 'message bot-message';
-            botMessageElement.textContent = data.response || "I'm sorry, I couldn't generate a response.";
+            botMessageElement.textContent = botResponse;
             messagesContainer.appendChild(botMessageElement);
+            
+            // Save the bot message to session storage
+            const updatedMessages = loadMessages() || [];
+            updatedMessages.push({ text: botResponse, isUser: false });
+            saveMessages(updatedMessages);
           }
         } catch (error) {
           console.error('Error sending message:', error);
