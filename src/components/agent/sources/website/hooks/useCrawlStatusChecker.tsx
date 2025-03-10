@@ -13,6 +13,38 @@ interface UseCrawlStatusCheckerProps {
   localStorageKey: string;
 }
 
+// Utility function for fetch retry with exponential backoff
+const fetchWithRetry = async (
+  sourceId: string,
+  retries = 3,
+  backoff = 300
+) => {
+  try {
+    const { data, error } = await supabase
+      .from("agent_sources")
+      .select("content, chars")
+      .eq("id", sourceId)
+      .single();
+      
+    if (error) throw error;
+    return { data, error: null };
+  } catch (error: any) {
+    console.log(`Fetch attempt failed for source ${sourceId}:`, error);
+    
+    if (retries <= 0) {
+      console.error(`All retries failed for source ${sourceId}`);
+      return { data: null, error };
+    }
+    
+    // Wait with exponential backoff
+    await new Promise(resolve => setTimeout(resolve, backoff));
+    
+    // Recursive retry with increased backoff
+    console.log(`Retrying fetch for source ${sourceId}. Retries left: ${retries-1}`);
+    return fetchWithRetry(sourceId, retries - 1, backoff * 2);
+  }
+};
+
 export const useCrawlStatusChecker = ({
   includedLinks,
   setIncludedLinks,
@@ -42,14 +74,11 @@ export const useCrawlStatusChecker = ({
         
         if (link.status === 'crawling' && link.sourceId && !deletedSourceIds.has(link.sourceId)) {
           try {
-            const { data, error } = await supabase
-              .from("agent_sources")
-              .select("content, chars")
-              .eq("id", link.sourceId)
-              .single();
-
+            // Use retry mechanism
+            const { data, error } = await fetchWithRetry(link.sourceId);
+            
             if (error) {
-              console.error("Error checking crawl status:", error);
+              console.error("Error checking crawl status after retries:", error);
               continue;
             }
 
@@ -70,6 +99,10 @@ export const useCrawlStatusChecker = ({
                 // Extract and save crawl report if available
                 const crawlReport = content.crawl_report || null;
                 
+                // Check if we've already shown a notification for this status
+                // to avoid duplicate notifications
+                const alreadyNotified = updatedLinks[i].notificationShown || false;
+                
                 updatedLinks[i] = {
                   ...link,
                   status: content.status,
@@ -77,19 +110,19 @@ export const useCrawlStatusChecker = ({
                   count: content.pages_crawled || link.count,
                   chars: data.chars || link.chars,
                   crawlReport: crawlReport,
-                  notificationShown: false // Reset notification flag when status changes
+                  notificationShown: alreadyNotified
                 };
                 hasChanges = true;
 
                 // Only show notification if it hasn't been shown yet and status is completed or error
-                if (content.status === 'completed' && !link.notificationShown) {
+                if (content.status === 'completed' && !alreadyNotified) {
                   updatedLinks[i].notificationShown = true; // Mark as shown
                   const limitInfo = link.requestedLimit 
                     ? ` (got ${content.pages_crawled || 0} of ${link.requestedLimit} pages)`
                     : '';
                   toast.success(`Crawl completed for ${link.url}${limitInfo}`);
                   console.log(`Crawl completed for ${link.url}${limitInfo}`);
-                } else if (content.status === 'error' && !link.notificationShown) {
+                } else if (content.status === 'error' && !alreadyNotified) {
                   updatedLinks[i].notificationShown = true; // Mark as shown
                   toast.error(`Crawl failed for ${link.url}: ${content.error}`);
                   console.error(`Crawl failed for ${link.url}: ${content.error}`);
@@ -114,7 +147,7 @@ export const useCrawlStatusChecker = ({
     checkCrawlStatus();
     
     // Then set up the interval for future checks
-    const intervalId = setInterval(checkCrawlStatus, 5000); // Check every 5 seconds
+    const intervalId = setInterval(checkCrawlStatus, 8000); // Increased to 8 seconds to reduce request frequency
     
     // Clean up interval on unmount
     return () => clearInterval(intervalId);
@@ -127,11 +160,8 @@ export const useCrawlStatusChecker = ({
     try {
       console.log(`Manually checking status for source ${sourceId}`);
       
-      const { data, error } = await supabase
-        .from("agent_sources")
-        .select("content, chars")
-        .eq("id", sourceId)
-        .single();
+      // Use retry mechanism
+      const { data, error } = await fetchWithRetry(sourceId);
 
       if (error) throw error;
       

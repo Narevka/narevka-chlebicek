@@ -29,6 +29,16 @@ export const useCrawlWebsite = ({
       return;
     }
 
+    // Prevent duplicate crawls of the same URL with active crawling status
+    const existingCrawl = includedLinks.find(
+      link => link.url === url && link.status === 'crawling'
+    );
+    
+    if (existingCrawl) {
+      toast.error("This URL is already being crawled");
+      return;
+    }
+
     setIsLoading(true);
     
     try {
@@ -52,7 +62,8 @@ export const useCrawlWebsite = ({
         chars: 0,
         requestedLimit: crawlOptions.limit,
         crawlOptions: crawlOptions,
-        notificationShown: false // Add flag to track if completion notification was shown
+        notificationShown: false, // Flag to track if completion notification was shown
+        createdAt: new Date().toISOString() // Add timestamp to track when crawl was started
       };
       
       const updatedLinks = [newLink, ...includedLinks];
@@ -61,7 +72,8 @@ export const useCrawlWebsite = ({
       // Store in local storage to persist across page refreshes
       localStorage.setItem(localStorageKey, JSON.stringify(updatedLinks));
       
-      toast.success("Website crawl started");
+      // Use a discrete toast ID to prevent duplicate toasts
+      toast.success("Website crawl started", { id: `crawl-started-${sourceId}` });
       console.log(`Website crawl started for ${url} with limit ${crawlOptions.limit}`);
       
       // Force an immediate check after a short delay to update UI

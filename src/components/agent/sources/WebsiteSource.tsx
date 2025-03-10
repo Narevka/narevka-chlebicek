@@ -36,7 +36,25 @@ const WebsiteSource = () => {
     console.log("- Agent ID:", agentId);
     console.log("- Loading state:", isLoading);
     console.log("- Downloading ID:", downloadingId);
-    console.log("- Included Links:", includedLinks);
+    
+    // More detailed information about included links
+    if (includedLinks.length > 0) {
+      console.log("- Included Links:", includedLinks);
+      console.log("%c First Link Details:", "font-weight: bold");
+      const firstLink = includedLinks[0];
+      console.log("  - URL:", firstLink.url);
+      console.log("  - Status:", firstLink.status);
+      console.log("  - Source ID:", firstLink.sourceId);
+      console.log("  - Pages count:", firstLink.count);
+      console.log("  - Requested limit:", firstLink.requestedLimit || "No limit");
+      console.log("  - Chars:", firstLink.chars);
+      console.log("  - Notification status:", firstLink.notificationShown ? "Shown" : "Not shown");
+      if (firstLink.crawlReport) {
+        console.log("  - Crawl report:", firstLink.crawlReport);
+      }
+    } else {
+      console.log("- No links included yet");
+    }
     
     // Show localStorage data
     const localStorageKey = `websiteSources-${agentId}`;
