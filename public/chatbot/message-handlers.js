@@ -50,16 +50,27 @@ export async function sendMessage(chatId) {
     
     // If no conversation exists yet, create one
     if (!conversationId) {
-      conversationId = await createConversation(chatId);
-      if (conversationId) {
-        localStorage.setItem(`conversation_${chatId}`, conversationId);
-        logDebug('Conversation ID saved', conversationId);
+      try {
+        conversationId = await createConversation(chatId);
+        if (conversationId) {
+          localStorage.setItem(`conversation_${chatId}`, conversationId);
+          logDebug('Conversation ID saved', conversationId);
+        }
+      } catch (dbError) {
+        // Log the error but continue - chat can still work without DB
+        logToDebugPanel('Failed to create conversation in database', 'warning', dbError);
+        // Continue with chat functionality even if DB operations fail
       }
     }
     
     // Save user message to database
     if (conversationId) {
-      await saveMessage(conversationId, messageText, false);
+      try {
+        await saveMessage(conversationId, messageText, false);
+      } catch (dbError) {
+        // Log the error but continue with chat
+        logToDebugPanel('Failed to save user message to database', 'warning', dbError);
+      }
     }
     
     // Prepare request payload
@@ -105,13 +116,18 @@ export async function sendMessage(chatId) {
     
     // Save bot response to database
     if (conversationId) {
-      await saveMessage(conversationId, data.response, true, data.confidence);
-      
-      // Update conversation title with first few words of first message (if this is the first message)
-      const botMessageCount = document.querySelectorAll('.bot-message').length;
-      if (botMessageCount === 1) {
-        const titleText = messageText.length > 30 ? messageText.substring(0, 30) + '...' : messageText;
-        await updateConversationTitle(conversationId, titleText);
+      try {
+        await saveMessage(conversationId, data.response, true, data.confidence);
+        
+        // Update conversation title with first few words of first message (if this is the first message)
+        const botMessageCount = document.querySelectorAll('.bot-message').length;
+        if (botMessageCount === 1) {
+          const titleText = messageText.length > 30 ? messageText.substring(0, 30) + '...' : messageText;
+          await updateConversationTitle(conversationId, titleText);
+        }
+      } catch (dbError) {
+        // Log the error but continue
+        logToDebugPanel('Failed to save bot message to database', 'warning', dbError);
       }
     }
     

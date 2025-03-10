@@ -27,10 +27,18 @@ serve(async (req) => {
       throw new Error('OpenAI API key is not configured');
     }
 
-    const { message, agentId, conversationId, dbConversationId, userId } = await req.json();
+    const { 
+      message, 
+      agentId, 
+      conversationId, 
+      dbConversationId, 
+      userId = 'anonymous-user' 
+    } = await req.json();
     
     // Validate request body
     validateRequestBody({ message, agentId });
+    
+    console.log(`Processing message for agent: ${agentId}, userId: ${userId}`);
 
     // Get agent data from Supabase
     const agentData = await getAgentData(agentId);
@@ -39,10 +47,21 @@ serve(async (req) => {
     console.log(`Using OpenAI assistant ID: ${assistantId} for agent: ${agentData.name}`);
     
     // Initialize Supabase Admin client for database operations
-    const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL') || '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
-    );
+    let supabaseAdmin;
+    try {
+      const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+      const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+      
+      if (!supabaseUrl || !supabaseKey) {
+        console.warn('Missing Supabase credentials, database operations will be skipped');
+      } else {
+        supabaseAdmin = createClient(supabaseUrl, supabaseKey);
+        console.log('Supabase admin client initialized successfully');
+      }
+    } catch (error) {
+      console.error('Failed to initialize Supabase client:', error);
+      // Continue without database operations
+    }
     
     // Handle thread management
     let threadId = conversationId;
@@ -55,8 +74,8 @@ serve(async (req) => {
     // Handle conversation tracking in database
     let conversationDbId = dbConversationId;
     
-    // Create new database conversation if none exists and we have a user ID
-    if (!conversationDbId && userId) {
+    // Create new database conversation if none exists and we have a user ID and Supabase
+    if (!conversationDbId && userId && supabaseAdmin) {
       try {
         const { data, error } = await supabaseAdmin
           .from('conversations')
@@ -73,11 +92,12 @@ serve(async (req) => {
         console.log(`Created new conversation in database with ID: ${conversationDbId}`);
       } catch (error) {
         console.error('Error creating conversation in database:', error);
+        // Continue without database operations
       }
     }
     
-    // Save user message to database if we have a conversation ID
-    if (conversationDbId) {
+    // Save user message to database if we have a conversation ID and Supabase
+    if (conversationDbId && supabaseAdmin) {
       try {
         await supabaseAdmin
           .from('messages')
@@ -89,6 +109,7 @@ serve(async (req) => {
         console.log('Saved user message to database');
       } catch (error) {
         console.error('Error saving user message to database:', error);
+        // Continue without database operations
       }
     }
     
@@ -107,8 +128,8 @@ serve(async (req) => {
     // Calculate confidence score (mock value for now - in a real implementation this would come from the model)
     const confidence = 0.85 + (Math.random() * 0.1); // Random value between 0.85 and 0.95
     
-    // Save bot message to database if we have a conversation ID
-    if (conversationDbId) {
+    // Save bot message to database if we have a conversation ID and Supabase
+    if (conversationDbId && supabaseAdmin) {
       try {
         await supabaseAdmin
           .from('messages')
@@ -121,6 +142,7 @@ serve(async (req) => {
         console.log('Saved bot message to database');
       } catch (error) {
         console.error('Error saving bot message to database:', error);
+        // Continue without database operations
       }
     }
     

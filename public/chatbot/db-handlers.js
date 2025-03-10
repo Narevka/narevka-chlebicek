@@ -7,18 +7,33 @@ async function initSupabase() {
   if (supabaseClient) return supabaseClient;
   
   try {
-    // Check if Supabase is loaded from CDN
-    if (window.supabase) {
-      // Use the globally available supabase from CDN
-      const supabaseUrl = window.chatbaseConfig?.supabaseUrl || 'https://qaopcduyhmweewrcwkoy.supabase.co';
-      const supabaseKey = window.chatbaseConfig?.supabaseKey || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFhb3BjZHV5aG13ZWV3cmN3a295Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDA4MzM3MjQsImV4cCI6MjA1NjQwOTcyNH0.-IBnucBUA_FMYpx7xKebNhYIXqaems-du5KUvG5T04A';
-      
-      logDebug('Initializing Supabase client', { url: supabaseUrl });
-      
+    const supabaseUrl = window.chatbaseConfig?.supabaseUrl || 'https://qaopcduyhmweewrcwkoy.supabase.co';
+    const supabaseKey = window.chatbaseConfig?.supabaseKey || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFhb3BjZHV5aG13ZWV3cmN3a295Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDA4MzM3MjQsImV4cCI6MjA1NjQwOTcyNH0.-IBnucBUA_FMYpx7xKebNhYIXqaems-du5KUvG5T04A';
+    
+    logDebug('Initializing Supabase client', { url: supabaseUrl });
+    
+    // Multiple ways to access the Supabase client
+    if (typeof window.supabase === 'function') {
+      // For newer versions where supabase is a function
+      supabaseClient = window.supabase(supabaseUrl, supabaseKey);
+      return supabaseClient;
+    } else if (window.supabase && typeof window.supabase.createClient === 'function') {
+      // For versions where createClient is a method
       supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
       return supabaseClient;
+    } else if (window.createClient) {
+      // Direct global createClient
+      supabaseClient = window.createClient(supabaseUrl, supabaseKey);
+      return supabaseClient;
     } else {
-      throw new Error('Supabase client not found on window object');
+      // Try dynamic import as a fallback
+      try {
+        const { createClient } = await import('https://unpkg.com/@supabase/supabase-js@2/dist/module/index.js');
+        supabaseClient = createClient(supabaseUrl, supabaseKey);
+        return supabaseClient;
+      } catch (importError) {
+        throw new Error(`Could not import Supabase client: ${importError.message}`);
+      }
     }
   } catch (error) {
     logToDebugPanel('Failed to initialize Supabase client', 'error', error);
