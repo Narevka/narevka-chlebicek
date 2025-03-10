@@ -32,8 +32,11 @@ serve(async (req) => {
       agentId, 
       conversationId, 
       dbConversationId, 
-      userId = 'anonymous-user' 
+      userId 
     } = await req.json();
+    
+    // Generate valid UUID for anonymous users if none provided
+    const userIdentifier = userId || crypto.randomUUID();
     
     // Validate request body
     validateRequestBody({ message, agentId });
@@ -80,12 +83,12 @@ serve(async (req) => {
     let conversationDbId = dbConversationId;
     
     // Create new database conversation if none exists and we have a user ID and Supabase
-    if (!conversationDbId && userId && supabaseClient) {
+    if (!conversationDbId && supabaseClient) {
       try {
         const { data, error } = await supabaseClient
           .from('conversations')
           .insert({
-            user_id: userId,
+            user_id: userIdentifier,
             title: 'Embedded Chat',
             source: 'embedded'
           })
