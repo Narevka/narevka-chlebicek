@@ -1,5 +1,6 @@
 
 import { logToDebugPanel, logDebug } from './debug-utils.js';
+import { createConversation, saveMessage, updateConversationTitle } from './db-handlers.js';
 
 export async function sendMessage(chatId) {
   const messagesContainer = document.getElementById('messages');
@@ -43,8 +44,23 @@ export async function sendMessage(chatId) {
     messagesContainer.appendChild(loadingIndicator);
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
     
-    // Get saved thread ID if any
-    const savedThreadId = localStorage.getItem(`conversation_${chatId}`);
+    // Get saved thread and conversation IDs if any
+    const savedThreadId = localStorage.getItem(`thread_${chatId}`);
+    let conversationId = localStorage.getItem(`conversation_${chatId}`);
+    
+    // If no conversation exists yet, create one
+    if (!conversationId) {
+      conversationId = await createConversation(chatId);
+      if (conversationId) {
+        localStorage.setItem(`conversation_${chatId}`, conversationId);
+        logDebug('Conversation ID saved', conversationId);
+      }
+    }
+    
+    // Save user message to database
+    if (conversationId) {
+      await saveMessage(conversationId, messageText, false);
+    }
     
     // Prepare request payload
     const payload = {
@@ -83,8 +99,20 @@ export async function sendMessage(chatId) {
     
     // Save thread ID for future conversations
     if (data.threadId) {
-      localStorage.setItem(`conversation_${chatId}`, data.threadId);
+      localStorage.setItem(`thread_${chatId}`, data.threadId);
       logDebug('Thread ID saved', data.threadId);
+    }
+    
+    // Save bot response to database
+    if (conversationId) {
+      await saveMessage(conversationId, data.response, true, data.confidence);
+      
+      // Update conversation title with first few words of first message (if this is the first message)
+      const botMessageCount = document.querySelectorAll('.bot-message').length;
+      if (botMessageCount === 1) {
+        const titleText = messageText.length > 30 ? messageText.substring(0, 30) + '...' : messageText;
+        await updateConversationTitle(conversationId, titleText);
+      }
     }
     
     // Add bot response

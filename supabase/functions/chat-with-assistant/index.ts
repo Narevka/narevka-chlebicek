@@ -11,6 +11,7 @@ import {
 } from "./openai.ts";
 import { handleError } from "./error-handler.ts";
 import { validateRequestBody } from "./validation.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -26,7 +27,7 @@ serve(async (req) => {
       throw new Error('OpenAI API key is not configured');
     }
 
-    const { message, agentId, conversationId } = await req.json();
+    const { message, agentId, conversationId, dbConversationId, userId } = await req.json();
     
     // Validate request body
     validateRequestBody({ message, agentId });
@@ -37,12 +38,58 @@ serve(async (req) => {
     
     console.log(`Using OpenAI assistant ID: ${assistantId} for agent: ${agentData.name}`);
     
+    // Initialize Supabase Admin client for database operations
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL') || '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
+    );
+    
     // Handle thread management
     let threadId = conversationId;
     
     // If no thread exists, create a new one
     if (!threadId) {
       threadId = await createThread(OPENAI_API_KEY);
+    }
+    
+    // Handle conversation tracking in database
+    let conversationDbId = dbConversationId;
+    
+    // Create new database conversation if none exists and we have a user ID
+    if (!conversationDbId && userId) {
+      try {
+        const { data, error } = await supabaseAdmin
+          .from('conversations')
+          .insert({
+            user_id: userId,
+            title: 'Embedded Chat',
+            source: 'embedded'
+          })
+          .select('id')
+          .single();
+        
+        if (error) throw error;
+        conversationDbId = data.id;
+        console.log(`Created new conversation in database with ID: ${conversationDbId}`);
+      } catch (error) {
+        console.error('Error creating conversation in database:', error);
+      }
+    }
+    
+    // Save user message to database if we have a conversation ID
+    if (conversationDbId) {
+      try {
+        await supabaseAdmin
+          .from('messages')
+          .insert({
+            conversation_id: conversationDbId,
+            content: message,
+            is_bot: false
+          });
+        console.log('Saved user message to database');
+      } catch (error) {
+        console.error('Error saving user message to database:', error);
+      }
     }
     
     // Add user message to the thread
@@ -60,9 +107,27 @@ serve(async (req) => {
     // Calculate confidence score (mock value for now - in a real implementation this would come from the model)
     const confidence = 0.85 + (Math.random() * 0.1); // Random value between 0.85 and 0.95
     
+    // Save bot message to database if we have a conversation ID
+    if (conversationDbId) {
+      try {
+        await supabaseAdmin
+          .from('messages')
+          .insert({
+            conversation_id: conversationDbId,
+            content: assistantResponse,
+            is_bot: true,
+            confidence: confidence
+          });
+        console.log('Saved bot message to database');
+      } catch (error) {
+        console.error('Error saving bot message to database:', error);
+      }
+    }
+    
     return new Response(
       JSON.stringify({
         threadId: threadId,
+        dbConversationId: conversationDbId,
         response: assistantResponse,
         confidence: confidence
       }),
