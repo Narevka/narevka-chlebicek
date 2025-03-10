@@ -1,5 +1,4 @@
-
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Conversation, Message, PaginationState, FilterState } from "../types";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
@@ -39,6 +38,7 @@ export const useChatLogs = () => {
     // Initialize from localStorage on component mount
     try {
       const storedIds = localStorage.getItem(DELETED_CONVERSATIONS_STORAGE_KEY);
+      console.log("Retrieved deleted IDs from localStorage:", storedIds);
       return storedIds ? new Set(JSON.parse(storedIds)) : new Set<string>();
     } catch (error) {
       console.error("Error loading deleted IDs from localStorage:", error);
@@ -49,112 +49,136 @@ export const useChatLogs = () => {
   // Persist deletedConversationIds to localStorage whenever it changes
   useEffect(() => {
     try {
+      const idsArray = Array.from(deletedConversationIds);
+      console.log("Saving deleted IDs to localStorage:", idsArray);
       localStorage.setItem(
         DELETED_CONVERSATIONS_STORAGE_KEY, 
-        JSON.stringify(Array.from(deletedConversationIds))
+        JSON.stringify(idsArray)
       );
     } catch (error) {
       console.error("Error saving deleted IDs to localStorage:", error);
     }
   }, [deletedConversationIds]);
 
+  // Memoize loadConversations to avoid recreation on every render
+  const loadConversations = useCallback(async () => {
+    if (!user) return;
+    
+    console.log("Loading conversations, user:", user.id);
+    console.log("Current deleted IDs:", Array.from(deletedConversationIds));
+    
+    setIsLoading(true);
+    
+    try {
+      let result;
+      
+      if (Object.values(filters).some(value => value !== null)) {
+        result = await fetchFilteredConversations(
+          user.id,
+          pagination,
+          filters
+        );
+      } else {
+        result = await fetchConversations(pagination, filters);
+      }
+      
+      const { conversations: loadedConversations, totalItems } = result;
+      
+      // Filter out any conversations that are marked as deleted locally
+      console.log("Filtering conversations with deleted IDs:", Array.from(deletedConversationIds));
+      const filteredResult = loadedConversations.filter(
+        convo => !deletedConversationIds.has(convo.id)
+      );
+      
+      console.log("Original count:", loadedConversations.length, "Filtered count:", filteredResult.length);
+      
+      setConversations(filteredResult);
+      setPagination(prev => ({
+        ...prev,
+        totalItems: Math.max(0, totalItems - deletedConversationIds.size)
+      }));
+      
+      // Update available sources
+      if (filteredResult.length > 0) {
+        const sources = Array.from(new Set(filteredResult.map(convo => convo.source))).filter(Boolean);
+        setAvailableSources(['all', ...sources]);
+      }
+    } catch (error) {
+      console.error("Error in loadConversations:", error);
+      toast.error("Failed to load conversations");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user, pagination.currentPage, filters, deletedConversationIds]);
+
+  // Load conversations when these dependencies change
+  useEffect(() => {
+    if (user) {
+      loadConversations();
+    }
+  }, [user, pagination.currentPage, filters, loadConversations]);
+  
   // Force reload data when user navigates back to page or refreshes
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible' && user) {
+        console.log("Page became visible, reloading conversations");
+        loadConversations();
+      }
+    };
+
+    const handleFocus = () => {
+      if (user) {
+        console.log("Window gained focus, reloading conversations");
         loadConversations();
       }
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('focus', () => {
-      if (user) loadConversations();
-    });
+    window.addEventListener('focus', handleFocus);
 
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('focus', loadConversations);
+      window.removeEventListener('focus', handleFocus);
     };
-  }, [user]);
-
-  useEffect(() => {
-    if (!user) return;
-    
-    loadConversations();
-  }, [user, pagination.currentPage, filters]);
-
-  const loadConversations = async () => {
-    if (!user) return;
-    
-    setIsLoading(true);
-    
-    if (Object.values(filters).some(value => value !== null)) {
-      const { conversations: filteredConversations, totalItems } = await fetchFilteredConversations(
-        user.id,
-        pagination,
-        filters
-      );
-      
-      // Filter out any conversations that are marked as deleted locally
-      const filteredResult = filteredConversations.filter(
-        convo => !deletedConversationIds.has(convo.id)
-      );
-      
-      setConversations(filteredResult);
-      setPagination(prev => ({
-        ...prev,
-        totalItems: totalItems - (deletedConversationIds.size > 0 ? Math.min(deletedConversationIds.size, totalItems) : 0)
-      }));
-      
-      const sources = getUniqueSourcesFromConversations(filteredResult);
-      if (sources.length > 0) {
-        setAvailableSources(['all', ...sources]);
-      }
-    } else {
-      const { conversations: loadedConversations, totalItems } = await fetchConversations(pagination, filters);
-      
-      // Filter out any conversations that are marked as deleted locally
-      const filteredResult = loadedConversations.filter(
-        convo => !deletedConversationIds.has(convo.id)
-      );
-      
-      setConversations(filteredResult);
-      setPagination(prev => ({
-        ...prev,
-        totalItems: totalItems - (deletedConversationIds.size > 0 ? Math.min(deletedConversationIds.size, totalItems) : 0)
-      }));
-      
-      const sources = Array.from(new Set(filteredResult.map(convo => convo.source)));
-      if (sources.length > 0) {
-        setAvailableSources(['all', ...sources]);
-      }
-    }
-    
-    setIsLoading(false);
-  };
+  }, [user, loadConversations]);
 
   const handleSelectConversation = async (conversation: Conversation) => {
+    console.log("Selecting conversation:", conversation.id);
     setSelectedConversation(conversation);
     setIsLoadingMessages(true);
-    const messages = await fetchMessagesForConversation(conversation.id);
-    setConversationMessages(messages);
-    setIsLoadingMessages(false);
+    try {
+      const messages = await fetchMessagesForConversation(conversation.id);
+      setConversationMessages(messages);
+    } catch (error) {
+      console.error("Error fetching messages:", error);
+      toast.error("Failed to load conversation messages");
+    } finally {
+      setIsLoadingMessages(false);
+    }
   };
 
   const handleDeleteConversation = async (conversationId: string, e: React.MouseEvent) => {
     e.stopPropagation();
+    console.log("Deleting conversation:", conversationId);
     
     // Immediately update UI to remove the conversation
     setConversations(prevConversations => 
       prevConversations.filter(convo => convo.id !== conversationId)
     );
     
-    // Add to local deleted IDs set and persist to localStorage
+    // Add to local deleted IDs set
     setDeletedConversationIds(prev => {
       const updated = new Set(prev);
       updated.add(conversationId);
       return updated;
     });
+    
+    // Also update pagination
+    setPagination(prev => ({
+      ...prev,
+      totalItems: Math.max(0, prev.totalItems - 1)
+    }));
     
     // If the deleted conversation was selected, clear the selection
     if (selectedConversation?.id === conversationId) {
@@ -162,35 +186,21 @@ export const useChatLogs = () => {
       setConversationMessages([]);
     }
     
-    // Perform the deletion in the background without blocking UI
+    // Perform the actual deletion in the background
     try {
       const success = await deleteConversation(conversationId);
       
       if (!success) {
-        // Only show error and revert if deletion failed
-        toast.error("Failed to delete conversation");
-        
-        // Remove from deleted set
-        setDeletedConversationIds(prev => {
-          const updated = new Set(prev);
-          updated.delete(conversationId);
-          return updated;
-        });
-        
-        // Force reload conversations
-        loadConversations();
+        console.error("Server-side deletion failed for conversation:", conversationId);
+        toast.error("Failed to delete conversation from the server");
+        // Keep the local deletion even if server delete fails
+      } else {
+        console.log("Successfully deleted conversation from server:", conversationId);
       }
     } catch (error) {
+      console.error("Error deleting conversation:", error);
       toast.error("Failed to delete conversation");
-      
-      // Remove from deleted set
-      setDeletedConversationIds(prev => {
-        const updated = new Set(prev);
-        updated.delete(conversationId);
-        return updated;
-      });
-      
-      loadConversations();
+      // Still keep the local deletion even if there was an error
     }
   };
 

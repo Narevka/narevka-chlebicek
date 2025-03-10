@@ -3,10 +3,14 @@ import { supabase } from "@/integrations/supabase/client";
 
 export const deleteConversation = async (conversationId: string): Promise<boolean> => {
   try {
+    console.log("Deleting conversation:", conversationId);
     const { data: sessionData } = await supabase.auth.getSession();
     const userId = sessionData.session?.user?.id;
     
-    if (!userId) return false;
+    if (!userId) {
+      console.error("No user ID found for deletion");
+      return false;
+    }
 
     // First delete all messages associated with the conversation
     const { error: messagesError } = await supabase
@@ -30,7 +34,8 @@ export const deleteConversation = async (conversationId: string): Promise<boolea
       console.error("Error deleting conversation:", conversationError);
       return false;
     }
-
+    
+    console.log("Successfully deleted conversation and messages for ID:", conversationId);
     return true;
   } catch (error) {
     console.error("Error in deleteConversation:", error);

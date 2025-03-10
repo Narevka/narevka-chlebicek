@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -23,6 +24,7 @@ export const saveMessageToDb = async (messageData: {
 
 export const createConversation = async (userId: string, source: string = "Playground") => {
   try {
+    console.log("Creating new conversation for user:", userId, "source:", source);
     const { data, error } = await supabase
       .from('conversations')
       .insert({
@@ -35,6 +37,7 @@ export const createConversation = async (userId: string, source: string = "Playg
 
     if (error) throw error;
     
+    console.log("Created conversation with ID:", data.id);
     return data.id;
   } catch (error) {
     console.error("Error creating conversation:", error);
@@ -46,6 +49,7 @@ export const updateConversationTitle = async (conversationId: string, userId: st
   if (!conversationId || !userId) return;
 
   try {
+    console.log("Updating conversation title:", conversationId, "new title:", newTitle);
     const { error } = await supabase
       .from('conversations')
       .update({ title: newTitle })
@@ -61,6 +65,7 @@ export const updateConversationSource = async (conversationId: string, source: s
   if (!conversationId) return;
 
   try {
+    console.log("Updating conversation source:", conversationId, "new source:", source);
     const { error } = await supabase
       .from('conversations')
       .update({ source: source })
