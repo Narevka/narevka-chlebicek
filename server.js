@@ -20,7 +20,7 @@ app.use(express.json());
 
 // Logging middleware
 app.use((req, res, next) => {
-  console.log(`${new Date().toISOString()} - ${req.method} ${req.path} - Query params: ${JSON.stringify(req.query)}`);
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
   next();
 });
 
@@ -40,90 +40,14 @@ app.get('/chatbot/:filename', (req, res) => {
   }
 });
 
-// Serve the chatbot iframe template - capture and forward source parameter
+// Serve the chatbot iframe template
 app.get('/chatbot-iframe/:id', (req, res) => {
-  // Capture the source parameter for conversation tracking
-  // Make sure to normalize the source value
-  let source = req.query.source || 'Website';
-  
-  // Normalize WordPress source (ensure consistent casing)
-  if (typeof source === 'string' && source.toLowerCase() === 'wordpress') {
-    source = 'WordPress';
-  }
-  
-  console.log(`Chatbot iframe requested for agent ${req.params.id} with source: ${source}`);
-  
-  // Read the template file
-  fs.readFile(path.join(__dirname, 'public/chatbot-iframe-template.html'), 'utf8', (err, data) => {
-    if (err) {
-      console.error('Error reading chatbot template:', err);
-      return res.status(500).send('Error loading chatbot');
-    }
-    
-    // Replace existing source value or add it if not present
-    let modifiedTemplate;
-    if (data.includes('window.chatbaseConfig')) {
-      if (data.includes('source:')) {
-        // Replace existing source
-        modifiedTemplate = data.replace(
-          /source:.*?"(.+?)"/g, 
-          `source: "${source}"`
-        );
-      } else {
-        // Add source if not present
-        modifiedTemplate = data.replace(
-          /window\.chatbaseConfig\s*=\s*{/g, 
-          `window.chatbaseConfig = {\n    source: "${source}",`
-        );
-      }
-    } else {
-      // If no config, add it (unlikely case)
-      modifiedTemplate = data.replace(
-        /<head>/,
-        `<head>\n<script>window.chatbaseConfig = { source: "${source}" };</script>`
-      );
-    }
-    
-    res.send(modifiedTemplate);
-  });
+  res.sendFile(path.join(__dirname, 'public/chatbot-iframe-template.html'));
 });
 
 // Serve the standalone chatbot page
 app.get('/chatbot/:id', (req, res) => {
-  let source = req.query.source || 'Website';
-  
-  // Normalize WordPress source
-  if (typeof source === 'string' && source.toLowerCase() === 'wordpress') {
-    source = 'WordPress';
-  }
-  
-  console.log(`Standalone chatbot requested for agent ${req.params.id} with source: ${source}`);
-  
-  // Read the template file
-  fs.readFile(path.join(__dirname, 'public/chatbot.html'), 'utf8', (err, data) => {
-    if (err) {
-      console.error('Error reading chatbot template:', err);
-      return res.status(500).send('Error loading chatbot');
-    }
-    
-    // Insert or update the source parameter in the template
-    let modifiedTemplate;
-    if (data.includes('source:')) {
-      // Replace existing source
-      modifiedTemplate = data.replace(
-        /source:.*?"(.+?)"/g, 
-        `source: "${source}"`
-      );
-    } else {
-      // Add source if not present
-      modifiedTemplate = data.replace(
-        /window\.chatbaseConfig\s*=\s*{/g, 
-        `window.chatbaseConfig = {\n    source: "${source}",`
-      );
-    }
-    
-    res.send(modifiedTemplate);
-  });
+  res.sendFile(path.join(__dirname, 'public/chatbot.html'));
 });
 
 // Proxy route for chat messages
@@ -131,21 +55,10 @@ app.post('/functions/chat-with-assistant', async (req, res) => {
   try {
     const { message, agentId, conversationId } = req.body;
     
-    // Capture source if provided in the request, normalize if it's WordPress
-    let source = req.body.source || 'Website';
-    if (typeof source === 'string' && source.toLowerCase() === 'wordpress') {
-      source = 'WordPress';
-    }
-    
     const supabaseUrl = process.env.SUPABASE_URL;
     const functionUrl = `${supabaseUrl}/functions/v1/chat-with-assistant`;
     
-    console.log(`Proxying request to ${functionUrl}`, { 
-      message, 
-      agentId, 
-      conversationId,
-      source
-    });
+    console.log(`Proxying request to ${functionUrl}`, { message, agentId, conversationId });
     
     const response = await fetch(functionUrl, {
       method: 'POST',
@@ -156,8 +69,7 @@ app.post('/functions/chat-with-assistant', async (req, res) => {
       body: JSON.stringify({
         message,
         agentId,
-        conversationId,
-        source
+        conversationId
       }),
     });
     

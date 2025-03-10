@@ -1,16 +1,15 @@
 
 /**
  * Validates the request body
- * @param message The message to validate
- * @param agentId The agent ID to validate
+ * @param body The request body to validate
  * @throws Error if validation fails
  */
-export function validateRequest(message: string, agentId: string): void {
-  if (!message || typeof message !== 'string' || message.trim() === '') {
+export function validateRequestBody(body: any): void {
+  if (!body.message) {
     throw new Error('Missing required parameter: message is required');
   }
 
-  if (!agentId || typeof agentId !== 'string' || agentId.trim() === '') {
+  if (!body.agentId) {
     throw new Error('Missing required parameter: agentId is required');
   }
 }

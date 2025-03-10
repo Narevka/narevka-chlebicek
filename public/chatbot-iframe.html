@@ -129,34 +129,12 @@
       margin: 10px 0;
       font-style: italic;
     }
-    .debug-button {
-      background-color: transparent;
-      border: 1px solid #ddd;
-      color: #666;
-      font-size: 10px;
-      padding: 2px 5px;
-      border-radius: 3px;
-      cursor: pointer;
-      margin-left: 5px;
-    }
-    .debug-info {
-      font-size: 10px;
-      color: #999;
-      margin-top: 5px;
-      display: none;
-    }
-    .show-debug .debug-info {
-      display: block;
-    }
   </style>
 </head>
 <body>
   <div class="chat-container">
     <div class="chat-header">
       <div id="chat-title">AI Assistant</div>
-      <div>
-        <button id="debug-toggle" class="debug-button" title="Toggle debug info">Debug</button>
-      </div>
     </div>
     <div class="messages-container" id="messages">
       <!-- Messages will be added here -->
@@ -182,59 +160,12 @@
       const messagesContainer = document.getElementById('messages');
       const messageInput = document.getElementById('message-input');
       const sendButton = document.getElementById('send-button');
-      const debugToggle = document.getElementById('debug-toggle');
       let threadId = null;
       let isProcessing = false;
-      let debugMode = urlParams.get('debug') === 'true';
       
       // Set chat title if available in URL params
       const chatTitle = urlParams.get('title') || 'AI Assistant';
       document.getElementById('chat-title').textContent = chatTitle;
-
-      // Initialize debug mode
-      if (debugMode) {
-        document.body.classList.add('show-debug');
-      }
-      
-      // Toggle debug mode
-      debugToggle.addEventListener('click', function() {
-        debugMode = !debugMode;
-        document.body.classList.toggle('show-debug');
-        logDebug(`Debug mode ${debugMode ? 'enabled' : 'disabled'}`);
-      });
-
-      // Helper for logging debug info
-      function logDebug(message, data) {
-        if (typeof message !== 'string') {
-          data = message;
-          message = 'Debug info:';
-        }
-        
-        console.log("[Chatbot debug]", message, data || '');
-        
-        if (debugMode) {
-          const timestamp = new Date().toISOString().substring(11, 19);
-          const debugElement = document.createElement('div');
-          debugElement.className = 'debug-info';
-          
-          let debugText = `[${timestamp}] ${message}`;
-          if (data) {
-            try {
-              if (typeof data === 'object') {
-                debugText += `: ${JSON.stringify(data)}`;
-              } else {
-                debugText += `: ${data}`;
-              }
-            } catch (e) {
-              debugText += `: [Object]`;
-            }
-          }
-          
-          debugElement.textContent = debugText;
-          messagesContainer.appendChild(debugElement);
-          messagesContainer.scrollTop = messagesContainer.scrollHeight;
-        }
-      }
 
       // Add typing indicator
       function addTypingIndicator() {
@@ -254,99 +185,6 @@
         }
       }
       
-      // Save messages to session storage for persistence
-      function saveMessages(messages) {
-        try {
-          const storageKey = `chat_messages_${chatId}`;
-          sessionStorage.setItem(storageKey, JSON.stringify(messages));
-          logDebug(`Saved ${messages.length} messages to session storage`);
-        } catch (e) {
-          console.error('Error saving messages to session storage:', e);
-          logDebug('Error saving messages', e.message);
-        }
-      }
-      
-      // Load messages from session storage
-      function loadMessages() {
-        try {
-          const storageKey = `chat_messages_${chatId}`;
-          const savedMessages = sessionStorage.getItem(storageKey);
-          if (savedMessages) {
-            const messages = JSON.parse(savedMessages);
-            logDebug(`Loaded ${messages.length} messages from session storage`);
-            return messages;
-          }
-        } catch (e) {
-          console.error('Error loading messages from session storage:', e);
-          logDebug('Error loading messages', e.message);
-        }
-        return null;
-      }
-      
-      // Load thread ID from session storage
-      function loadThreadId() {
-        try {
-          const storageKey = `chat_thread_${chatId}`;
-          const savedThreadId = sessionStorage.getItem(storageKey);
-          logDebug(`Loaded thread ID from session storage: ${savedThreadId || 'none'}`);
-          return savedThreadId;
-        } catch (e) {
-          console.error('Error loading thread ID from session storage:', e);
-          logDebug('Error loading thread ID', e.message);
-        }
-        return null;
-      }
-      
-      // Save thread ID to session storage
-      function saveThreadId(id) {
-        try {
-          const storageKey = `chat_thread_${chatId}`;
-          sessionStorage.setItem(storageKey, id);
-          logDebug(`Saved thread ID to session storage: ${id}`);
-        } catch (e) {
-          console.error('Error saving thread ID to session storage:', e);
-          logDebug('Error saving thread ID', e.message);
-        }
-      }
-      
-      // Restore previous chat state if available
-      function restoreChatState() {
-        const savedMessages = loadMessages();
-        const savedThreadId = loadThreadId();
-        
-        if (savedThreadId) {
-          threadId = savedThreadId;
-          logDebug(`Restored thread ID: ${threadId}`);
-        }
-        
-        if (savedMessages && savedMessages.length > 0) {
-          // Clear default welcome message
-          messagesContainer.innerHTML = '';
-          
-          // Add saved messages
-          savedMessages.forEach(msg => {
-            const messageElement = document.createElement('div');
-            messageElement.className = `message ${msg.isUser ? 'user-message' : 'bot-message'}`;
-            messageElement.textContent = msg.text;
-            messagesContainer.appendChild(messageElement);
-            
-            // Add debug id to message elements if in debug mode
-            if (debugMode && msg.msgId) {
-              const idSpan = document.createElement('span');
-              idSpan.className = 'debug-info';
-              idSpan.textContent = `Message ID: ${msg.msgId}`;
-              messageElement.appendChild(idSpan);
-            }
-          });
-          
-          messagesContainer.scrollTop = messagesContainer.scrollHeight;
-          logDebug(`Restored ${savedMessages.length} messages from session storage`);
-        }
-      }
-      
-      // Initialize chat state
-      restoreChatState();
-      
       // Handle sending messages
       async function sendMessage() {
         const messageText = messageInput.value.trim();
@@ -354,48 +192,20 @@
         
         isProcessing = true;
         sendButton.disabled = true;
-        const msgId = Date.now().toString();
         
         // Add user message
         const userMessageElement = document.createElement('div');
         userMessageElement.className = 'message user-message';
         userMessageElement.textContent = messageText;
-        
-        // Add debug id if in debug mode
-        if (debugMode) {
-          const idSpan = document.createElement('span');
-          idSpan.className = 'debug-info';
-          idSpan.textContent = `Message ID: ${msgId}`;
-          userMessageElement.appendChild(idSpan);
-        }
-        
         messagesContainer.appendChild(userMessageElement);
         
         // Clear input
         messageInput.value = '';
         
-        // Save the user message to session storage
-        const currentMessages = loadMessages() || [];
-        currentMessages.push({ 
-          text: messageText, 
-          isUser: true,
-          msgId
-        });
-        saveMessages(currentMessages);
-        
         // Show typing indicator
         addTypingIndicator();
         
         try {
-          // Get the source parameter, with a fallback
-          const source = urlParams.get('source') || 'Website';
-          logDebug("Preparing message request", {
-            text: messageText,
-            agentId: chatId,
-            threadId: threadId,
-            source: source
-          });
-          
           const response = await fetch('/functions/chat-with-assistant', {
             method: 'POST',
             headers: {
@@ -404,36 +214,16 @@
             body: JSON.stringify({
               message: messageText,
               agentId: chatId,
-              conversationId: threadId,
-              source: source
+              conversationId: threadId
             })
           });
           
           const data = await response.json();
-          logDebug("Received response", data);
           
           // Remove typing indicator
           removeTypingIndicator();
           
           if (data.error) {
-            // Check if it's a thread not found error
-            if (data.error.includes("thread") || data.error.includes("Thread") || data.threadNotFound) {
-              logDebug("Thread not found error detected, resetting thread ID");
-              // Reset thread ID
-              threadId = null;
-              saveThreadId(null);
-              
-              // Display reconnection message
-              const systemElement = document.createElement('div');
-              systemElement.className = 'system-message';
-              systemElement.textContent = 'Chat session reset. Continuing with a new conversation.';
-              messagesContainer.appendChild(systemElement);
-              
-              // Try to reconnect with a new thread
-              sendMessage();
-              return;
-            }
-            
             // Display error message
             const errorElement = document.createElement('div');
             errorElement.className = 'message error-message';
@@ -443,40 +233,16 @@
             // Save thread ID for conversation continuity
             if (data.threadId) {
               threadId = data.threadId;
-              saveThreadId(threadId);
-              logDebug("Thread ID saved", threadId);
             }
             
             // Add bot response
-            const botResponse = data.response || "I'm sorry, I couldn't generate a response.";
             const botMessageElement = document.createElement('div');
             botMessageElement.className = 'message bot-message';
-            botMessageElement.textContent = botResponse;
-            
-            // Add debug info if in debug mode
-            if (debugMode) {
-              const botMsgId = Date.now().toString();
-              const idSpan = document.createElement('span');
-              idSpan.className = 'debug-info';
-              idSpan.textContent = `Response ID: ${botMsgId}, Thread: ${threadId}, Confidence: ${data.confidence || 'N/A'}`;
-              botMessageElement.appendChild(idSpan);
-            }
-            
+            botMessageElement.textContent = data.response || "I'm sorry, I couldn't generate a response.";
             messagesContainer.appendChild(botMessageElement);
-            
-            // Save the bot message to session storage
-            const updatedMessages = loadMessages() || [];
-            updatedMessages.push({ 
-              text: botResponse, 
-              isUser: false,
-              msgId: Date.now().toString(),
-              threadId: threadId
-            });
-            saveMessages(updatedMessages);
           }
         } catch (error) {
           console.error('Error sending message:', error);
-          logDebug('Error sending message', error.message);
           
           // Remove typing indicator
           removeTypingIndicator();
@@ -493,6 +259,20 @@
         }
       }
       
+      // Detect debug mode from URL parameter
+      if (urlParams.get('debug') === 'true') {
+        console.log('Debug mode enabled');
+        window.onerror = function(message, source, lineno, colno, error) {
+          console.log('Error captured: ', {message, source, lineno, colno, error});
+          const errorMsg = document.createElement('div');
+          errorMsg.className = 'system-message';
+          errorMsg.textContent = `Debug: ${message}`;
+          messagesContainer.appendChild(errorMsg);
+          messagesContainer.scrollTop = messagesContainer.scrollHeight;
+          return false;
+        };
+      }
+      
       // Send on button click
       sendButton.addEventListener('click', sendMessage);
       
@@ -501,14 +281,6 @@
         if (e.key === 'Enter') {
           sendMessage();
         }
-      });
-      
-      // Log the chatbot initialization
-      logDebug('Chatbot initialized', {
-        chatId: chatId,
-        threadId: threadId,
-        source: urlParams.get('source') || 'Website',
-        debugMode: debugMode
       });
     });
   </script>

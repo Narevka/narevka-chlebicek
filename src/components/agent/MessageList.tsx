@@ -1,6 +1,6 @@
 
 import React from "react";
-import { Message } from "@/hooks/conversation/types";
+import { Message } from "@/hooks/useConversation";
 
 interface MessageListProps {
   messages: Message[];
@@ -11,7 +11,7 @@ const MessageList = ({ messages }: MessageListProps) => {
     <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-white">
       {messages.map((message, index) => (
         <div
-          key={message.id || `message-${index}`}
+          key={message.id || index}
           className={`flex ${message.isUser ? 'justify-end' : 'justify-start'}`}
         >
           <div

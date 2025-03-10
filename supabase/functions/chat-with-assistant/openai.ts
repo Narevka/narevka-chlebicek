@@ -1,141 +1,209 @@
 
-import { createThread, generateId } from "./libs/threadManager.ts";
-import { addMessageToThread, getLatestAssistantMessage } from "./libs/messageHandler.ts";
-import { createRun, pollForRunCompletion } from "./libs/assistantRunner.ts";
-import { getAgentData } from "./libs/agentService.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
+import { corsHeaders } from "./cors.ts";
 
 /**
- * Gets a response from the agent using OpenAI's assistant
- * @param agent The agent data
- * @param message The user message
- * @param threadId Optional thread ID for continuing a conversation
- * @param debug Whether to enable debug logging
- * @returns The response and confidence level
+ * Creates a thread for the OpenAI assistant
+ * @param apiKey OpenAI API key
+ * @returns The thread ID
  */
-export async function getAgentResponse(agent: any, message: string, threadId?: string | null, debug = false): Promise<{ response: string, confidence: number, threadId: string }> {
-  // Enable verbose logging if debug mode is requested
-  const log = debug ? 
-    (...args: any[]) => console.log('[DEBUG]', ...args) : 
-    (...args: any[]) => {};
+export async function createThread(apiKey: string): Promise<string> {
+  const threadResponse = await fetch('https://api.openai.com/v1/threads', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`,
+      'OpenAI-Beta': 'assistants=v2'
+    },
+    body: JSON.stringify({})
+  });
   
-  // Get the OpenAI API key from environment variables
-  const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
-  if (!openAIApiKey) {
-    throw new Error('OpenAI API key not found in environment variables');
+  if (!threadResponse.ok) {
+    const errorData = await threadResponse.json();
+    throw new Error(`Failed to create thread: ${errorData.error?.message || 'Unknown error'}`);
   }
+  
+  const threadData = await threadResponse.json();
+  const threadId = threadData.id;
+  
+  console.log("Created new thread:", threadId);
+  return threadId;
+}
 
-  log(`Processing request for agent: ${agent.name} (${agent.id})`);
+/**
+ * Adds a user message to the thread
+ * @param apiKey OpenAI API key
+ * @param threadId The thread ID
+ * @param message The message to add
+ */
+export async function addMessageToThread(apiKey: string, threadId: string, message: string): Promise<void> {
+  const messageResponse = await fetch(`https://api.openai.com/v1/threads/${threadId}/messages`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`,
+      'OpenAI-Beta': 'assistants=v2'
+    },
+    body: JSON.stringify({
+      role: 'user',
+      content: message
+    })
+  });
   
-  // Validate and get the OpenAI assistant ID
-  const assistantId = agent.openai_assistant_id;
-  if (!assistantId) {
-    throw new Error(`No OpenAI assistant ID configured for agent ${agent.name}`);
-  }
-  
-  try {
-    let actualThreadId: string;
-    let created_new_thread = false;
-    
-    // Always create a new thread if one wasn't provided
-    if (!threadId) {
-      log("No threadId provided, creating a new thread");
-      actualThreadId = await createThread(openAIApiKey);
-      created_new_thread = true;
-      log(`Created new thread: ${actualThreadId}`);
-    } else {
-      log(`Attempting to use existing thread: ${threadId}`);
-      actualThreadId = threadId;
-    }
-    
-    // Try to add the message to the thread
-    try {
-      await addMessageToThread(openAIApiKey, actualThreadId, message);
-      log(`Message added to thread ${actualThreadId}`);
-    } catch (error) {
-      const errorMessage = error.message || '';
-      log(`Error adding message to thread: ${errorMessage}`);
-      
-      // If there's a thread not found error, create a new thread immediately
-      if (errorMessage.toLowerCase().includes("threadnotfound") || 
-          errorMessage.toLowerCase().includes("thread not found") ||
-          errorMessage.toLowerCase().includes("no thread found") ||
-          errorMessage.toLowerCase().includes("thread") && errorMessage.toLowerCase().includes("not found")) {
-        log(`Thread ${actualThreadId} not found, creating a new one`);
-        actualThreadId = await createThread(openAIApiKey);
-        created_new_thread = true;
-        log(`Created new recovery thread: ${actualThreadId}`);
-        
-        // Try adding the message to the new thread
-        await addMessageToThread(openAIApiKey, actualThreadId, message);
-        log(`Message added to new thread ${actualThreadId}`);
-      } else {
-        // If it's not a thread not found error, rethrow
-        throw error;
-      }
-    }
-    
-    // Create a run with the assistant
-    log(`Creating run with assistant ${assistantId}`);
-    const { runId, status: initialStatus } = await createRun(openAIApiKey, actualThreadId, assistantId);
-    log(`Created run with ID: ${runId}, initial status: ${initialStatus}`);
-    
-    // Poll for the run completion
-    log(`Polling for run completion, initial status: ${initialStatus}`);
-    const finalStatus = await pollForRunCompletion(openAIApiKey, actualThreadId, runId, initialStatus);
-    log(`Run completed with status: ${finalStatus}`);
-    
-    // Get the latest assistant message
-    let response;
-    try {
-      log(`Getting latest assistant message from thread ${actualThreadId}`);
-      response = await getLatestAssistantMessage(openAIApiKey, actualThreadId);
-      log(`Retrieved response of length: ${response.length}`);
-    } catch (error) {
-      const errorMessage = error.message || '';
-      log(`Error getting assistant message: ${errorMessage}`);
-      
-      // If there's a thread not found error when getting the message, create a new thread and return a fallback
-      if (errorMessage.toLowerCase().includes("threadnotfound") || 
-          errorMessage.toLowerCase().includes("thread not found") ||
-          errorMessage.toLowerCase().includes("no thread found") ||
-          errorMessage.toLowerCase().includes("thread") && errorMessage.toLowerCase().includes("not found")) {
-        log(`Thread ${actualThreadId} not found when getting assistant message`);
-        const newThreadId = await createThread(openAIApiKey);
-        created_new_thread = true;
-        log(`Created new thread after message retrieval error: ${newThreadId}`);
-        return {
-          response: "I'm sorry, there was an error retrieving the response. Please try again.",
-          confidence: 0.5,
-          threadId: newThreadId
-        };
-      }
-      throw error;
-    }
-    
-    // Return the response with the thread ID
-    return {
-      response,
-      confidence: created_new_thread ? 0.85 : 0.95, // Slightly lower confidence if we created a new thread
-      threadId: actualThreadId
-    };
-  } catch (error) {
-    log(`Error getting response from OpenAI: ${error.message}`);
-    
-    // If there's any other error, create a new thread for the next interaction
-    let newThreadId;
-    try {
-      newThreadId = await createThread(openAIApiKey);
-      log(`Created new thread after error: ${newThreadId}`);
-    } catch (threadError) {
-      log(`Error creating new thread: ${threadError.message}`);
-      newThreadId = generateId(); // Fallback to generating an ID without actually creating a thread
-      log(`Generated fallback ID: ${newThreadId}`);
-    }
-    
-    throw error;
+  if (!messageResponse.ok) {
+    const errorData = await messageResponse.json();
+    throw new Error(`Failed to add message: ${errorData.error?.message || 'Unknown error'}`);
   }
 }
 
-// Export the functions from the modules for backward compatibility
-export { createThread, generateId } from "./libs/threadManager.ts";
-export { getAgentData } from "./libs/agentService.ts";
+/**
+ * Creates a run with the assistant
+ * @param apiKey OpenAI API key
+ * @param threadId The thread ID
+ * @param assistantId The assistant ID
+ * @returns The run ID and initial status
+ */
+export async function createRun(apiKey: string, threadId: string, assistantId: string): Promise<{ runId: string, status: string }> {
+  const runResponse = await fetch(`https://api.openai.com/v1/threads/${threadId}/runs`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`,
+      'OpenAI-Beta': 'assistants=v2'
+    },
+    body: JSON.stringify({
+      assistant_id: assistantId
+    })
+  });
+  
+  if (!runResponse.ok) {
+    const errorData = await runResponse.json();
+    throw new Error(`Failed to create run: ${errorData.error?.message || 'Unknown error'}`);
+  }
+  
+  const runData = await runResponse.json();
+  return { runId: runData.id, status: runData.status };
+}
+
+/**
+ * Polls for the run completion
+ * @param apiKey OpenAI API key
+ * @param threadId The thread ID
+ * @param runId The run ID
+ * @param initialStatus The initial status of the run
+ * @returns The final status of the run
+ */
+export async function pollForRunCompletion(apiKey: string, threadId: string, runId: string, initialStatus: string): Promise<string> {
+  let runStatus = initialStatus;
+  let pollCount = 0;
+  const maxPolls = 30; // Maximum number of polling attempts
+  
+  while (runStatus !== 'completed' && runStatus !== 'failed' && pollCount < maxPolls) {
+    // Wait before polling again
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    const runCheckResponse = await fetch(`https://api.openai.com/v1/threads/${threadId}/runs/${runId}`, {
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'OpenAI-Beta': 'assistants=v2'
+      }
+    });
+    
+    if (!runCheckResponse.ok) {
+      const errorData = await runCheckResponse.json();
+      throw new Error(`Failed to check run status: ${errorData.error?.message || 'Unknown error'}`);
+    }
+    
+    const runCheckData = await runCheckResponse.json();
+    runStatus = runCheckData.status;
+    pollCount++;
+    
+    console.log(`Run status (attempt ${pollCount}): ${runStatus}`);
+  }
+  
+  if (runStatus === 'failed') {
+    throw new Error('Assistant run failed');
+  }
+  
+  if (pollCount >= maxPolls && runStatus !== 'completed') {
+    throw new Error('Timed out waiting for assistant response');
+  }
+  
+  return runStatus;
+}
+
+/**
+ * Retrieves the latest assistant message
+ * @param apiKey OpenAI API key
+ * @param threadId The thread ID
+ * @returns The message content
+ */
+export async function getLatestAssistantMessage(apiKey: string, threadId: string): Promise<string> {
+  const messagesResponse = await fetch(`https://api.openai.com/v1/threads/${threadId}/messages?order=desc&limit=1`, {
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'OpenAI-Beta': 'assistants=v2'
+    }
+  });
+  
+  if (!messagesResponse.ok) {
+    const errorData = await messagesResponse.json();
+    throw new Error(`Failed to retrieve messages: ${errorData.error?.message || 'Unknown error'}`);
+  }
+  
+  const messagesData = await messagesResponse.json();
+  
+  if (messagesData.data && messagesData.data.length > 0) {
+    const latestMessage = messagesData.data[0];
+    if (latestMessage.role === 'assistant' && latestMessage.content.length > 0) {
+      return latestMessage.content[0].text.value;
+    }
+  }
+  
+  return '';
+}
+
+/**
+ * Validates and retrieves agent data from Supabase
+ * @param agentId The agent ID to look up
+ * @returns The agent data including the OpenAI assistant ID
+ */
+export async function getAgentData(agentId: string): Promise<{ openai_assistant_id: string, name: string }> {
+  // Create anonymous Supabase client for public access
+  const supabaseClient = createClient(
+    Deno.env.get('SUPABASE_URL') || '',
+    Deno.env.get('SUPABASE_ANON_KEY') || '',
+  );
+
+  console.log(`Looking for agent with ID: ${agentId}`);
+
+  // Get agent data without requiring any authentication
+  const { data: agentData, error: agentError } = await supabaseClient
+    .from('agents')
+    .select('openai_assistant_id, name, is_public')
+    .eq('id', agentId)
+    .maybeSingle();
+  
+  if (agentError) {
+    console.error("Database error when fetching agent:", agentError);
+    throw new Error(`Database error when fetching agent: ${agentError.message}`);
+  }
+  
+  if (!agentData) {
+    console.error(`No agent found with ID: ${agentId}`);
+    throw new Error(`No agent found with ID: ${agentId}`);
+  }
+
+  // Check if agent is public
+  if (!agentData.is_public) {
+    console.error(`Agent exists but is not public. Agent ID: ${agentId}`);
+    throw new Error(`No public agent found with ID: ${agentId}. Make sure the agent is set to public in your dashboard.`);
+  }
+  
+  if (!agentData.openai_assistant_id) {
+    console.error(`Agent found but no OpenAI assistant ID is configured. Agent name: ${agentData.name}`);
+    throw new Error(`Agent "${agentData.name}" exists but does not have an OpenAI assistant configured.`);
+  }
+
+  return agentData;
+}

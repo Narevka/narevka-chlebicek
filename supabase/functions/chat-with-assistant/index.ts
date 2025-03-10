@@ -1,166 +1,79 @@
 
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
-import * as openai from './openai.ts'
-import { validateRequest } from './validation.ts'
-import { corsHeaders } from './cors.ts'
-import { handleError } from './error-handler.ts'
-
-const supabaseUrl = Deno.env.get('SUPABASE_URL') || ''
-const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') || ''
-const supabaseServiceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { corsHeaders, handleCors } from "./cors.ts";
+import { 
+  createThread, 
+  addMessageToThread, 
+  createRun, 
+  pollForRunCompletion, 
+  getLatestAssistantMessage,
+  getAgentData
+} from "./openai.ts";
+import { handleError } from "./error-handler.ts";
+import { validateRequestBody } from "./validation.ts";
 
 serve(async (req) => {
   // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+  const corsResponse = handleCors(req);
+  if (corsResponse) {
+    return corsResponse;
   }
 
   try {
-    // Get request body
-    const { message, agentId, conversationId, source = "Playground", debug = false, clientInfo = {} } = await req.json()
+    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
     
-    // Enable verbose logging if debug mode is requested
-    const log = debug ? 
-      (...args: any[]) => console.log('[DEBUG]', ...args) : 
-      (...args: any[]) => {};
-    
-    log("Request received:", { 
-      message: message.substring(0, 30) + (message.length > 30 ? '...' : ''),
-      agentId, 
-      conversationId: conversationId ? `${conversationId.substring(0, 10)}...` : 'null', 
-      source,
-      clientInfo
-    })
+    if (!OPENAI_API_KEY) {
+      throw new Error('OpenAI API key is not configured');
+    }
 
-    // Validate request
-    validateRequest(message, agentId)
-
-    // Get agent details
-    log(`Fetching agent details for ID: ${agentId}`);
-    const agentResponse = await fetch(`${supabaseUrl}/rest/v1/agents?id=eq.${agentId}&select=*`, {
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': supabaseAnonKey,
-        'Authorization': `Bearer ${supabaseServiceRoleKey}`
-      }
-    })
+    const { message, agentId, conversationId } = await req.json();
     
-    const agents = await agentResponse.json()
-    if (!agents || agents.length === 0) {
-      log(`Agent not found with ID: ${agentId}`);
-      return new Response(
-        JSON.stringify({ error: 'Agent not found' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 404 }
-      )
+    // Validate request body
+    validateRequestBody({ message, agentId });
+
+    // Get agent data from Supabase
+    const agentData = await getAgentData(agentId);
+    const assistantId = agentData.openai_assistant_id;
+    
+    console.log(`Using OpenAI assistant ID: ${assistantId} for agent: ${agentData.name}`);
+    
+    // Handle thread management
+    let threadId = conversationId;
+    
+    // If no thread exists, create a new one
+    if (!threadId) {
+      threadId = await createThread(OPENAI_API_KEY);
     }
     
-    const agent = agents[0]
-    log(`Found agent: ${agent.name}`);
+    // Add user message to the thread
+    await addMessageToThread(OPENAI_API_KEY, threadId, message);
     
-    // Use the provided conversation ID as thread ID, or generate a new one
-    let threadId = conversationId
+    // Create a run to process the conversation with the assistant
+    const { runId, status } = await createRun(OPENAI_API_KEY, threadId, assistantId);
     
-    log(`Using thread ID: ${threadId ? threadId : 'No thread ID provided (will create new)'}`);
+    // Poll for the run completion
+    await pollForRunCompletion(OPENAI_API_KEY, threadId, runId, status);
     
-    try {
-      // Get response from the agent
-      log("Attempting to get response from OpenAI");
-      const { response, confidence, threadId: newThreadId } = await openai.getAgentResponse(agent, message, threadId, debug)
-      log(`Got response from agent with threadId: ${newThreadId || 'none'}`)
-      
-      // Return the response with the thread ID
-      return new Response(
-        JSON.stringify({ 
-          response, 
-          threadId: newThreadId, 
-          confidence,
-          debug: debug ? {
-            originalThreadId: threadId,
-            newThreadId: newThreadId,
-            messageLength: message.length,
-            responseLength: response.length,
-            agent: agent.name,
-            source: source,
-            timestamp: new Date().toISOString(),
-            clientInfo: clientInfo
-          } : undefined
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    } catch (error) {
-      log("Error getting agent response:", error.message)
-      
-      // If there's any kind of error, create a new thread ID
-      let recoveryThreadId;
-      try {
-        // Try to create a real OpenAI thread
-        log("Creating recovery thread after error");
-        recoveryThreadId = await openai.createThread(Deno.env.get('OPENAI_API_KEY') || '');
-        log(`Created recovery thread ID: ${recoveryThreadId}`);
-      } catch (threadError) {
-        // If that fails, just generate a client-side ID
-        console.error("Error creating recovery thread:", threadError.message);
-        recoveryThreadId = openai.generateId();
-        log(`Generated fallback ID: ${recoveryThreadId}`);
-      }
-      
-      // If the error seems to be thread-related, try again with the new thread
-      if (error.message?.toLowerCase().includes("thread") || 
-          error.message?.toLowerCase().includes("not found")) {
-        log("Thread-related error detected, retrying with new thread");
-        try {
-          const { response, confidence, threadId: finalThreadId } = await openai.getAgentResponse(agent, message, recoveryThreadId, debug)
-          log(`Got response from agent with recovery threadId: ${finalThreadId}`)
-          
-          return new Response(
-            JSON.stringify({ 
-              response, 
-              threadId: finalThreadId, 
-              confidence,
-              debug: debug ? {
-                error: error.message,
-                recovery: true,
-                originalThreadId: threadId,
-                newThreadId: finalThreadId,
-                messageLength: message.length,
-                responseLength: response.length,
-                agent: agent.name,
-                source: source,
-                timestamp: new Date().toISOString(),
-                clientInfo: clientInfo
-              } : undefined
-            }),
-            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          )
-        } catch (retryError) {
-          // If the retry also fails, fall through to the error handler
-          log("Retry with new thread also failed:", retryError.message);
-          throw retryError;
+    // Retrieve the assistant's messages
+    const assistantResponse = await getLatestAssistantMessage(OPENAI_API_KEY, threadId);
+
+    // Calculate confidence score (mock value for now - in a real implementation this would come from the model)
+    const confidence = 0.85 + (Math.random() * 0.1); // Random value between 0.85 and 0.95
+    
+    return new Response(
+      JSON.stringify({
+        threadId: threadId,
+        response: assistantResponse,
+        confidence: confidence
+      }),
+      {
+        headers: { 
+          ...corsHeaders,
+          'Content-Type': 'application/json'
         }
       }
-      
-      // Return a fallback response with the recovery thread ID if we couldn't get a real response
-      return new Response(
-        JSON.stringify({ 
-          response: "I'm sorry, I encountered an error processing your request. Please try again.", 
-          threadId: recoveryThreadId, 
-          confidence: 0.5,
-          error: error.message,
-          debug: debug ? {
-            error: error.message,
-            recovery: false,
-            originalThreadId: threadId,
-            recoveryThreadId: recoveryThreadId,
-            agent: agent.name,
-            source: source,
-            timestamp: new Date().toISOString(),
-            clientInfo: clientInfo
-          } : undefined
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
+    );
   } catch (error) {
-    return handleError(error)
+    return handleError(error);
   }
-})
+});
