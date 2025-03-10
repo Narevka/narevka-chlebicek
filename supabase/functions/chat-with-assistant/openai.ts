@@ -28,11 +28,13 @@ export async function getAgentResponse(agent: any, message: string, threadId?: s
   
   try {
     let actualThreadId: string;
+    let created_new_thread = false;
     
-    // Check if a thread ID was provided
+    // Always create a new thread if one wasn't provided
     if (!threadId) {
       console.log("No threadId provided, creating a new thread");
       actualThreadId = await createThread(openAIApiKey);
+      created_new_thread = true;
       console.log(`Created new thread: ${actualThreadId}`);
     } else {
       console.log(`Attempting to use existing thread: ${threadId}`);
@@ -48,6 +50,7 @@ export async function getAgentResponse(agent: any, message: string, threadId?: s
       if (error.message && error.message.includes("ThreadNotFound:")) {
         console.log(`Thread ${actualThreadId} not found, creating a new one`);
         actualThreadId = await createThread(openAIApiKey);
+        created_new_thread = true;
         console.log(`Created new recovery thread: ${actualThreadId}`);
         
         // Try adding the message to the new thread
@@ -80,6 +83,7 @@ export async function getAgentResponse(agent: any, message: string, threadId?: s
       if (error.message && error.message.includes("ThreadNotFound:")) {
         console.error(`Thread ${actualThreadId} not found when getting assistant message`);
         const newThreadId = await createThread(openAIApiKey);
+        created_new_thread = true;
         return {
           response: "I'm sorry, there was an error retrieving the response. Please try again.",
           confidence: 0.5,
@@ -92,7 +96,7 @@ export async function getAgentResponse(agent: any, message: string, threadId?: s
     // Return the response with the thread ID
     return {
       response,
-      confidence: 0.95, // Default confidence level
+      confidence: created_new_thread ? 0.85 : 0.95, // Slightly lower confidence if we created a new thread
       threadId: actualThreadId
     };
   } catch (error) {

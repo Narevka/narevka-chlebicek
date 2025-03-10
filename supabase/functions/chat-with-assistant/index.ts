@@ -18,7 +18,12 @@ serve(async (req) => {
   try {
     // Get request body
     const { message, agentId, conversationId, source = "Playground" } = await req.json()
-    console.log("Request received:", { message, agentId, conversationId, source })
+    console.log("Request received:", { 
+      message, 
+      agentId, 
+      conversationId: conversationId ? `${conversationId.substring(0, 10)}...` : 'none', 
+      source
+    })
 
     // Validate request
     validateRequest(message, agentId)
@@ -45,12 +50,13 @@ serve(async (req) => {
     // Use the provided conversation ID as thread ID, or generate a new one
     let threadId = conversationId
     
-    console.log(`Using thread ID: ${threadId || 'No thread ID provided'}`);
+    console.log(`Using thread ID: ${threadId ? `${threadId.substring(0, 10)}...` : 'No thread ID provided'}`);
     
     try {
       // Get response from the agent
+      console.log("Attempting to get response with initial threadId");
       const { response, confidence, threadId: newThreadId } = await openai.getAgentResponse(agent, message, threadId)
-      console.log(`Got response from agent with threadId: ${newThreadId}`)
+      console.log(`Got response from agent with threadId: ${newThreadId ? newThreadId.substring(0, 10) + '...' : 'none'}`)
       
       // Return the response with the thread ID
       return new Response(
@@ -64,6 +70,7 @@ serve(async (req) => {
       let recoveryThreadId;
       try {
         // Try to create a real OpenAI thread
+        console.log("Creating recovery thread after error");
         recoveryThreadId = await openai.createThread(Deno.env.get('OPENAI_API_KEY') || '');
       } catch (threadError) {
         // If that fails, just generate a client-side ID
@@ -74,7 +81,10 @@ serve(async (req) => {
       console.log(`Created recovery thread ID: ${recoveryThreadId}`);
       
       // If the error seems to be thread-related, try again with the new thread
-      if (error.message?.includes("thread") || error.message?.includes("Thread")) {
+      if (error.message?.includes("thread") || 
+          error.message?.includes("Thread") || 
+          error.message?.includes("ThreadNotFound")) {
+        console.log("Thread-related error detected, retrying with new thread");
         try {
           const { response, confidence, threadId: finalThreadId } = await openai.getAgentResponse(agent, message, recoveryThreadId)
           console.log(`Got response from agent with recovery threadId: ${finalThreadId}`)
@@ -95,7 +105,8 @@ serve(async (req) => {
         JSON.stringify({ 
           response: "I'm sorry, I encountered an error processing your request. Please try again.", 
           threadId: recoveryThreadId, 
-          confidence: 0.5 
+          confidence: 0.5,
+          error: error.message
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )

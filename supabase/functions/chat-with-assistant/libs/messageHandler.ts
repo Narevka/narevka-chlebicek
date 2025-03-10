@@ -27,10 +27,12 @@ export async function addMessageToThread(apiKey: string, threadId: string, messa
       const errorData = await messageResponse.json();
       console.error("Failed to add message:", errorData);
       
-      // Explicitly check for thread not found error with multiple conditions
-      if (errorData.error?.message?.includes("No thread found with id") || 
+      // Enhanced detection for thread not found errors with multiple patterns
+      if (errorData.error?.message?.includes("No thread found") || 
           errorData.error?.message?.includes("Thread not found") ||
-          errorData.error?.type === "invalid_request_error") {
+          errorData.error?.message?.includes("thread") && errorData.error?.type === "invalid_request_error" ||
+          errorData.error?.type === "invalid_request_error" && threadId.includes("thread_")) {
+        console.log(`Thread not found error detected for ID: ${threadId}`);
         throw new Error(`ThreadNotFound: ${threadId}`);
       }
       
@@ -41,11 +43,12 @@ export async function addMessageToThread(apiKey: string, threadId: string, messa
   } catch (error) {
     console.error("Error adding message to thread:", error);
     
-    // Ensure consistent error format for thread not found errors with broader checks
+    // Enhanced error propagation with broader pattern matching
     if (error.message?.includes("No thread found") || 
         error.message?.includes("Thread not found") ||
         error.message?.includes("ThreadNotFound:") || 
-        error.message?.includes("invalid_request_error")) {
+        error.message?.includes("invalid_request_error") && threadId.includes("thread_")) {
+      console.log(`Normalizing thread error for ID: ${threadId}`);
       throw new Error(`ThreadNotFound: ${threadId}`);
     }
     
@@ -74,10 +77,12 @@ export async function getLatestAssistantMessage(apiKey: string, threadId: string
       const errorData = await messagesResponse.json();
       console.error("Failed to retrieve messages:", errorData);
       
-      // Explicitly check for thread not found error with multiple conditions
-      if (errorData.error?.message?.includes("No thread found with id") || 
+      // Enhanced detection for thread not found errors
+      if (errorData.error?.message?.includes("No thread found") || 
           errorData.error?.message?.includes("Thread not found") ||
-          errorData.error?.type === "invalid_request_error") {
+          errorData.error?.message?.includes("thread") && errorData.error?.type === "invalid_request_error" ||
+          errorData.error?.type === "invalid_request_error" && threadId.includes("thread_")) {
+        console.log(`Thread not found error detected for ID: ${threadId}`);
         throw new Error(`ThreadNotFound: ${threadId}`);
       }
       
@@ -97,11 +102,12 @@ export async function getLatestAssistantMessage(apiKey: string, threadId: string
   } catch (error) {
     console.error("Error retrieving messages:", error);
     
-    // Ensure consistent error format for thread not found errors with broader checks
+    // Enhanced error propagation with broader pattern matching
     if (error.message?.includes("No thread found") || 
         error.message?.includes("Thread not found") ||
         error.message?.includes("ThreadNotFound:") || 
-        error.message?.includes("invalid_request_error")) {
+        error.message?.includes("invalid_request_error") && threadId.includes("thread_")) {
+      console.log(`Normalizing thread error for ID: ${threadId}`);
       throw new Error(`ThreadNotFound: ${threadId}`);
     }
     

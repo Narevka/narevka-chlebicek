@@ -15,10 +15,12 @@ export const useConversation = (userId: string | undefined, agentId: string | un
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [threadId, setThreadId] = useState<string | null>(null);
   
-  // Use a safer source default value with validation
+  // Use a safer source default value with validation and normalization
   const validSource = typeof source === 'string' && source.trim() !== '' 
     ? source.trim() 
     : "Website";
+  
+  console.log(`useConversation: Source parameter is "${source}", normalized to "${validSource}"`);
   
   useEffect(() => {
     const initConversation = async () => {
@@ -74,7 +76,7 @@ export const useConversation = (userId: string | undefined, agentId: string | un
     });
     
     try {
-      console.log(`Sending message with source: ${validSource} and threadId: ${threadId}`);
+      console.log(`Sending message with source: ${validSource} and threadId: ${threadId || 'new'}`);
       const { botResponse, threadId: newThreadId } = await getAssistantResponse(
         message, 
         agentId, 
@@ -82,7 +84,7 @@ export const useConversation = (userId: string | undefined, agentId: string | un
         validSource
       );
       
-      console.log(`Received response with threadId: ${newThreadId}`);
+      console.log(`Received response with threadId: ${newThreadId || 'none'}`);
       
       if (newThreadId) {
         console.log(`Setting new threadId: ${newThreadId}`);
@@ -103,7 +105,18 @@ export const useConversation = (userId: string | undefined, agentId: string | un
       }
     } catch (error) {
       console.error("Error in handleSendMessage:", error);
-      toast.error("Failed to send message. Please try again.");
+      
+      // Check if it's a thread not found error, in which case, reset the thread ID
+      if (error.message && (
+          error.message.includes("Thread not found") || 
+          error.message.includes("ThreadNotFound") ||
+          error.message.includes("No thread found"))) {
+        console.log("Thread error detected, resetting threadId to null");
+        setThreadId(null);
+        toast.error("Session expired. Starting a new conversation.");
+      } else {
+        toast.error("Failed to send message. Please try again.");
+      }
     } finally {
       setSendingMessage(false);
     }
