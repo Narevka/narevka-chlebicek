@@ -1,7 +1,7 @@
 
 # Backend Implementation for Chatbot
 
-This document outlines how to set up the backend services required for the chatbot to work on your domain (narevka.com).
+This document outlines how to set up the backend services required for the chatbot to work on your domain.
 
 ## Required Backend Services
 
@@ -13,93 +13,77 @@ To make the chatbot work, you need to implement three main components:
 
 ## Implementation Options
 
-### Option 1: Use the Existing Supabase Edge Function
+### Option 1: Use the Simple Express Server (Recommended)
 
-The project already includes a Supabase edge function (`chat-with-assistant`) that can be used as your backend API. You'll need to:
-
-1. Deploy this function to your own Supabase project
-2. Set up proper CORS headers to allow requests from your domain
-3. Configure your domain to proxy requests to this function
-
-### Option 2: Implement a Custom Node.js Server
-
-A reference implementation is provided in `server-implementation.js`. To use it:
+We've included a simple Express server that can handle all the requirements:
 
 1. Install Node.js and npm
-2. Install required dependencies:
+2. Rename `package-server.json` to `package.json` (or copy its contents to your existing package.json)
+3. Install dependencies:
    ```
-   npm install express
+   npm install
    ```
-3. Run the server:
+4. Set environment variables:
    ```
-   node server-implementation.js
+   SUPABASE_URL=https://qaopcduyhmweewrcwkoy.supabase.co
+   SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFhb3BjZHV5aG13ZWV3cmN3a295Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDA4MzM3MjQsImV4cCI6MjA1NjQwOTcyNH0.-IBnucBUA_FMYpx7xKebNhYIXqaems-du5KUvG5T04A
+   ```
+5. Run the server:
+   ```
+   node server.js
    ```
 
-### Option 3: Implement in Your Preferred Backend Language
+### Option 2: Deploy to a Hosting Service
 
-You can implement the required endpoints in any backend technology you prefer (PHP, Python, Ruby, etc.). The key requirements are:
+You can deploy the included Express server to various hosting services:
 
-1. Serve the static `embed.min.js` file
-2. Serve the HTML for the chatbot iframe
-3. Implement the chat API endpoint that accepts:
-   - `message`: The user's message
-   - `agentId`: The ID of the chatbot
-   - `conversationId`: (Optional) Thread ID for conversation continuity
+1. **Vercel**: Create a new project and deploy the server
+   - Add `vercel.json` with the following content:
+   ```json
+   {
+     "version": 2,
+     "builds": [
+       { "src": "server.js", "use": "@vercel/node" }
+     ],
+     "routes": [
+       { "src": "/(.*)", "dest": "/server.js" }
+     ]
+   }
+   ```
 
-## Integration with OpenAI (or Alternative AI Service)
+2. **Netlify**: Deploy with Netlify Functions
+   - Create a `netlify.toml` file and deploy using Netlify CLI
 
-The current implementation in `supabase/functions/chat-with-assistant/index.ts` shows how to integrate with OpenAI's API. You can:
+3. **Heroku**: Deploy as a Node.js application
+   - Follow Heroku's Node.js deployment guide
 
-1. Use this as a reference for your own implementation
-2. Modify it to use a different AI service
-3. Implement caching or other optimizations as needed
+### Option 3: Use Your Existing Web Server
 
-## Web Server Configuration
+If you have an existing web server (Apache, Nginx, etc.), you can:
 
-If you're using Nginx as a web server, add these locations to your server configuration:
+1. Configure it to serve the static files from the `public` directory
+2. Set up routes for the chatbot iframe and API endpoints
+3. Use a proxy to forward API requests to your Supabase edge function
 
-```nginx
-server {
-    listen 80;
-    server_name www.narevka.com narevka.com;
+## Environment Variables
 
-    # Serve embed.min.js
-    location = /embed.min.js {
-        alias /path/to/public/embed.min.js;
-    }
+Make sure to set these environment variables in your deployment:
 
-    # Serve chatbot iframe
-    location ~ ^/chatbot-iframe/(.*)$ {
-        try_files /public/chatbot-iframe-template.html =404;
-    }
+- `SUPABASE_URL`: Your Supabase project URL
+- `SUPABASE_ANON_KEY`: Your Supabase anonymous key
 
-    # Serve standalone chatbot
-    location ~ ^/chatbot/(.*)$ {
-        try_files /public/chatbot.html =404;
-    }
+## Verifying Your Setup
 
-    # API endpoint (proxy to your backend)
-    location /functions/chat-with-assistant {
-        proxy_pass http://localhost:3000/functions/chat-with-assistant;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_cache_bypass $http_upgrade;
-    }
-}
-```
+After deploying, test your setup by:
 
-## Testing Your Implementation
+1. Loading `https://yourdomain.com/embed.min.js` in a browser (should download the JS file)
+2. Accessing `https://yourdomain.com/chatbot-iframe/test` (should show the chat interface)
+3. Testing the API by sending a POST request to `https://yourdomain.com/functions/chat-with-assistant`
 
-After setting up the backend, test it by:
+## WordPress Integration
 
-1. Adding the embed script to a test page
-2. Checking if the chat bubble appears
-3. Sending test messages to verify the API connection
+To integrate with WordPress:
 
-## Monitoring and Troubleshooting
-
-- Check your server logs for any errors
-- Use browser developer tools to monitor network requests
-- Test API endpoints directly with tools like Postman
+1. Deploy the server as described above
+2. Add the embed script to your WordPress site using a Custom HTML block or by editing your theme
+3. Make sure to update the `domain` in the embed script to point to your server
