@@ -8,15 +8,10 @@ const PORT = process.env.PORT || 3000;
 // Enable CORS for all routes
 app.use(cors());
 
-// Serve static files from the dist directory
-app.use(express.static('dist'));
-
-// Serve public files
-app.use(express.static('public'));
-
 // Parse JSON request bodies
 app.use(express.json());
 
+// API Routes
 // Serve embed.min.js from public directory
 app.get('/embed.min.js', (req, res) => {
   res.sendFile(path.join(__dirname, 'public/embed.min.js'));
@@ -63,13 +58,25 @@ app.post('/functions/chat-with-assistant', async (req, res) => {
   }
 });
 
-// Catch-all route to serve the frontend app
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'dist/index.html'));
-});
+// Serve static files from the public directory
+app.use(express.static('public'));
 
+// Serve static files from the dist directory (React build)
+// This needs to be after the API routes
+if (process.env.NODE_ENV === 'production') {
+  // Serve any static files
+  app.use(express.static('dist'));
+
+  // Handle React routing, return all requests to React app
+  app.get('*', function(req, res) {
+    res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+  });
+}
+
+// For Vercel deployment
 module.exports = app;
 
+// Start the server if running directly
 if (require.main === module) {
   app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);

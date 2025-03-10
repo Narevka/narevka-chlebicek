@@ -3,12 +3,12 @@
   "version": 2,
   "builds": [
     { 
+      "src": "package.json",
+      "use": "@vercel/node" 
+    },
+    { 
       "src": "server.js",
       "use": "@vercel/node"
-    },
-    {
-      "src": "dist/**",
-      "use": "@vercel/static"
     }
   ],
   "routes": [
@@ -16,7 +16,7 @@
     { "src": "/chatbot-iframe/(.*)", "dest": "/server.js" },
     { "src": "/chatbot/(.*)", "dest": "/server.js" },
     { "src": "/functions/chat-with-assistant", "dest": "/server.js" },
-    { "src": "/(.*)", "dest": "/dist/$1" }
+    { "src": "/(.*)", "dest": "/server.js" }
   ],
   "env": {
     "SUPABASE_URL": "https://qaopcduyhmweewrcwkoy.supabase.co",
