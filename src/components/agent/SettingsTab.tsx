@@ -1,166 +1,25 @@
 
-import React, { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import React from "react";
+import { useParams } from "react-router-dom";
+import { useAuth } from "@/context/AuthContext";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { toast } from "sonner";
-import { useAuth } from "@/context/AuthContext";
-import { AlertTriangle, Trash2, Globe, Lock } from "lucide-react";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+import { Globe, Lock } from "lucide-react";
+import { useAgentSettings } from "@/hooks/useAgentSettings";
+import { DeleteAgentDialog } from "./settings/DeleteAgentDialog";
 
 const SettingsTab = () => {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
-  const navigate = useNavigate();
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [instructions, setInstructions] = useState("");
-  const [isPublic, setIsPublic] = useState(false);
-  const [openaiAssistantId, setOpenaiAssistantId] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
-  
-  useEffect(() => {
-    const fetchAgentSettings = async () => {
-      if (!id || !user) return;
-      
-      try {
-        const { data, error } = await supabase
-          .from("agents")
-          .select("name, description, instructions, openai_assistant_id, is_public")
-          .eq("id", id)
-          .eq("user_id", user.id)
-          .single();
-          
-        if (error) {
-          console.error("Database error:", error);
-          throw error;
-        }
-        
-        // Now that we've checked for errors, we can safely access the data
-        setName(data?.name || "");
-        setDescription(data?.description || "");
-        setInstructions(data?.instructions || "");
-        setIsPublic(data?.is_public || false);
-        setOpenaiAssistantId(data?.openai_assistant_id);
-      } catch (error) {
-        console.error("Error fetching agent settings:", error);
-        toast.error("Failed to load agent settings");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    
-    fetchAgentSettings();
-  }, [id, user]);
-  
-  const handleSave = async () => {
-    if (!id || !user) return;
-    
-    setIsSaving(true);
-    
-    try {
-      // Update agent in database
-      const { error } = await supabase
-        .from("agents")
-        .update({
-          name,
-          description,
-          instructions,
-          is_public: isPublic
-        })
-        .eq("id", id)
-        .eq("user_id", user.id);
-        
-      if (error) throw error;
-      
-      // If there's an OpenAI Assistant ID, update the assistant
-      if (openaiAssistantId) {
-        const updateAssistantResponse = await supabase.functions.invoke('update-openai-assistant', {
-          body: { 
-            assistantId: openaiAssistantId,
-            name,
-            description,
-            instructions
-          }
-        });
-        
-        if (updateAssistantResponse.error) {
-          console.error("Error updating OpenAI assistant:", updateAssistantResponse.error);
-          toast.warning("Agent settings saved but OpenAI Assistant update failed");
-          return;
-        }
-      }
-      
-      toast.success("Agent settings saved successfully");
-    } catch (error: any) {
-      console.error("Error saving agent settings:", error);
-      toast.error(error.message || "Failed to save agent settings");
-    } finally {
-      setIsSaving(false);
-    }
-  };
-  
-  const handleDelete = async () => {
-    if (!id || !user) return;
-    
-    setIsDeleting(true);
-    
-    try {
-      // First delete the OpenAI assistant if it exists
-      if (openaiAssistantId) {
-        console.log(`Attempting to delete OpenAI assistant with ID: ${openaiAssistantId}`);
-        
-        const deleteAssistantResponse = await supabase.functions.invoke('delete-openai-assistant', {
-          body: { 
-            assistantId: openaiAssistantId
-          }
-        });
-        
-        if (deleteAssistantResponse.error) {
-          console.error("Error deleting OpenAI assistant:", deleteAssistantResponse.error);
-          toast.warning("OpenAI Assistant deletion failed, but will continue with database deletion");
-          // We continue with database deletion even if OpenAI deletion fails
-        } else {
-          console.log("OpenAI assistant deleted successfully");
-        }
-      }
-      
-      // Then delete the agent from the database
-      const { error } = await supabase
-        .from("agents")
-        .delete()
-        .eq("id", id)
-        .eq("user_id", user.id);
-        
-      if (error) {
-        console.error("Error deleting agent from database:", error);
-        throw error;
-      }
-      
-      toast.success("Agent deleted successfully");
-      // Navigate back to the dashboard
-      navigate("/dashboard");
-    } catch (error: any) {
-      console.error("Error deleting agent:", error);
-      toast.error(error.message || "Failed to delete agent");
-      setIsDeleting(false);
-    }
-  };
+  const { 
+    settings, 
+    setSettings, 
+    isLoading, 
+    isSaving, 
+    handleSave 
+  } = useAgentSettings(id || "", user?.id);
   
   if (isLoading) {
     return (
@@ -181,8 +40,8 @@ const SettingsTab = () => {
           </label>
           <Input
             id="name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
+            value={settings.name}
+            onChange={(e) => setSettings(prev => ({ ...prev, name: e.target.value }))}
             placeholder="My AI Assistant"
           />
         </div>
@@ -193,8 +52,8 @@ const SettingsTab = () => {
           </label>
           <Input
             id="description"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
+            value={settings.description}
+            onChange={(e) => setSettings(prev => ({ ...prev, description: e.target.value }))}
             placeholder="A helpful assistant for my website"
           />
           <p className="text-xs text-gray-500">
@@ -208,8 +67,8 @@ const SettingsTab = () => {
           </label>
           <Textarea
             id="instructions"
-            value={instructions}
-            onChange={(e) => setInstructions(e.target.value)}
+            value={settings.instructions}
+            onChange={(e) => setSettings(prev => ({ ...prev, instructions: e.target.value }))}
             placeholder="You are a helpful AI assistant. Answer questions accurately and concisely."
             rows={6}
           />
@@ -223,7 +82,7 @@ const SettingsTab = () => {
           <div className="flex items-center justify-between">
             <div>
               <label htmlFor="is-public" className="text-sm font-medium flex items-center gap-2">
-                {isPublic ? (
+                {settings.isPublic ? (
                   <Globe className="h-4 w-4 text-green-600" />
                 ) : (
                   <Lock className="h-4 w-4 text-gray-600" />
@@ -236,12 +95,12 @@ const SettingsTab = () => {
             </div>
             <Switch
               id="is-public"
-              checked={isPublic}
-              onCheckedChange={setIsPublic}
+              checked={settings.isPublic}
+              onCheckedChange={(checked) => setSettings(prev => ({ ...prev, isPublic: checked }))}
             />
           </div>
           
-          {isPublic && (
+          {settings.isPublic && (
             <div className="mt-3 p-3 bg-amber-50 border border-amber-100 rounded-md">
               <p className="text-sm text-amber-800">
                 <strong>Note:</strong> Making this agent public will allow anyone with the link 
@@ -251,13 +110,13 @@ const SettingsTab = () => {
           )}
         </div>
         
-        {openaiAssistantId && (
+        {settings.openaiAssistantId && (
           <div className="space-y-2">
             <label className="text-sm font-medium">
               OpenAI Assistant ID
             </label>
             <p className="p-2 bg-gray-50 border rounded text-sm text-gray-700 font-mono">
-              {openaiAssistantId}
+              {settings.openaiAssistantId}
             </p>
             <p className="text-xs text-gray-500">
               This is your agent's OpenAI Assistant ID. It's automatically managed by the system.
@@ -268,57 +127,20 @@ const SettingsTab = () => {
         <div className="flex gap-4 pt-4">
           <Button 
             onClick={handleSave} 
-            disabled={isSaving || isDeleting}
+            disabled={isSaving}
             className="mr-auto"
           >
             {isSaving ? "Saving..." : "Save Settings"}
           </Button>
           
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button 
-                variant="destructive"
-                disabled={isDeleting || isSaving}
-                className="flex gap-2"
-              >
-                <Trash2 size={16} />
-                {isDeleting ? "Deleting..." : "Delete Agent"}
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent className="border-destructive/20 bg-white">
-              <AlertDialogHeader>
-                <AlertDialogTitle className="flex items-center gap-2 text-destructive">
-                  <AlertTriangle className="h-5 w-5" />
-                  Delete Agent
-                </AlertDialogTitle>
-                <AlertDialogDescription className="pt-2">
-                  <p className="text-gray-700 font-medium mb-2">
-                    Are you sure you want to delete this agent?
-                  </p>
-                  <div className="bg-red-50 p-3 rounded-md border border-red-100 text-sm text-gray-700">
-                    <p>⚠️ This action cannot be undone.</p>
-                    <p className="mt-1">This will permanently delete:</p>
-                    <ul className="list-disc pl-5 mt-1 space-y-1">
-                      <li>The agent from your dashboard</li>
-                      <li>The associated OpenAI Assistant</li>
-                      <li>All agent configurations and settings</li>
-                    </ul>
-                  </div>
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter className="pt-4 border-t border-gray-100 mt-4">
-                <AlertDialogCancel className="bg-gray-100 hover:bg-gray-200 text-gray-800 border-0">
-                  Cancel
-                </AlertDialogCancel>
-                <AlertDialogAction 
-                  onClick={handleDelete}
-                  className="bg-red-500 hover:bg-red-600 text-white border-0 shadow"
-                >
-                  Delete
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+          {id && user?.id && (
+            <DeleteAgentDialog
+              agentId={id}
+              userId={user.id}
+              openaiAssistantId={settings.openaiAssistantId}
+              disabled={isSaving}
+            />
+          )}
         </div>
       </div>
     </div>
