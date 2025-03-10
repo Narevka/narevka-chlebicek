@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { Conversation, Message, PaginationState, FilterState } from "./types";
 import { toast } from "sonner";
@@ -115,7 +116,13 @@ export const fetchConversations = async (
             };
           } catch (error) {
             console.error("Error with feedback filtering:", error);
-            return conversation;
+            return {
+              ...conversation,
+              user_message: userMessageData && userMessageData.length > 0 ? userMessageData[0].content : null,
+              last_message: preview || "Empty conversation",
+              confidence: botMessageData && botMessageData.length > 0 ? botMessageData[0].confidence : null,
+              hasFeedback: false
+            };
           }
         }
         
