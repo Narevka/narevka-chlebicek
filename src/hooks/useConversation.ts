@@ -1,8 +1,15 @@
+
 import { useState, useEffect, useCallback, useRef } from "react";
 import { v4 as uuidv4 } from 'uuid';
 import { toast } from "sonner";
 import { Message } from "./conversation/types";
-import { saveMessageToDb, createConversation, updateConversationTitle, updateConversationSource } from "./conversation/conversationDb";
+import { 
+  saveMessageToDb, 
+  createConversation, 
+  updateConversationTitle, 
+  updateConversationSource,
+  verifyConversationExists 
+} from "./conversation/conversationDb";
 import { getAssistantResponse } from "./conversation/assistantApi";
 
 const debugLog = (message: string, data?: any) => {
@@ -29,8 +36,10 @@ export const useConversation = (userId: string | undefined, agentId: string | un
   const [sendingMessage, setSendingMessage] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [threadId, setThreadId] = useState<string | null>(null);
+  const conversationIdRef = useRef<string | null>(null);
   const threadIdRef = useRef<string | null>(null);
   const retryCount = useRef<number>(0);
+  const initialMessageSaved = useRef<boolean>(false);
   
   const validSource = typeof source === 'string' && source.trim() !== '' 
     ? source.trim() 
@@ -38,6 +47,7 @@ export const useConversation = (userId: string | undefined, agentId: string | un
   
   debugLog(`Initializing with source parameter: "${source}", normalized to "${validSource}"`);
   
+  // Initialize conversation
   useEffect(() => {
     const initConversation = async () => {
       if (!userId) return;
@@ -47,13 +57,18 @@ export const useConversation = (userId: string | undefined, agentId: string | un
       
       if (newConversationId) {
         setConversationId(newConversationId);
+        conversationIdRef.current = newConversationId;
         debugLog(`Created new conversation with ID: ${newConversationId}`);
         
-        await saveMessageToDb({
+        // Save welcome message to database
+        const messageId = await saveMessageToDb({
           conversation_id: newConversationId,
           content: "Hi! What can I help you with?",
           is_bot: true
         });
+        
+        initialMessageSaved.current = !!messageId;
+        debugLog(`Initial welcome message saved: ${initialMessageSaved.current}, messageId: ${messageId}`);
         
         setThreadId(null);
         threadIdRef.current = null;
@@ -67,11 +82,18 @@ export const useConversation = (userId: string | undefined, agentId: string | un
     initConversation();
   }, [userId, validSource]);
   
+  // Update refs when state changes
   useEffect(() => {
     threadIdRef.current = threadId;
     debugLog(`Updated threadIdRef to: ${threadId || 'null'}`);
   }, [threadId]);
   
+  useEffect(() => {
+    conversationIdRef.current = conversationId;
+    debugLog(`Updated conversationIdRef to: ${conversationId || 'null'}`);
+  }, [conversationId]);
+  
+  // Update conversation source
   useEffect(() => {
     if (conversationId && validSource) {
       debugLog(`Updating conversation source for ${conversationId} to ${validSource}`);
@@ -79,9 +101,28 @@ export const useConversation = (userId: string | undefined, agentId: string | un
     }
   }, [conversationId, validSource]);
 
+  // Main function to send a message and get a response
   const handleSendMessage = useCallback(async (message: string) => {
-    if (!message.trim() || !conversationId || !agentId) return;
+    if (!message.trim() || !conversationId || !agentId) {
+      debugLog(`Cannot send message: ${!message.trim() ? 'Empty message' : !conversationId ? 'No conversationId' : 'No agentId'}`);
+      return;
+    }
     
+    // Verify conversation exists first
+    const conversationExists = await verifyConversationExists(conversationId);
+    if (!conversationExists) {
+      debugLog(`Conversation ${conversationId} does not exist, creating new conversation`);
+      const newConversationId = await createConversation(userId || 'anonymous', validSource);
+      if (!newConversationId) {
+        toast.error("Failed to create conversation");
+        return;
+      }
+      setConversationId(newConversationId);
+      conversationIdRef.current = newConversationId;
+      debugLog(`Created new conversation with ID: ${newConversationId}`);
+    }
+    
+    // Create user message
     const userMessage = {
       id: uuidv4(),
       content: message,
@@ -92,12 +133,15 @@ export const useConversation = (userId: string | undefined, agentId: string | un
     setSendingMessage(true);
     debugLog(`Sending message: "${message.substring(0, 30)}..." with threadId: ${threadIdRef.current || 'null'}`);
     
-    await saveMessageToDb({
-      conversation_id: conversationId,
+    // Save user message to database
+    const currentConversationId = conversationIdRef.current || conversationId;
+    const userMessageId = await saveMessageToDb({
+      conversation_id: currentConversationId,
       content: message,
       is_bot: false
     });
-    debugLog(`Saved user message to database for conversation: ${conversationId}`);
+    
+    debugLog(`Saved user message to database for conversation: ${currentConversationId}, messageId: ${userMessageId}`);
     
     try {
       debugLog(`Sending message to assistant API with source: ${validSource}, threadId: ${threadIdRef.current || 'null'}`);
@@ -119,16 +163,18 @@ export const useConversation = (userId: string | undefined, agentId: string | un
       setMessages(prev => [...prev, botResponse]);
       
       debugLog(`Saving bot message to database: ${botResponse.content.substring(0, 30)}...`);
-      await saveMessageToDb({
-        conversation_id: conversationId,
+      const botMessageId = await saveMessageToDb({
+        conversation_id: currentConversationId,
         content: botResponse.content,
         is_bot: true,
         confidence: botResponse.confidence
       });
       
+      debugLog(`Bot message saved with ID: ${botMessageId}`);
+      
       if (messages.length === 1) {
         debugLog(`Updating conversation title for first message`);
-        updateConversationTitle(conversationId, userId, message);
+        updateConversationTitle(currentConversationId, userId, message);
       }
       
       retryCount.current = 0;
@@ -160,14 +206,19 @@ export const useConversation = (userId: string | undefined, agentId: string | un
         toast.error("Failed to send message. Please try again.");
       }
       
-      setMessages(prev => [...prev, {
+      // Add error message to UI
+      const errorResponseMessage = {
         id: uuidv4(),
         content: "Sorry, I encountered a technical problem. Please try again.",
         isUser: false
-      }]);
+      };
       
+      setMessages(prev => [...prev, errorResponseMessage]);
+      
+      // Save error message to database
+      debugLog(`Saving error message to database for conversation: ${currentConversationId}`);
       await saveMessageToDb({
-        conversation_id: conversationId,
+        conversation_id: currentConversationId,
         content: "Sorry, I encountered a technical problem. Please try again.",
         is_bot: true
       });
@@ -178,6 +229,7 @@ export const useConversation = (userId: string | undefined, agentId: string | un
     setInputMessage("");
   }, [conversationId, threadIdRef, agentId, userId, messages.length, validSource]);
 
+  // Function to reset the conversation
   const resetConversation = useCallback(async () => {
     if (!userId) return;
 
@@ -186,16 +238,19 @@ export const useConversation = (userId: string | undefined, agentId: string | un
     
     if (newConversationId) {
       setConversationId(newConversationId);
+      conversationIdRef.current = newConversationId;
       setThreadId(null);
       threadIdRef.current = null;
       setMessages([{ id: uuidv4(), content: "Hi! What can I help you with?", isUser: false }]);
       debugLog(`Created new conversation with ID: ${newConversationId}, reset threadId to null`);
       
-      await saveMessageToDb({
+      const messageId = await saveMessageToDb({
         conversation_id: newConversationId,
         content: "Hi! What can I help you with?",
         is_bot: true
       });
+      
+      debugLog(`Reset welcome message saved with ID: ${messageId}`);
       
       toast.success("Conversation reset");
     } else {
@@ -209,6 +264,8 @@ export const useConversation = (userId: string | undefined, agentId: string | un
     setInputMessage,
     sendingMessage,
     handleSendMessage,
-    resetConversation
+    resetConversation,
+    conversationId,
+    threadId
   };
 };

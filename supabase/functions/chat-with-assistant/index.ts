@@ -17,7 +17,7 @@ serve(async (req) => {
 
   try {
     // Get request body
-    const { message, agentId, conversationId, source = "Playground", debug = false } = await req.json()
+    const { message, agentId, conversationId, source = "Playground", debug = false, clientInfo = {} } = await req.json()
     
     // Enable verbose logging if debug mode is requested
     const log = debug ? 
@@ -25,10 +25,11 @@ serve(async (req) => {
       (...args: any[]) => {};
     
     log("Request received:", { 
-      message: message.substring(0, 20) + (message.length > 20 ? '...' : ''),
+      message: message.substring(0, 30) + (message.length > 30 ? '...' : ''),
       agentId, 
       conversationId: conversationId ? `${conversationId.substring(0, 10)}...` : 'null', 
-      source
+      source,
+      clientInfo
     })
 
     // Validate request
@@ -78,7 +79,10 @@ serve(async (req) => {
             newThreadId: newThreadId,
             messageLength: message.length,
             responseLength: response.length,
-            timestamp: new Date().toISOString()
+            agent: agent.name,
+            source: source,
+            timestamp: new Date().toISOString(),
+            clientInfo: clientInfo
           } : undefined
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -120,7 +124,10 @@ serve(async (req) => {
                 newThreadId: finalThreadId,
                 messageLength: message.length,
                 responseLength: response.length,
-                timestamp: new Date().toISOString()
+                agent: agent.name,
+                source: source,
+                timestamp: new Date().toISOString(),
+                clientInfo: clientInfo
               } : undefined
             }),
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -144,7 +151,10 @@ serve(async (req) => {
             recovery: false,
             originalThreadId: threadId,
             recoveryThreadId: recoveryThreadId,
-            timestamp: new Date().toISOString()
+            agent: agent.name,
+            source: source,
+            timestamp: new Date().toISOString(),
+            clientInfo: clientInfo
           } : undefined
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
