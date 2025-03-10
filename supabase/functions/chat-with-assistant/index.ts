@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
 
@@ -37,12 +38,11 @@ serve(async (req) => {
 
     console.log(`Looking for agent with ID: ${agentId}`);
 
-    // Get assistant ID from agent record, allow public access if is_public is true
+    // Get agent data without requiring any authentication
     const { data: agentData, error: agentError } = await supabaseClient
       .from('agents')
       .select('openai_assistant_id, name, is_public')
       .eq('id', agentId)
-      .eq('is_public', true) // Only get public agents
       .maybeSingle();
     
     if (agentError) {
@@ -51,7 +51,13 @@ serve(async (req) => {
     }
     
     if (!agentData) {
-      console.error(`No public agent found with ID: ${agentId}`);
+      console.error(`No agent found with ID: ${agentId}`);
+      throw new Error(`No agent found with ID: ${agentId}`);
+    }
+
+    // Check if agent is public
+    if (!agentData.is_public) {
+      console.error(`Agent exists but is not public. Agent ID: ${agentId}`);
       throw new Error(`No public agent found with ID: ${agentId}. Make sure the agent is set to public in your dashboard.`);
     }
     
