@@ -32,6 +32,8 @@ export const useCrawlWebsite = ({
     setIsLoading(true);
     
     try {
+      console.log(`Starting crawl for ${url} with options:`, crawlOptions);
+      
       // Call handleAddWebsite from useAgentSources hook with advanced options
       const sourceId = await handleAddWebsite(url, crawlOptions);
       
@@ -39,13 +41,17 @@ export const useCrawlWebsite = ({
         throw new Error("Failed to get source ID");
       }
       
-      // Add URL to list
+      console.log(`Crawl initiated with sourceId: ${sourceId}`);
+      
+      // Add URL to list with detailed options info
       const newLink: WebsiteSourceItem = { 
         url, 
         count: 0, 
         sourceId,
         status: 'crawling',
-        chars: 0
+        chars: 0,
+        requestedLimit: crawlOptions.limit,
+        crawlOptions: crawlOptions
       };
       
       const updatedLinks = [newLink, ...includedLinks];
@@ -55,6 +61,7 @@ export const useCrawlWebsite = ({
       localStorage.setItem(localStorageKey, JSON.stringify(updatedLinks));
       
       toast.success("Website crawl started");
+      console.log(`Website crawl started for ${url} with limit ${crawlOptions.limit}`);
       
       // Force an immediate check after a short delay to update UI
       setTimeout(() => setLastCheckTime(Date.now()), 2000);

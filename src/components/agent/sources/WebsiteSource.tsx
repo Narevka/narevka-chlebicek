@@ -6,7 +6,8 @@ import WebsiteInput from "./website/WebsiteInput";
 import WebsiteList from "./website/WebsiteList";
 import { useWebsiteCrawler } from "./website/useWebsiteCrawler";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, Bug } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 const WebsiteSource = () => {
   const { id: agentId } = useParams<{ id: string }>();
@@ -21,11 +22,29 @@ const WebsiteSource = () => {
     handleDeleteAllLinks,
     handleDownloadContent,
     handleProcessSource,
-    handleCheckStatus
+    handleCheckStatus,
+    clearDeletedSources
   } = useWebsiteCrawler({
     agentId,
     handleAddWebsite
   });
+
+  const showDebugInfo = () => {
+    console.log("Website sources state:", {
+      includedLinks,
+      isLoading,
+      downloadingId,
+      agentId
+    });
+    
+    // Show localStorage data
+    const localStorageKey = `websiteSources-${agentId}`;
+    const deletedSourcesKey = `deletedSources-${agentId}`;
+    
+    console.log("LocalStorage data:");
+    console.log("- Website sources:", localStorage.getItem(localStorageKey));
+    console.log("- Deleted sources:", localStorage.getItem(deletedSourcesKey));
+  };
 
   return (
     <div>
@@ -55,6 +74,21 @@ const WebsiteSource = () => {
         onProcessSource={handleProcessSource}
         onDownloadContent={handleDownloadContent}
       />
+      
+      <div className="mt-4 border-t pt-4">
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex items-center gap-2 text-gray-600"
+          onClick={showDebugInfo}
+        >
+          <Bug className="h-4 w-4" /> Show Debug Info
+        </Button>
+        <p className="text-xs text-gray-500 mt-1">
+          Click this button to print debugging information to the browser console.
+          This can help diagnose issues with website crawling.
+        </p>
+      </div>
     </div>
   );
 };

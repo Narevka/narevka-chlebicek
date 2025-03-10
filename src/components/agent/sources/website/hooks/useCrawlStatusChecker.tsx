@@ -63,19 +63,31 @@ export const useCrawlStatusChecker = ({
               }
 
               if (content.status && content.status !== link.status) {
+                // Log the full content for debugging
+                console.log(`Status change for source ${link.sourceId} (${link.url}):`, content);
+                
+                // Extract and save crawl report if available
+                const crawlReport = content.crawl_report || null;
+                
                 updatedLinks[i] = {
                   ...link,
                   status: content.status,
                   error: content.error,
                   count: content.pages_crawled || link.count,
-                  chars: data.chars || link.chars
+                  chars: data.chars || link.chars,
+                  crawlReport: crawlReport
                 };
                 hasChanges = true;
 
                 if (content.status === 'completed') {
-                  toast.success(`Crawl completed for ${link.url}`);
+                  const limitInfo = link.requestedLimit 
+                    ? ` (got ${content.pages_crawled || 0} of ${link.requestedLimit} pages)`
+                    : '';
+                  toast.success(`Crawl completed for ${link.url}${limitInfo}`);
+                  console.log(`Crawl completed for ${link.url}${limitInfo}`);
                 } else if (content.status === 'error') {
                   toast.error(`Crawl failed for ${link.url}: ${content.error}`);
+                  console.error(`Crawl failed for ${link.url}: ${content.error}`);
                 }
               }
             }
@@ -108,6 +120,8 @@ export const useCrawlStatusChecker = ({
     if (!sourceId) return;
     
     try {
+      console.log(`Manually checking status for source ${sourceId}`);
+      
       const { data, error } = await supabase
         .from("agent_sources")
         .select("content, chars")
@@ -120,10 +134,14 @@ export const useCrawlStatusChecker = ({
         let content;
         try {
           content = JSON.parse(data.content);
+          console.log(`Source ${sourceId} content:`, content);
         } catch (e) {
           toast.error("Could not parse source content");
           return;
         }
+        
+        // Extract crawl report if available
+        const crawlReport = content.crawl_report || null;
         
         // Update the link with current status
         const newLinks = [...includedLinks];
@@ -132,7 +150,8 @@ export const useCrawlStatusChecker = ({
           status: content.status || newLinks[index].status,
           error: content.error,
           count: content.pages_crawled || newLinks[index].count,
-          chars: data.chars || newLinks[index].chars
+          chars: data.chars || newLinks[index].chars,
+          crawlReport: crawlReport
         };
         
         setIncludedLinks(newLinks);
@@ -140,12 +159,24 @@ export const useCrawlStatusChecker = ({
         // Update local storage
         localStorage.setItem(localStorageKey, JSON.stringify(newLinks));
         
+        // Prepare detailed message
+        let detailMsg = '';
+        if (crawlReport) {
+          detailMsg = ` - ${crawlReport.pagesReceived || 0} pages received`;
+          if (newLinks[index].requestedLimit) {
+            detailMsg += ` (requested: ${newLinks[index].requestedLimit})`;
+          }
+        }
+        
         if (content.status === 'completed') {
-          toast.success("Crawl has completed");
+          toast.success(`Crawl has completed${detailMsg}`);
+          console.log(`Crawl has completed${detailMsg}`);
         } else if (content.status === 'error') {
           toast.error(`Crawl error: ${content.error}`);
+          console.error(`Crawl error: ${content.error}`);
         } else if (content.status === 'crawling') {
           toast.info("Crawl is still in progress");
+          console.log("Crawl is still in progress");
         }
       }
     } catch (error: any) {

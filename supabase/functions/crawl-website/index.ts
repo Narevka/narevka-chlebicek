@@ -88,6 +88,23 @@ serve(async (req) => {
       try {
         console.log(`Background crawl started for source ${sourceId}`);
         
+        // Prepare the request body for Spider.cloud API
+        const spiderRequestBody = {
+          url: url,
+          limit: limit,
+          return_format: returnFormat,
+          request: requestType,
+          premium_proxies: enableProxies,
+          metadata: enableMetadata,
+          anti_bot: enableAntiBot,
+          full_resources: enableFullResources,
+          subdomains: enableSubdomains,
+          tld: enableTlds,
+          store_data: true
+        };
+        
+        console.log("Spider.cloud API request:", JSON.stringify(spiderRequestBody));
+        
         // Call Spider.cloud API for crawling
         const crawlResponse = await fetch('https://api.spider.cloud/crawl', {
           method: 'POST',
@@ -95,20 +112,12 @@ serve(async (req) => {
             'Authorization': `Bearer ${SPIDER_API_KEY}`,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({
-            url: url,
-            limit: limit,
-            return_format: returnFormat,
-            request: requestType,
-            premium_proxies: enableProxies,
-            metadata: enableMetadata,
-            anti_bot: enableAntiBot,
-            full_resources: enableFullResources,
-            subdomains: enableSubdomains,
-            tld: enableTlds,
-            store_data: true
-          }),
+          body: JSON.stringify(spiderRequestBody),
         });
+
+        // Log response status and headers
+        console.log(`Spider.cloud API response status: ${crawlResponse.status}`);
+        console.log(`Spider.cloud API response headers:`, Object.fromEntries(crawlResponse.headers.entries()));
 
         if (!crawlResponse.ok) {
           const errorData = await crawlResponse.text();
@@ -121,7 +130,8 @@ serve(async (req) => {
               content: JSON.stringify({
                 url: url,
                 status: 'error',
-                error: `Spider.cloud API error: ${crawlResponse.status} ${errorData}`
+                error: `Spider.cloud API error: ${crawlResponse.status} ${errorData}`,
+                crawl_options: spiderRequestBody
               })
             })
             .eq('id', sourceId);
@@ -131,19 +141,30 @@ serve(async (req) => {
 
         const crawlData = await crawlResponse.json();
         console.log('Crawl completed, processing data...');
-        console.log(`Received ${crawlData?.length || 0} crawled pages`);
+        console.log(`Received ${crawlData?.length || 0} crawled pages (requested limit: ${limit})`);
+        
+        // Log first 3 pages URLs for debugging
+        if (Array.isArray(crawlData) && crawlData.length > 0) {
+          const sampleUrls = crawlData.slice(0, 3).map(item => item.url || 'No URL');
+          console.log(`Sample URLs crawled: ${sampleUrls.join(', ')}`);
+        }
         
         // Prepare content to save in database
         let aggregatedContent = '';
         let contentCount = 0;
         let totalChars = 0;
+        let crawledUrls = [];
         
         if (Array.isArray(crawlData)) {
-          crawlData.forEach(item => {
+          crawlData.forEach((item, index) => {
+            if (item.url) {
+              crawledUrls.push(item.url);
+            }
+            
             if (item.content && typeof item.content === 'string') {
               // For debugging
-              if (contentCount < 3) {
-                console.log(`Page ${contentCount+1} URL: ${item.url || 'unknown'}, content length: ${item.content.length}`);
+              if (index < 3) {
+                console.log(`Page ${index+1} URL: ${item.url || 'unknown'}, content length: ${item.content.length}`);
               }
               
               aggregatedContent += `# ${item.url || 'Page ' + (contentCount + 1)}\n\n`;
@@ -162,7 +183,8 @@ serve(async (req) => {
               content: JSON.stringify({
                 url: url,
                 status: 'error',
-                error: "Failed to retrieve page content"
+                error: "Failed to retrieve page content",
+                crawl_options: spiderRequestBody
               })
             })
             .eq('id', sourceId);
@@ -178,6 +200,23 @@ serve(async (req) => {
           console.log(`Content truncated from ${aggregatedContent.length} to ${storedContent.length} characters`);
         }
         
+        // Create a detailed crawl report
+        const crawlReport = {
+          url: url,
+          status: 'completed',
+          requestedLimit: limit,
+          pagesReceived: crawlData?.length || 0,
+          pagesWithContent: contentCount,
+          totalChars: totalChars,
+          originalLength: aggregatedContent.length,
+          storedLength: storedContent.length,
+          crawledUrls: crawledUrls,
+          requestConfig: spiderRequestBody,
+          completedAt: new Date().toISOString()
+        };
+        
+        console.log("Crawl report:", JSON.stringify(crawlReport));
+        
         // Update the source record with the crawled content
         const { error: updateError } = await supabase
           .from('agent_sources')
@@ -189,7 +228,8 @@ serve(async (req) => {
               pages_crawled: contentCount,
               total_chars: totalChars,
               original_length: aggregatedContent.length,
-              stored_length: storedContent.length
+              stored_length: storedContent.length,
+              crawl_report: crawlReport
             }),
             chars: storedContent.length
           })
@@ -246,7 +286,8 @@ serve(async (req) => {
         success: true,
         message: `Crawl started for ${url}`,
         sourceId: sourceId,
-        status: 'crawling'
+        status: 'crawling',
+        requestedLimit: limit
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
