@@ -1,18 +1,29 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { useAgentSources } from "@/hooks/useAgentSources";
 import WebsiteInput from "./website/WebsiteInput";
 import WebsiteList from "./website/WebsiteList";
 import { useWebsiteCrawler } from "./website/useWebsiteCrawler";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle, Bug, Download } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { AlertCircle } from "lucide-react";
+import { 
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 const WebsiteSource = () => {
   const { id: agentId } = useParams<{ id: string }>();
   const { handleAddWebsite } = useAgentSources(agentId);
   const [debugLogs, setDebugLogs] = useState<string[]>([]);
+  const [showDebugDialog, setShowDebugDialog] = useState(false);
+  const [currentDebugSite, setCurrentDebugSite] = useState<{id: string, url: string} | null>(null);
+  
+  // Create a map to store logs per source ID
+  const [sourceLogsMap, setSourceLogsMap] = useState<Record<string, string[]>>({});
   
   const {
     isLoading,
@@ -38,71 +49,97 @@ const WebsiteSource = () => {
     ).join(' ');
     
     setDebugLogs(prev => [...prev, `[${timestamp}] ${formattedMessage}`]);
+    
+    // If there's a current website being viewed in debug mode, also add the log to its specific logs
+    if (currentDebugSite) {
+      setSourceLogsMap(prev => ({
+        ...prev,
+        [currentDebugSite.id]: [...(prev[currentDebugSite.id] || []), `[${timestamp}] ${formattedMessage}`]
+      }));
+    }
+    
     console.log(...messages);
   };
 
-  const showDebugInfo = () => {
-    // Enhanced debugging: Output more detailed information to the console
-    captureLog("%c Website Crawler Debug Information", "font-size: 16px; font-weight: bold; color: blue;");
-    captureLog("%c Current State:", "font-weight: bold");
-    captureLog("- Agent ID: " + agentId);
-    captureLog("- Loading state: " + isLoading);
-    captureLog("- Downloading ID: " + downloadingId);
-    
-    // More detailed information about included links
-    if (includedLinks.length > 0) {
-      captureLog("- Included Links: ", JSON.stringify(includedLinks));
-      captureLog("%c First Link Details:", "font-weight: bold");
-      const firstLink = includedLinks[0];
-      captureLog("  - URL: " + firstLink.url);
-      captureLog("  - Status: " + firstLink.status);
-      captureLog("  - Source ID: " + firstLink.sourceId);
-      captureLog("  - Pages count: " + firstLink.count);
-      captureLog("  - Requested limit: " + (firstLink.requestedLimit || "No limit"));
-      captureLog("  - Chars: " + firstLink.chars);
-      captureLog("  - Notification status: " + (firstLink.notificationShown ? "Shown" : "Not shown"));
-      captureLog("  - Created at: " + (firstLink.createdAt || "Unknown"));
-      if (firstLink.crawlReport) {
-        captureLog("  - Crawl report: ", JSON.stringify(firstLink.crawlReport));
+  // When a website item is updated, capture some basic logs for it
+  useEffect(() => {
+    includedLinks.forEach(link => {
+      if (link.sourceId && !sourceLogsMap[link.sourceId]) {
+        // Initialize log array for this source if it doesn't exist
+        setSourceLogsMap(prev => ({
+          ...prev,
+          [link.sourceId!]: [`[${new Date().toISOString()}] Website crawl initiated for ${link.url}`]
+        }));
       }
-    } else {
-      captureLog("- No links included yet");
-    }
+    });
+  }, [includedLinks]);
+
+  const showWebsiteDebugInfo = (sourceId: string, url: string) => {
+    setCurrentDebugSite({ id: sourceId, url });
     
-    // Show localStorage data
-    const localStorageKey = `websiteSources-${agentId}`;
-    const deletedSourcesKey = `deletedSources-${agentId}`;
-    
-    captureLog("%c localStorage Data:", "font-weight: bold");
-    try {
-      const websiteSourcesData = localStorage.getItem(localStorageKey);
-      const deletedSourcesData = localStorage.getItem(deletedSourcesKey);
+    // Generate some debug info for this specific website
+    const link = includedLinks.find(l => l.sourceId === sourceId);
+    if (link) {
+      // Create a temp array for these logs
+      const tempLogs: string[] = [];
       
-      captureLog("- Website sources from localStorage: ", 
-        websiteSourcesData ? JSON.stringify(JSON.parse(websiteSourcesData)) : "No data");
-      captureLog("- Deleted sources from localStorage: ", 
-        deletedSourcesData ? JSON.stringify(JSON.parse(deletedSourcesData)) : "No data");
-    } catch (error) {
-      captureLog("Error parsing localStorage data: " + error);
+      const addLog = (message: string) => {
+        const timestamp = new Date().toISOString();
+        tempLogs.push(`[${timestamp}] ${message}`);
+      };
+      
+      addLog(`Debug information for ${url} (Source ID: ${sourceId})`);
+      addLog(`Status: ${link.status || "Unknown"}`);
+      addLog(`Pages crawled: ${link.count}`);
+      addLog(`Content size: ${link.chars ? Math.round(link.chars / 1024) + ' KB' : 'Unknown'}`);
+      addLog(`Requested limit: ${link.requestedLimit || "Default"}`);
+      
+      if (link.crawlReport) {
+        addLog(`---- Crawl Report ----`);
+        addLog(`Pages received: ${link.crawlReport.pagesReceived}`);
+        addLog(`Pages with content: ${link.crawlReport.pagesWithContent}`);
+        addLog(`Completed at: ${new Date(link.crawlReport.completedAt).toLocaleString()}`);
+        addLog(`Total characters: ${link.crawlReport.totalChars}`);
+      }
+      
+      if (link.error) {
+        addLog(`---- Error Information ----`);
+        addLog(`Error: ${link.error}`);
+      }
+      
+      // Add or merge these logs with any existing logs for this source
+      setSourceLogsMap(prev => ({
+        ...prev,
+        [sourceId]: [...(prev[sourceId] || []), ...tempLogs]
+      }));
     }
     
-    // Notify user that debug info has been printed
-    alert("Debug information has been printed to the browser console and captured for download. Press F12 or right-click -> Inspect -> Console to view it immediately.");
+    setShowDebugDialog(true);
   };
 
-  const handleDownloadDebugLogs = () => {
-    // Create a text file with all captured logs
-    const logText = debugLogs.join('\n');
+  const handleDownloadWebsiteLogs = (sourceId: string, url: string) => {
+    // Get logs for this specific website
+    const logs = sourceLogsMap[sourceId] || [];
+    
+    // If no logs, add some basic info
+    if (logs.length === 0) {
+      const link = includedLinks.find(l => l.sourceId === sourceId);
+      logs.push(`[${new Date().toISOString()}] Website crawl record for ${url}`);
+      logs.push(`[${new Date().toISOString()}] Status: ${link?.status || "Unknown"}`);
+      logs.push(`[${new Date().toISOString()}] Pages crawled: ${link?.count || 0}`);
+    }
     
     // Create file for download
+    const logText = logs.join('\n');
     const blob = new Blob([logText], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
+    const downloadUrl = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    a.href = url;
+    a.href = downloadUrl;
     
-    // Prepare filename with timestamp
+    // Prepare filename with timestamp and URL
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    a.download = `website-crawler-logs-${timestamp}.txt`;
+    const sanitizedUrl = url.replace(/[^a-zA-Z0-9]/g, '-').substring(0, 30);
+    a.download = `website-logs-${sanitizedUrl}-${timestamp}.txt`;
     
     // Simulate click to download file
     document.body.appendChild(a);
@@ -110,7 +147,7 @@ const WebsiteSource = () => {
     
     // Clean up
     document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    URL.revokeObjectURL(downloadUrl);
   };
 
   return (
@@ -140,33 +177,54 @@ const WebsiteSource = () => {
         onCheckStatus={handleCheckStatus}
         onProcessSource={handleProcessSource}
         onDownloadContent={handleDownloadContent}
+        onShowDebug={showWebsiteDebugInfo}
+        onDownloadLogs={handleDownloadWebsiteLogs}
       />
       
-      <div className="mt-4 border-t pt-4">
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            className="flex items-center gap-2 text-gray-600"
-            onClick={showDebugInfo}
-          >
-            <Bug className="h-4 w-4" /> Show Debug Info
-          </Button>
+      {/* Debug Dialog */}
+      <Dialog open={showDebugDialog} onOpenChange={setShowDebugDialog}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Debug Information - {currentDebugSite?.url}</DialogTitle>
+            <DialogDescription>
+              Details about the website crawl process
+            </DialogDescription>
+          </DialogHeader>
           
-          <Button
-            variant="outline"
-            size="sm"
-            className="flex items-center gap-2 text-gray-600"
-            onClick={handleDownloadDebugLogs}
-            disabled={debugLogs.length === 0}
-          >
-            <Download className="h-4 w-4" /> Download Debug Logs
-          </Button>
-        </div>
-        <p className="text-xs text-gray-500 mt-1">
-          Click "Show Debug Info" to view debugging information or "Download Debug Logs" to save logs as a text file.
-        </p>
-      </div>
+          <div className="overflow-auto flex-1 mt-4">
+            <div className="bg-gray-100 p-3 rounded font-mono text-sm whitespace-pre-wrap" style={{ maxHeight: '50vh' }}>
+              {currentDebugSite && sourceLogsMap[currentDebugSite.id] ? (
+                sourceLogsMap[currentDebugSite.id].map((log, i) => (
+                  <div key={i} className="mb-1">{log}</div>
+                ))
+              ) : (
+                <p>No logs available for this website.</p>
+              )}
+            </div>
+          </div>
+          
+          <div className="flex justify-end mt-4">
+            <button
+              className="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded text-sm mr-2"
+              onClick={() => setShowDebugDialog(false)}
+            >
+              Close
+            </button>
+            {currentDebugSite && (
+              <button
+                className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded text-sm"
+                onClick={() => {
+                  if (currentDebugSite) {
+                    handleDownloadWebsiteLogs(currentDebugSite.id, currentDebugSite.url);
+                  }
+                }}
+              >
+                Download Logs
+              </button>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

@@ -1,7 +1,8 @@
+
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Trash2, Download, RotateCw, RefreshCw, Info, ChevronDown, ChevronUp } from "lucide-react";
+import { Trash2, Download, RotateCw, RefreshCw, Info, ChevronDown, ChevronUp, Bug } from "lucide-react";
 import { 
   Popover,
   PopoverContent,
@@ -21,6 +22,7 @@ export interface WebsiteSourceItem {
   crawlReport?: any;
   notificationShown?: boolean;
   createdAt?: string;
+  debugLogs?: string[];
 }
 
 interface WebsiteItemProps {
@@ -31,6 +33,8 @@ interface WebsiteItemProps {
   onCheckStatus: (sourceId: string, index: number) => void;
   onProcess: (sourceId: string, index: number) => void;
   onDownload: (sourceId: string, url: string) => void;
+  onShowDebug?: (sourceId: string, url: string) => void;
+  onDownloadLogs?: (sourceId: string, url: string) => void;
 }
 
 const WebsiteItem: React.FC<WebsiteItemProps> = ({
@@ -40,7 +44,9 @@ const WebsiteItem: React.FC<WebsiteItemProps> = ({
   onDelete,
   onCheckStatus,
   onProcess,
-  onDownload
+  onDownload,
+  onShowDebug,
+  onDownloadLogs
 }) => {
   const [showDetails, setShowDetails] = useState(false);
 
@@ -148,6 +154,30 @@ const WebsiteItem: React.FC<WebsiteItemProps> = ({
                 <Download className="h-4 w-4" />
               </Button>
             </>
+          )}
+          
+          {onShowDebug && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-blue-500 p-1 h-auto"
+              onClick={() => onShowDebug(link.sourceId!, link.url)}
+              title="Show Debug Info"
+            >
+              <Bug className="h-4 w-4" />
+            </Button>
+          )}
+          
+          {onDownloadLogs && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-blue-500 p-1 h-auto"
+              onClick={() => onDownloadLogs(link.sourceId!, link.url)}
+              title="Download Debug Logs"
+            >
+              <Download className="h-4 w-4 text-gray-600" />
+            </Button>
           )}
           
           <Button 

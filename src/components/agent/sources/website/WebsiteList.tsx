@@ -11,6 +11,8 @@ interface WebsiteListProps {
   onCheckStatus: (sourceId: string, index: number) => void;
   onProcessSource: (sourceId: string, index: number) => void;
   onDownloadContent: (sourceId: string, url: string) => void;
+  onShowDebug?: (sourceId: string, url: string) => void;
+  onDownloadLogs?: (sourceId: string, url: string) => void;
 }
 
 const WebsiteList: React.FC<WebsiteListProps> = ({
@@ -20,7 +22,9 @@ const WebsiteList: React.FC<WebsiteListProps> = ({
   onDeleteAllLinks,
   onCheckStatus,
   onProcessSource,
-  onDownloadContent
+  onDownloadContent,
+  onShowDebug,
+  onDownloadLogs
 }) => {
   return (
     <div className="mt-8">
@@ -50,6 +54,8 @@ const WebsiteList: React.FC<WebsiteListProps> = ({
               onCheckStatus={onCheckStatus}
               onProcess={onProcessSource}
               onDownload={onDownloadContent}
+              onShowDebug={onShowDebug}
+              onDownloadLogs={onDownloadLogs}
             />
           ))
         )}
