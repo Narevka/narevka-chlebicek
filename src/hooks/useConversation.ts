@@ -2,11 +2,12 @@
 import { useState, useEffect, useCallback } from "react";
 import { v4 as uuidv4 } from 'uuid';
 import { toast } from "sonner";
-import { Message } from "./conversation/types";
+import { Message, ConversationState } from "./conversation/types";
 import { saveMessageToDb, createConversation, updateConversationTitle } from "./conversation/conversationDb";
 import { getAssistantResponse } from "./conversation/assistantApi";
 
-export { Message };
+// Export the Message type with the correct syntax for isolatedModules
+export type { Message };
 
 export const useConversation = (userId: string | undefined, agentId: string | undefined) => {
   const [messages, setMessages] = useState<Array<Message>>([
