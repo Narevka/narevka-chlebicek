@@ -58,6 +58,25 @@ export const useChatLogs = () => {
     }
   }, [deletedConversationIds]);
 
+  // Force reload data when user navigates back to page or refreshes
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && user) {
+        loadConversations();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', () => {
+      if (user) loadConversations();
+    });
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', loadConversations);
+    };
+  }, [user]);
+
   useEffect(() => {
     if (!user) return;
     
@@ -84,7 +103,7 @@ export const useChatLogs = () => {
       setConversations(filteredResult);
       setPagination(prev => ({
         ...prev,
-        totalItems: totalItems - (totalItems > 0 ? deletedConversationIds.size : 0)
+        totalItems: totalItems - (deletedConversationIds.size > 0 ? Math.min(deletedConversationIds.size, totalItems) : 0)
       }));
       
       const sources = getUniqueSourcesFromConversations(filteredResult);
@@ -102,7 +121,7 @@ export const useChatLogs = () => {
       setConversations(filteredResult);
       setPagination(prev => ({
         ...prev,
-        totalItems: totalItems - (totalItems > 0 ? deletedConversationIds.size : 0)
+        totalItems: totalItems - (deletedConversationIds.size > 0 ? Math.min(deletedConversationIds.size, totalItems) : 0)
       }));
       
       const sources = Array.from(new Set(filteredResult.map(convo => convo.source)));
