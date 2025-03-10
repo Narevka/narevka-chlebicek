@@ -99,6 +99,9 @@ export const useCrawlStatusChecker = ({
                 // Extract and save crawl report if available
                 const crawlReport = content.crawl_report || null;
                 
+                // Extract logs if they exist
+                const sourceLogs = content.logs || [];
+                
                 // Check if we've already shown a notification for this status
                 // to avoid duplicate notifications
                 const alreadyNotified = updatedLinks[i].notificationShown || false;
@@ -110,7 +113,8 @@ export const useCrawlStatusChecker = ({
                   count: content.pages_crawled || link.count,
                   chars: data.chars || link.chars,
                   crawlReport: crawlReport,
-                  notificationShown: alreadyNotified
+                  notificationShown: alreadyNotified,
+                  debugLogs: sourceLogs  // Store the logs from Supabase
                 };
                 hasChanges = true;
 
@@ -126,6 +130,15 @@ export const useCrawlStatusChecker = ({
                   updatedLinks[i].notificationShown = true; // Mark as shown
                   toast.error(`Crawl failed for ${link.url}: ${content.error}`);
                   console.error(`Crawl failed for ${link.url}: ${content.error}`);
+                }
+              } else {
+                // Even if status didn't change, we want to capture any new logs
+                if (content.logs && Array.isArray(content.logs)) {
+                  updatedLinks[i] = {
+                    ...link,
+                    debugLogs: content.logs
+                  };
+                  hasChanges = true;
                 }
               }
             }
@@ -178,6 +191,9 @@ export const useCrawlStatusChecker = ({
         // Extract crawl report if available
         const crawlReport = content.crawl_report || null;
         
+        // Extract logs if they exist
+        const sourceLogs = content.logs || [];
+        
         // Update the link with current status
         const newLinks = [...includedLinks];
         newLinks[index] = {
@@ -187,6 +203,7 @@ export const useCrawlStatusChecker = ({
           count: content.pages_crawled || newLinks[index].count,
           chars: data.chars || newLinks[index].chars,
           crawlReport: crawlReport,
+          debugLogs: sourceLogs,
           notificationShown: true // Mark notification as shown for manual checks
         };
         

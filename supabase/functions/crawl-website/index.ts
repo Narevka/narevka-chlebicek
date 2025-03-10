@@ -49,10 +49,29 @@ serve(async (req) => {
       throw new Error('Required parameters: url, agentId, and userId');
     }
 
-    console.log(`Starting crawl: ${url}, limit: ${limit}, agent: ${agentId}, user: ${userId}`);
-    console.log(`Advanced options: requestType=${requestType}, proxies=${enableProxies}, antiBot=${enableAntiBot}`);
+    // Create detailed logs for frontend display
+    const detailedRequestLog = {
+      timestamp: new Date().toISOString(),
+      event: "crawl_requested",
+      url: url,
+      agent_id: agentId,
+      user_id: userId,
+      parameters: {
+        limit,
+        returnFormat,
+        requestType,
+        enableProxies,
+        enableMetadata,
+        enableAntiBot,
+        enableFullResources,
+        enableSubdomains,
+        enableTlds
+      }
+    };
     
-    // Create a placeholder source record with status "crawling"
+    console.log(`Starting crawl with configuration:`, JSON.stringify(detailedRequestLog, null, 2));
+    
+    // Create a placeholder source record with status "crawling" and initial logs
     const { data: sourceData, error: sourceInsertError } = await supabase
       .from('agent_sources')
       .insert([{
@@ -66,7 +85,13 @@ serve(async (req) => {
             limit, returnFormat, requestType,
             enableProxies, enableMetadata, enableAntiBot,
             enableFullResources, enableSubdomains, enableTlds
-          }
+          },
+          logs: [{
+            timestamp: new Date().toISOString(),
+            level: "info",
+            message: `Crawl initiated for ${url}`,
+            details: detailedRequestLog
+          }]
         }),
         chars: 0 // Will be updated when crawl completes
       }])
@@ -88,6 +113,9 @@ serve(async (req) => {
       try {
         console.log(`Background crawl started for source ${sourceId}`);
         
+        // Add log entry for crawl start
+        await updateSourceWithLog(supabase, sourceId, "info", `Background crawl process started for ${url}`);
+        
         // Prepare the request body for Spider.cloud API
         const spiderRequestBody = {
           url: url,
@@ -103,7 +131,22 @@ serve(async (req) => {
           store_data: true
         };
         
+        // Log the Spider.cloud API request configuration
+        await updateSourceWithLog(
+          supabase, 
+          sourceId, 
+          "info", 
+          `Sending request to Spider.cloud API`, 
+          {
+            request_body: spiderRequestBody,
+            api_endpoint: "https://api.spider.cloud/crawl"
+          }
+        );
+        
         console.log("Spider.cloud API request:", JSON.stringify(spiderRequestBody));
+        
+        // Start timing the API call
+        const apiCallStartTime = Date.now();
         
         // Call Spider.cloud API for crawling
         const crawlResponse = await fetch('https://api.spider.cloud/crawl', {
@@ -115,13 +158,39 @@ serve(async (req) => {
           body: JSON.stringify(spiderRequestBody),
         });
 
+        const apiCallDuration = Date.now() - apiCallStartTime;
+        
         // Log response status and headers
-        console.log(`Spider.cloud API response status: ${crawlResponse.status}`);
+        console.log(`Spider.cloud API response status: ${crawlResponse.status} (took ${apiCallDuration}ms)`);
         console.log(`Spider.cloud API response headers:`, Object.fromEntries(crawlResponse.headers.entries()));
+        
+        // Log the API response details
+        await updateSourceWithLog(
+          supabase, 
+          sourceId, 
+          crawlResponse.ok ? "info" : "error", 
+          `Received response from Spider.cloud API (${crawlResponse.status})`, 
+          {
+            status: crawlResponse.status,
+            statusText: crawlResponse.statusText,
+            headers: Object.fromEntries(crawlResponse.headers.entries()),
+            duration_ms: apiCallDuration
+          }
+        );
 
         if (!crawlResponse.ok) {
           const errorData = await crawlResponse.text();
           console.error('Spider.cloud API error:', errorData);
+          
+          await updateSourceWithLog(
+            supabase, 
+            sourceId, 
+            "error", 
+            `Spider.cloud API returned error: ${crawlResponse.status} ${crawlResponse.statusText}`, 
+            {
+              error_details: errorData
+            }
+          );
           
           // Update the source record with the error
           await supabase
@@ -140,6 +209,17 @@ serve(async (req) => {
         }
 
         const crawlData = await crawlResponse.json();
+        await updateSourceWithLog(
+          supabase, 
+          sourceId, 
+          "info", 
+          `Crawl completed successfully. Processing data...`, 
+          {
+            pages_received: crawlData?.length || 0,
+            requested_limit: limit
+          }
+        );
+        
         console.log('Crawl completed, processing data...');
         console.log(`Received ${crawlData?.length || 0} crawled pages (requested limit: ${limit})`);
         
@@ -147,6 +227,16 @@ serve(async (req) => {
         if (Array.isArray(crawlData) && crawlData.length > 0) {
           const sampleUrls = crawlData.slice(0, 3).map(item => item.url || 'No URL');
           console.log(`Sample URLs crawled: ${sampleUrls.join(', ')}`);
+          
+          await updateSourceWithLog(
+            supabase, 
+            sourceId, 
+            "info", 
+            `Sample URLs crawled (first 3 of ${crawlData.length})`, 
+            {
+              sample_urls: sampleUrls
+            }
+          );
         }
         
         // Prepare content to save in database
@@ -154,6 +244,7 @@ serve(async (req) => {
         let contentCount = 0;
         let totalChars = 0;
         let crawledUrls = [];
+        let pageSizes = [];
         
         if (Array.isArray(crawlData)) {
           crawlData.forEach((item, index) => {
@@ -171,11 +262,38 @@ serve(async (req) => {
               aggregatedContent += item.content + '\n\n';
               contentCount++;
               totalChars += item.content.length;
+              
+              pageSizes.push({
+                url: item.url || `Page ${index+1}`,
+                chars: item.content.length,
+                size_kb: Math.round(item.content.length / 1024)
+              });
             }
           });
+          
+          // Log information about processed pages
+          await updateSourceWithLog(
+            supabase, 
+            sourceId, 
+            "info", 
+            `Content processing complete`, 
+            {
+              pages_with_content: contentCount,
+              total_chars: totalChars,
+              total_size_kb: Math.round(totalChars / 1024),
+              page_size_distribution: pageSizes.slice(0, 10)  // Show first 10 pages' sizes
+            }
+          );
         }
         
         if (aggregatedContent.trim().length === 0) {
+          await updateSourceWithLog(
+            supabase, 
+            sourceId, 
+            "error", 
+            `Failed to retrieve any page content`
+          );
+          
           // Update the source record with the error
           await supabase
             .from('agent_sources')
@@ -198,6 +316,18 @@ serve(async (req) => {
         
         if (storedContent.length < aggregatedContent.length) {
           console.log(`Content truncated from ${aggregatedContent.length} to ${storedContent.length} characters`);
+          
+          await updateSourceWithLog(
+            supabase, 
+            sourceId, 
+            "warning", 
+            `Content truncated due to size limitations`, 
+            {
+              original_length: aggregatedContent.length,
+              truncated_length: storedContent.length,
+              truncated_percentage: Math.round((1 - storedContent.length / aggregatedContent.length) * 100)
+            }
+          );
         }
         
         // Create a detailed crawl report
@@ -212,10 +342,26 @@ serve(async (req) => {
           storedLength: storedContent.length,
           crawledUrls: crawledUrls,
           requestConfig: spiderRequestBody,
-          completedAt: new Date().toISOString()
+          completedAt: new Date().toISOString(),
+          pageSizes: pageSizes.slice(0, 10),  // First 10 pages for reference
+          processingStats: {
+            avgCharsPerPage: contentCount > 0 ? Math.round(totalChars / contentCount) : 0,
+            largestPage: pageSizes.length > 0 ? Math.max(...pageSizes.map(p => p.chars)) : 0,
+            smallestPage: pageSizes.length > 0 ? Math.min(...pageSizes.map(p => p.chars)) : 0
+          }
         };
         
         console.log("Crawl report:", JSON.stringify(crawlReport));
+        
+        await updateSourceWithLog(
+          supabase, 
+          sourceId, 
+          "info", 
+          `Crawl completed successfully`, 
+          {
+            crawl_report: crawlReport
+          }
+        );
         
         // Update the source record with the crawled content
         const { error: updateError } = await supabase
@@ -237,12 +383,36 @@ serve(async (req) => {
           
         if (updateError) {
           console.error('Error updating source with crawled content:', updateError);
+          await updateSourceWithLog(
+            supabase, 
+            sourceId, 
+            "error", 
+            `Error updating source with crawled content: ${updateError.message}`
+          );
         } else {
           console.log(`Successfully updated source ${sourceId} with crawled content from ${contentCount} pages`);
           console.log(`Content size: ${storedContent.length} characters from ${aggregatedContent.length} original chars`);
+          
+          await updateSourceWithLog(
+            supabase, 
+            sourceId, 
+            "info", 
+            `Source updated successfully with crawled content`, 
+            {
+              pages: contentCount,
+              chars: storedContent.length
+            }
+          );
         }
       } catch (error) {
         console.error('Error in background crawl task:', error);
+        
+        await updateSourceWithLog(
+          supabase, 
+          sourceId, 
+          "error", 
+          `Error in background crawl task: ${error.message}`
+        );
         
         // Update the source record with the error
         await supabase
@@ -257,6 +427,56 @@ serve(async (req) => {
           .eq('id', sourceId);
       }
     };
+
+    // Helper function to add logs to the source
+    async function updateSourceWithLog(supabase, sourceId, level, message, details = null) {
+      try {
+        // First get current content to append to logs
+        const { data, error } = await supabase
+          .from('agent_sources')
+          .select('content')
+          .eq('id', sourceId)
+          .single();
+          
+        if (error) {
+          console.error('Error fetching source for log update:', error);
+          return;
+        }
+        
+        let content;
+        try {
+          content = JSON.parse(data.content);
+        } catch (e) {
+          console.error('Error parsing content for log update:', e);
+          content = { logs: [] };
+        }
+        
+        // Ensure logs array exists
+        if (!content.logs) {
+          content.logs = [];
+        }
+        
+        // Add new log entry
+        content.logs.push({
+          timestamp: new Date().toISOString(),
+          level,
+          message,
+          details
+        });
+        
+        // Update source with new logs
+        await supabase
+          .from('agent_sources')
+          .update({
+            content: JSON.stringify(content)
+          })
+          .eq('id', sourceId);
+          
+        console.log(`Log added to source ${sourceId}: [${level}] ${message}`);
+      } catch (logError) {
+        console.error('Error adding log to source:', logError);
+      }
+    }
 
     // Start the background task
     console.log("Starting background crawl task");

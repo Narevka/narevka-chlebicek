@@ -41,27 +41,79 @@ const WebsiteSource = () => {
     handleAddWebsite
   });
 
-  // Add a custom console logger to capture logs
-  const captureLog = (...messages: any[]) => {
-    const timestamp = new Date().toISOString();
-    const formattedMessage = messages.map(msg => 
-      typeof msg === 'object' ? JSON.stringify(msg) : String(msg)
-    ).join(' ');
+  // Function to format source logs for display and download
+  const formatSourceLogs = (sourceId: string, url: string): string[] => {
+    const link = includedLinks.find(l => l.sourceId === sourceId);
+    if (!link) return [];
     
-    setDebugLogs(prev => [...prev, `[${timestamp}] ${formattedMessage}`]);
+    // Start with a formatted header
+    const formattedLogs: string[] = [
+      `--- DEBUG LOGS FOR ${url} ---`,
+      `Source ID: ${sourceId}`,
+      `Status: ${link.status || "Unknown"}`,
+      `Created: ${link.createdAt || "Unknown"}`,
+      `Pages: ${link.count || 0}`,
+      `Size: ${link.chars ? Math.round(link.chars / 1024) + 'KB' : 'Unknown'}`,
+      `Requested limit: ${link.requestedLimit || "Default"}`,
+      ''
+    ];
     
-    // If there's a current website being viewed in debug mode, also add the log to its specific logs
-    if (currentDebugSite) {
-      setSourceLogsMap(prev => ({
-        ...prev,
-        [currentDebugSite.id]: [...(prev[currentDebugSite.id] || []), `[${timestamp}] ${formattedMessage}`]
-      }));
+    // Add any detailed logs from Supabase
+    if (link.debugLogs && Array.isArray(link.debugLogs)) {
+      formattedLogs.push('--- SERVER LOGS ---');
+      
+      link.debugLogs.forEach(log => {
+        if (typeof log === 'object') {
+          const timestamp = log.timestamp ? new Date(log.timestamp).toISOString() : new Date().toISOString();
+          const level = log.level || 'info';
+          const message = log.message || 'No message';
+          
+          formattedLogs.push(`[${timestamp}] [${level.toUpperCase()}] ${message}`);
+          
+          // If there are details, format them nicely
+          if (log.details) {
+            try {
+              const detailsStr = JSON.stringify(log.details, null, 2);
+              formattedLogs.push('  Details:');
+              detailsStr.split('\n').forEach(line => {
+                formattedLogs.push(`    ${line}`);
+              });
+            } catch (e) {
+              formattedLogs.push(`  Details: ${JSON.stringify(log.details)}`);
+            }
+          }
+        } else if (typeof log === 'string') {
+          formattedLogs.push(log);
+        }
+      });
+      
+      formattedLogs.push('');
     }
     
-    console.log(...messages);
+    // Add any frontend captured logs
+    if (sourceLogsMap[sourceId] && sourceLogsMap[sourceId].length > 0) {
+      formattedLogs.push('--- FRONTEND LOGS ---');
+      formattedLogs.push(...sourceLogsMap[sourceId]);
+    }
+    
+    // Add crawl report
+    if (link.crawlReport) {
+      formattedLogs.push('');
+      formattedLogs.push('--- CRAWL REPORT ---');
+      try {
+        const reportStr = JSON.stringify(link.crawlReport, null, 2);
+        reportStr.split('\n').forEach(line => {
+          formattedLogs.push(line);
+        });
+      } catch (e) {
+        formattedLogs.push(JSON.stringify(link.crawlReport));
+      }
+    }
+    
+    return formattedLogs;
   };
 
-  // When a website item is updated, capture some basic logs for it
+  // When a website item is updated, initialize its log array if needed
   useEffect(() => {
     includedLinks.forEach(link => {
       if (link.sourceId && !sourceLogsMap[link.sourceId]) {
@@ -77,56 +129,25 @@ const WebsiteSource = () => {
   const showWebsiteDebugInfo = (sourceId: string, url: string) => {
     setCurrentDebugSite({ id: sourceId, url });
     
-    // Generate some debug info for this specific website
-    const link = includedLinks.find(l => l.sourceId === sourceId);
-    if (link) {
-      // Create a temp array for these logs
-      const tempLogs: string[] = [];
-      
-      const addLog = (message: string) => {
-        const timestamp = new Date().toISOString();
-        tempLogs.push(`[${timestamp}] ${message}`);
-      };
-      
-      addLog(`Debug information for ${url} (Source ID: ${sourceId})`);
-      addLog(`Status: ${link.status || "Unknown"}`);
-      addLog(`Pages crawled: ${link.count}`);
-      addLog(`Content size: ${link.chars ? Math.round(link.chars / 1024) + ' KB' : 'Unknown'}`);
-      addLog(`Requested limit: ${link.requestedLimit || "Default"}`);
-      
-      if (link.crawlReport) {
-        addLog(`---- Crawl Report ----`);
-        addLog(`Pages received: ${link.crawlReport.pagesReceived}`);
-        addLog(`Pages with content: ${link.crawlReport.pagesWithContent}`);
-        addLog(`Completed at: ${new Date(link.crawlReport.completedAt).toLocaleString()}`);
-        addLog(`Total characters: ${link.crawlReport.totalChars}`);
-      }
-      
-      if (link.error) {
-        addLog(`---- Error Information ----`);
-        addLog(`Error: ${link.error}`);
-      }
-      
-      // Add or merge these logs with any existing logs for this source
-      setSourceLogsMap(prev => ({
-        ...prev,
-        [sourceId]: [...(prev[sourceId] || []), ...tempLogs]
-      }));
+    // Force status check to get the latest logs
+    const linkIndex = includedLinks.findIndex(l => l.sourceId === sourceId);
+    if (linkIndex >= 0) {
+      handleCheckStatus(sourceId, linkIndex);
     }
     
     setShowDebugDialog(true);
   };
 
   const handleDownloadWebsiteLogs = (sourceId: string, url: string) => {
-    // Get logs for this specific website
-    const logs = sourceLogsMap[sourceId] || [];
+    // Get formatted logs for this specific website
+    const logs = formatSourceLogs(sourceId, url);
     
     // If no logs, add some basic info
     if (logs.length === 0) {
       const link = includedLinks.find(l => l.sourceId === sourceId);
-      logs.push(`[${new Date().toISOString()}] Website crawl record for ${url}`);
-      logs.push(`[${new Date().toISOString()}] Status: ${link?.status || "Unknown"}`);
-      logs.push(`[${new Date().toISOString()}] Pages crawled: ${link?.count || 0}`);
+      logs.push(`No logs available for ${url} (Source ID: ${sourceId})`);
+      logs.push(`Status: ${link?.status || "Unknown"}`);
+      logs.push(`Pages crawled: ${link?.count || 0}`);
     }
     
     // Create file for download
@@ -139,7 +160,7 @@ const WebsiteSource = () => {
     // Prepare filename with timestamp and URL
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const sanitizedUrl = url.replace(/[^a-zA-Z0-9]/g, '-').substring(0, 30);
-    a.download = `website-logs-${sanitizedUrl}-${timestamp}.txt`;
+    a.download = `crawl-logs-${sanitizedUrl}-${timestamp}.txt`;
     
     // Simulate click to download file
     document.body.appendChild(a);
@@ -193,12 +214,18 @@ const WebsiteSource = () => {
           
           <div className="overflow-auto flex-1 mt-4">
             <div className="bg-gray-100 p-3 rounded font-mono text-sm whitespace-pre-wrap" style={{ maxHeight: '50vh' }}>
-              {currentDebugSite && sourceLogsMap[currentDebugSite.id] ? (
-                sourceLogsMap[currentDebugSite.id].map((log, i) => (
-                  <div key={i} className="mb-1">{log}</div>
+              {currentDebugSite && (
+                formatSourceLogs(currentDebugSite.id, currentDebugSite.url).map((log, i) => (
+                  <div key={i} className={
+                    log.includes('[ERROR]') 
+                      ? 'text-red-600 mb-1' 
+                      : log.includes('[WARNING]') 
+                        ? 'text-amber-600 mb-1' 
+                        : 'mb-1'
+                  }>
+                    {log}
+                  </div>
                 ))
-              ) : (
-                <p>No logs available for this website.</p>
               )}
             </div>
           </div>
