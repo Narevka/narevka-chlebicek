@@ -83,6 +83,53 @@ export type Database = {
         }
         Relationships: []
       }
+      chat_analytics: {
+        Row: {
+          agent_id: string | null
+          country: string | null
+          created_at: string
+          date: string
+          id: string
+          thumbs_down: number
+          thumbs_up: number
+          total_chats: number
+          total_messages: number
+          user_id: string
+        }
+        Insert: {
+          agent_id?: string | null
+          country?: string | null
+          created_at?: string
+          date: string
+          id?: string
+          thumbs_down?: number
+          thumbs_up?: number
+          total_chats?: number
+          total_messages?: number
+          user_id: string
+        }
+        Update: {
+          agent_id?: string | null
+          country?: string | null
+          created_at?: string
+          date?: string
+          id?: string
+          thumbs_down?: number
+          thumbs_up?: number
+          total_chats?: number
+          total_messages?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_analytics_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       conversations: {
         Row: {
           created_at: string
@@ -141,6 +188,120 @@ export type Database = {
             columns: ["conversation_id"]
             isOneToOne: false
             referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sentiment_analytics: {
+        Row: {
+          agent_id: string | null
+          created_at: string
+          date: string
+          id: string
+          negative: number
+          neutral: number
+          positive: number
+          unspecified: number
+          user_id: string
+        }
+        Insert: {
+          agent_id?: string | null
+          created_at?: string
+          date: string
+          id?: string
+          negative?: number
+          neutral?: number
+          positive?: number
+          unspecified?: number
+          user_id: string
+        }
+        Update: {
+          agent_id?: string | null
+          created_at?: string
+          date?: string
+          id?: string
+          negative?: number
+          neutral?: number
+          positive?: number
+          unspecified?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sentiment_analytics_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      topic_analytics: {
+        Row: {
+          count: number
+          created_at: string
+          date: string
+          id: string
+          topic_id: string | null
+        }
+        Insert: {
+          count?: number
+          created_at?: string
+          date: string
+          id?: string
+          topic_id?: string | null
+        }
+        Update: {
+          count?: number
+          created_at?: string
+          date?: string
+          id?: string
+          topic_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "topic_analytics_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "topics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      topics: {
+        Row: {
+          agent_id: string | null
+          count: number
+          created_at: string
+          frozen: boolean
+          id: string
+          name: string
+          user_id: string
+        }
+        Insert: {
+          agent_id?: string | null
+          count?: number
+          created_at?: string
+          frozen?: boolean
+          id?: string
+          name: string
+          user_id: string
+        }
+        Update: {
+          agent_id?: string | null
+          count?: number
+          created_at?: string
+          frozen?: boolean
+          id?: string
+          name?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "topics_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
             referencedColumns: ["id"]
           },
         ]
