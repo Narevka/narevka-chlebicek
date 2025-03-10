@@ -11,6 +11,9 @@ import {
   getUniqueSourcesFromConversations
 } from "../services";
 
+// Local storage key for deleted conversation IDs
+const DELETED_CONVERSATIONS_STORAGE_KEY = "deletedConversationIds";
+
 export const useChatLogs = () => {
   const { user } = useAuth();
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -32,7 +35,28 @@ export const useChatLogs = () => {
   });
   const [showFilterPanel, setShowFilterPanel] = useState(false);
   const [availableSources, setAvailableSources] = useState<string[]>(['Playground', 'Website', 'WordPress', 'Bubble']);
-  const [deletedConversationIds, setDeletedConversationIds] = useState<Set<string>>(new Set());
+  const [deletedConversationIds, setDeletedConversationIds] = useState<Set<string>>(() => {
+    // Initialize from localStorage on component mount
+    try {
+      const storedIds = localStorage.getItem(DELETED_CONVERSATIONS_STORAGE_KEY);
+      return storedIds ? new Set(JSON.parse(storedIds)) : new Set<string>();
+    } catch (error) {
+      console.error("Error loading deleted IDs from localStorage:", error);
+      return new Set<string>();
+    }
+  });
+
+  // Persist deletedConversationIds to localStorage whenever it changes
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        DELETED_CONVERSATIONS_STORAGE_KEY, 
+        JSON.stringify(Array.from(deletedConversationIds))
+      );
+    } catch (error) {
+      console.error("Error saving deleted IDs to localStorage:", error);
+    }
+  }, [deletedConversationIds]);
 
   useEffect(() => {
     if (!user) return;
@@ -106,7 +130,7 @@ export const useChatLogs = () => {
       prevConversations.filter(convo => convo.id !== conversationId)
     );
     
-    // Add to local deleted IDs set to prevent it from reappearing
+    // Add to local deleted IDs set and persist to localStorage
     setDeletedConversationIds(prev => {
       const updated = new Set(prev);
       updated.add(conversationId);
