@@ -12,29 +12,35 @@ async function initSupabase() {
     
     logDebug('Initializing Supabase client', { url: supabaseUrl });
     
-    // Multiple ways to access the Supabase client
-    if (typeof window.supabase === 'function') {
-      // For newer versions where supabase is a function
-      supabaseClient = window.supabase(supabaseUrl, supabaseKey);
-      return supabaseClient;
-    } else if (window.supabase && typeof window.supabase.createClient === 'function') {
-      // For versions where createClient is a method
-      supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
-      return supabaseClient;
-    } else if (window.createClient) {
-      // Direct global createClient
-      supabaseClient = window.createClient(supabaseUrl, supabaseKey);
-      return supabaseClient;
-    } else {
-      // Try dynamic import as a fallback
-      try {
-        const { createClient } = await import('https://unpkg.com/@supabase/supabase-js@2/dist/module/index.js');
-        supabaseClient = createClient(supabaseUrl, supabaseKey);
-        return supabaseClient;
-      } catch (importError) {
-        throw new Error(`Could not import Supabase client: ${importError.message}`);
+    // Simple direct initialization - avoid complex detection logic
+    // UMD version of Supabase exposes createClient globally
+    if (window.supabaseClient) {
+      // Already initialized
+      return window.supabaseClient;
+    }
+    
+    if (!window.supabase) {
+      // Load Supabase from CDN if not already loaded
+      logToDebugPanel('Loading Supabase from CDN', 'info');
+      await new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js';
+        script.onload = resolve;
+        script.onerror = (e) => reject(new Error('Failed to load Supabase script'));
+        document.head.appendChild(script);
+      });
+      
+      // Check again after loading
+      if (!window.supabase) {
+        throw new Error('Supabase failed to initialize after loading');
       }
     }
+    
+    // Now we can create the client - window.supabase should be available
+    supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
+    window.supabaseClient = supabaseClient; // Cache for future use
+    
+    return supabaseClient;
   } catch (error) {
     logToDebugPanel('Failed to initialize Supabase client', 'error', error);
     return null;

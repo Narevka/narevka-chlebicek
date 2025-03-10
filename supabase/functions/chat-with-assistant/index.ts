@@ -11,7 +11,7 @@ import {
 } from "./openai.ts";
 import { handleError } from "./error-handler.ts";
 import { validateRequestBody } from "./validation.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -46,17 +46,22 @@ serve(async (req) => {
     
     console.log(`Using OpenAI assistant ID: ${assistantId} for agent: ${agentData.name}`);
     
-    // Initialize Supabase Admin client for database operations
-    let supabaseAdmin;
+    // Get auth token from request (if it exists)
+    const authHeader = req.headers.get('Authorization');
+    let supabaseClient;
+    
     try {
+      // Initialize Supabase client for database operations
       const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
-      const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+      const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
       
       if (!supabaseUrl || !supabaseKey) {
         console.warn('Missing Supabase credentials, database operations will be skipped');
       } else {
-        supabaseAdmin = createClient(supabaseUrl, supabaseKey);
-        console.log('Supabase admin client initialized successfully');
+        // Create client with auth header if it exists
+        const options = authHeader ? { global: { headers: { Authorization: authHeader } } } : undefined;
+        supabaseClient = createClient(supabaseUrl, supabaseKey, options);
+        console.log('Supabase client initialized successfully');
       }
     } catch (error) {
       console.error('Failed to initialize Supabase client:', error);
@@ -75,9 +80,9 @@ serve(async (req) => {
     let conversationDbId = dbConversationId;
     
     // Create new database conversation if none exists and we have a user ID and Supabase
-    if (!conversationDbId && userId && supabaseAdmin) {
+    if (!conversationDbId && userId && supabaseClient) {
       try {
-        const { data, error } = await supabaseAdmin
+        const { data, error } = await supabaseClient
           .from('conversations')
           .insert({
             user_id: userId,
@@ -97,9 +102,9 @@ serve(async (req) => {
     }
     
     // Save user message to database if we have a conversation ID and Supabase
-    if (conversationDbId && supabaseAdmin) {
+    if (conversationDbId && supabaseClient) {
       try {
-        await supabaseAdmin
+        await supabaseClient
           .from('messages')
           .insert({
             conversation_id: conversationDbId,
@@ -129,9 +134,9 @@ serve(async (req) => {
     const confidence = 0.85 + (Math.random() * 0.1); // Random value between 0.85 and 0.95
     
     // Save bot message to database if we have a conversation ID and Supabase
-    if (conversationDbId && supabaseAdmin) {
+    if (conversationDbId && supabaseClient) {
       try {
-        await supabaseAdmin
+        await supabaseClient
           .from('messages')
           .insert({
             conversation_id: conversationDbId,
