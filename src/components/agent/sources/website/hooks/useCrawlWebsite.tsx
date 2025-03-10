@@ -63,7 +63,7 @@ export const useCrawlWebsite = ({
         requestedLimit: crawlOptions.limit,
         crawlOptions: crawlOptions,
         notificationShown: false, // Flag to track if completion notification was shown
-        createdAt: new Date().toISOString() // Add timestamp to track when crawl was started
+        createdAt: new Date().toISOString() // Using the newly added property
       };
       
       const updatedLinks = [newLink, ...includedLinks];

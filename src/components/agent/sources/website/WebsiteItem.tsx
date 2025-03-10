@@ -19,7 +19,8 @@ export interface WebsiteSourceItem {
   requestedLimit?: number;
   crawlOptions?: any;
   crawlReport?: any;
-  notificationShown?: boolean; // Add this flag to track notification state
+  notificationShown?: boolean;
+  createdAt?: string;
 }
 
 interface WebsiteItemProps {
@@ -43,7 +44,6 @@ const WebsiteItem: React.FC<WebsiteItemProps> = ({
 }) => {
   const [showDetails, setShowDetails] = useState(false);
 
-  // Function to get badge for current status
   const getStatusBadge = (status?: string) => {
     if (!status || status === 'crawling') {
       return <Badge variant="outline" className="bg-yellow-100 text-yellow-800">Crawling</Badge>;
@@ -55,7 +55,6 @@ const WebsiteItem: React.FC<WebsiteItemProps> = ({
     return null;
   };
 
-  // Format file size
   const formatSize = (chars?: number): string => {
     if (!chars) return "0 KB";
     
