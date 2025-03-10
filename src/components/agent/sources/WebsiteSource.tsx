@@ -63,7 +63,7 @@ const WebsiteSource = () => {
       formattedLogs.push('--- SERVER LOGS ---');
       
       link.debugLogs.forEach(log => {
-        if (typeof log === 'object') {
+        if (typeof log === 'object' && log !== null) {
           const timestamp = log.timestamp ? new Date(log.timestamp).toISOString() : new Date().toISOString();
           const level = log.level || 'info';
           const message = log.message || 'No message';
