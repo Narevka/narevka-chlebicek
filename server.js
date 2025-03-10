@@ -41,7 +41,7 @@ app.post('/functions/chat-with-assistant', async (req, res) => {
     const supabaseUrl = process.env.SUPABASE_URL;
     const functionUrl = `${supabaseUrl}/functions/v1/chat-with-assistant`;
     
-    console.log(`Proxying request to ${functionUrl}`);
+    console.log(`Proxying request to ${functionUrl}`, { message, agentId, conversationId });
     
     const response = await fetch(functionUrl, {
       method: 'POST',
@@ -60,24 +60,31 @@ app.post('/functions/chat-with-assistant', async (req, res) => {
     res.json(data);
   } catch (error) {
     console.error('Error proxying request:', error);
-    res.status(500).json({ error: 'Failed to process request' });
+    res.status(500).json({ error: 'Failed to process request', details: error.message });
   }
 });
 
-// Serve static files from the public directory
+// Serve static files from the public directory (with higher priority)
 app.use(express.static('public'));
 
-// Serve static files from the dist directory (React build)
-// This needs to be after the API routes
-if (process.env.NODE_ENV === 'production') {
-  // Serve any static files
-  app.use(express.static('dist'));
+// Serve static files from the dist directory 
+app.use(express.static('dist'));
 
-  // Handle React routing, return all requests to React app
-  app.get('*', function(req, res) {
-    res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+// Handle all API routes above, and then handle React routing for everything else
+app.get('*', function(req, res) {
+  // Check if the request is for an API route
+  if (req.path.startsWith('/api/') || req.path.startsWith('/functions/')) {
+    return res.status(404).json({ error: 'API endpoint not found' });
+  }
+  
+  // For all other routes, serve the React app
+  res.sendFile(path.join(__dirname, 'dist', 'index.html'), (err) => {
+    if (err) {
+      console.error('Error serving index.html:', err);
+      res.status(500).send('Error loading application. Please try again later.');
+    }
   });
-}
+});
 
 // For Vercel deployment
 export default app;
