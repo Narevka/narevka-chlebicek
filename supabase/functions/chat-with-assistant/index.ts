@@ -44,11 +44,12 @@ serve(async (req) => {
 
     console.log(`Looking for agent with ID: ${agentId}`);
 
-    // Get assistant ID from agent record - use maybeSingle() instead of single()
+    // Get assistant ID from agent record - use eq() and maybeSingle() to properly handle the case when no agent is found
     const { data: agentData, error: agentError } = await supabaseClient
       .from('agents')
       .select('openai_assistant_id, name')
-      .eq('id', agentId);
+      .eq('id', agentId)
+      .maybeSingle();
     
     // Handle case when no agent is found
     if (agentError) {
@@ -56,25 +57,18 @@ serve(async (req) => {
       throw new Error(`Database error when fetching agent: ${agentError.message}`);
     }
     
-    if (!agentData || agentData.length === 0) {
+    if (!agentData) {
       console.error(`No agent found with ID: ${agentId}`);
       throw new Error(`No agent found with ID: ${agentId}`);
     }
     
-    if (agentData.length > 1) {
-      console.error(`Multiple agents found with ID: ${agentId}. This should not happen.`);
-      throw new Error(`Multiple agents found with ID: ${agentId}. Please contact support.`);
+    if (!agentData.openai_assistant_id) {
+      console.error(`Agent found but no OpenAI assistant ID is configured. Agent name: ${agentData.name}`);
+      throw new Error(`Agent "${agentData.name}" exists but does not have an OpenAI assistant configured. Please configure the OpenAI assistant in agent settings.`);
     }
 
-    const agent = agentData[0];
-    
-    if (!agent.openai_assistant_id) {
-      console.error(`Agent found but no OpenAI assistant ID is configured. Agent name: ${agent.name}`);
-      throw new Error(`Agent "${agent.name}" exists but does not have an OpenAI assistant configured. Please configure the OpenAI assistant in agent settings.`);
-    }
-
-    const assistantId = agent.openai_assistant_id;
-    console.log(`Using OpenAI assistant ID: ${assistantId} for agent: ${agent.name}`);
+    const assistantId = agentData.openai_assistant_id;
+    console.log(`Using OpenAI assistant ID: ${assistantId} for agent: ${agentData.name}`);
     
     // Handle thread management
     let threadId = conversationId;

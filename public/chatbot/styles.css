@@ -76,7 +76,7 @@ body, html {
 }
 .error-container {
   padding: 12px;
-  margin: 10px;
+  margin: 10px 0;
   text-align: center;
   color: #b91c1c;
   background-color: #fee2e2;
