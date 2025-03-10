@@ -1,25 +1,22 @@
 
-import { corsHeaders } from "./cors.ts";
+import { corsHeaders } from './cors.ts'
 
 /**
- * Handles errors and returns an appropriate response
- * @param error The error that occurred
- * @returns A Response object with the error details
+ * Handles errors from the API
+ * @param error The error to handle
+ * @returns A formatted Response object
  */
-export function handleError(error: Error): Response {
-  console.error("Error in chat-with-assistant function:", error);
+export function handleError(error: any): Response {
+  console.error('Error in chat-with-assistant function:', error);
+  
+  const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+  const statusCode = errorMessage.includes('not found') ? 404 : 500;
   
   return new Response(
-    JSON.stringify({
-      success: false,
-      error: error.message
-    }),
+    JSON.stringify({ error: errorMessage }),
     {
-      status: 500,
-      headers: {
-        ...corsHeaders,
-        'Content-Type': 'application/json'
-      }
+      status: statusCode,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     }
   );
 }
