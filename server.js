@@ -30,6 +30,16 @@ app.get('/embed.min.js', (req, res) => {
   res.sendFile(path.join(__dirname, 'public/embed.min.js'));
 });
 
+// Serve chatbot static files
+app.get('/chatbot/:filename', (req, res) => {
+  const filePath = path.join(__dirname, 'public/chatbot', req.params.filename);
+  if (fs.existsSync(filePath)) {
+    res.sendFile(filePath);
+  } else {
+    res.status(404).send('File not found');
+  }
+});
+
 // Serve the chatbot iframe template
 app.get('/chatbot-iframe/:id', (req, res) => {
   res.sendFile(path.join(__dirname, 'public/chatbot-iframe-template.html'));
@@ -75,6 +85,9 @@ app.post('/functions/chat-with-assistant', async (req, res) => {
 app.get('/debug-files', (req, res) => {
   try {
     const publicFiles = fs.readdirSync(path.join(__dirname, 'public'));
+    const chatbotFiles = fs.existsSync(path.join(__dirname, 'public/chatbot')) 
+      ? fs.readdirSync(path.join(__dirname, 'public/chatbot')) 
+      : 'chatbot directory not found';
     const distFiles = fs.existsSync(path.join(__dirname, 'dist')) 
       ? fs.readdirSync(path.join(__dirname, 'dist')) 
       : 'dist directory not found';
@@ -82,6 +95,7 @@ app.get('/debug-files', (req, res) => {
     res.json({
       currentDir: __dirname,
       publicFiles,
+      chatbotFiles,
       distFiles,
       env: {
         NODE_ENV: process.env.NODE_ENV,
