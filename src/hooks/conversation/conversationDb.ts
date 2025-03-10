@@ -11,11 +11,15 @@ export const saveMessageToDb = async (messageData: {
   has_thumbs_down?: boolean;
 }) => {
   try {
+    console.log("Saving message to DB:", messageData);
     const { error } = await supabase
       .from('messages')
       .insert(messageData);
 
-    if (error) throw error;
+    if (error) {
+      console.error("Error in saveMessageToDb:", error);
+      throw error;
+    }
   } catch (error) {
     console.error("Error saving message:", error);
     toast.error("Failed to save message");

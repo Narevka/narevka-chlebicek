@@ -1,79 +1,78 @@
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { corsHeaders, handleCors } from "./cors.ts";
-import { 
-  createThread, 
-  addMessageToThread, 
-  createRun, 
-  pollForRunCompletion, 
-  getLatestAssistantMessage,
-  getAgentData
-} from "./openai.ts";
-import { handleError } from "./error-handler.ts";
-import { validateRequestBody } from "./validation.ts";
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import * as openai from './openai.ts'
+import { validateRequest } from './validation.ts'
+import { corsHeaders } from './cors.ts'
+import { handleErrors } from './error-handler.ts'
+
+const supabaseUrl = Deno.env.get('SUPABASE_URL') || ''
+const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') || ''
+const supabaseServiceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
 
 serve(async (req) => {
   // Handle CORS preflight requests
-  const corsResponse = handleCors(req);
-  if (corsResponse) {
-    return corsResponse;
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders })
   }
 
   try {
-    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+    // Get request body
+    const { message, agentId, conversationId, source = "Playground" } = await req.json()
+    console.log("Request received:", { message, agentId, conversationId, source })
+
+    // Validate request
+    validateRequest(message, agentId)
+
+    // Get agent details
+    const agentResponse = await fetch(`${supabaseUrl}/rest/v1/agents?id=eq.${agentId}&select=*`, {
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': supabaseAnonKey,
+        'Authorization': `Bearer ${supabaseServiceRoleKey}`
+      }
+    })
     
-    if (!OPENAI_API_KEY) {
-      throw new Error('OpenAI API key is not configured');
+    const agents = await agentResponse.json()
+    if (!agents || agents.length === 0) {
+      return new Response(
+        JSON.stringify({ error: 'Agent not found' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 404 }
+      )
     }
-
-    const { message, agentId, conversationId } = await req.json();
     
-    // Validate request body
-    validateRequestBody({ message, agentId });
-
-    // Get agent data from Supabase
-    const agentData = await getAgentData(agentId);
-    const assistantId = agentData.openai_assistant_id;
+    const agent = agents[0]
     
-    console.log(`Using OpenAI assistant ID: ${assistantId} for agent: ${agentData.name}`);
+    // Get either existing thread or create a new one
+    let threadId = conversationId
     
-    // Handle thread management
-    let threadId = conversationId;
+    // Get response from the agent
+    const { response, confidence } = await openai.getAgentResponse(agent, message, threadId)
     
-    // If no thread exists, create a new one
+    // Update conversationId if it's new
     if (!threadId) {
-      threadId = await createThread(OPENAI_API_KEY);
+      threadId = openai.generateId()
+      
+      // If we created a new thread, update its source if provided
+      if (source && source !== "Playground") {
+        console.log(`Updating conversation source to: ${source}`)
+        await fetch(`${supabaseUrl}/rest/v1/conversations?id=eq.${threadId}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': supabaseAnonKey,
+            'Authorization': `Bearer ${supabaseServiceRoleKey}`,
+            'Prefer': 'return=minimal'
+          },
+          body: JSON.stringify({ source: source })
+        })
+      }
     }
-    
-    // Add user message to the thread
-    await addMessageToThread(OPENAI_API_KEY, threadId, message);
-    
-    // Create a run to process the conversation with the assistant
-    const { runId, status } = await createRun(OPENAI_API_KEY, threadId, assistantId);
-    
-    // Poll for the run completion
-    await pollForRunCompletion(OPENAI_API_KEY, threadId, runId, status);
-    
-    // Retrieve the assistant's messages
-    const assistantResponse = await getLatestAssistantMessage(OPENAI_API_KEY, threadId);
-
-    // Calculate confidence score (mock value for now - in a real implementation this would come from the model)
-    const confidence = 0.85 + (Math.random() * 0.1); // Random value between 0.85 and 0.95
     
     return new Response(
-      JSON.stringify({
-        threadId: threadId,
-        response: assistantResponse,
-        confidence: confidence
-      }),
-      {
-        headers: { 
-          ...corsHeaders,
-          'Content-Type': 'application/json'
-        }
-      }
-    );
+      JSON.stringify({ response, threadId, confidence }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    )
   } catch (error) {
-    return handleError(error);
+    return handleErrors(error)
   }
-});
+})
