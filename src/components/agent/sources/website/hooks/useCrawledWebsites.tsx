@@ -1,8 +1,9 @@
 
 import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { WebsiteSourceItem } from "../WebsiteItem";
 import { toast } from "sonner";
+import { loadDeletedSourceIds, saveWebsiteSources, clearDeletedSources } from "./utils/localStorageUtils";
+import { fetchCrawledWebsites } from "./utils/fetchUtils";
 
 interface UseCrawledWebsitesProps {
   agentId?: string;
@@ -21,89 +22,38 @@ export const useCrawledWebsites = ({ agentId }: UseCrawledWebsitesProps) => {
     if (!agentId) return;
     
     // Load deleted sources IDs from localStorage
-    const storedDeletedIds = localStorage.getItem(deletedSourcesKey);
-    if (storedDeletedIds) {
-      try {
-        const parsedIds = JSON.parse(storedDeletedIds);
-        setDeletedSourceIds(new Set(parsedIds));
-      } catch (e) {
-        console.error("Error parsing deleted source IDs:", e);
-      }
-    }
+    const loadedDeletedIds = loadDeletedSourceIds(deletedSourcesKey);
+    setDeletedSourceIds(loadedDeletedIds);
     
     // Fetch from database to get most up-to-date data
-    fetchCrawledWebsites();
+    loadWebsiteSources();
   }, [agentId]);
 
   // Fetch all crawled websites for this agent
-  const fetchCrawledWebsites = async () => {
+  const loadWebsiteSources = async () => {
     if (!agentId) return;
     
     try {
       // First, get our current set of deleted IDs
-      const storedDeletedIds = localStorage.getItem(deletedSourcesKey);
-      let deletedIds = new Set<string>();
+      const loadedDeletedIds = loadDeletedSourceIds(deletedSourcesKey);
+      setDeletedSourceIds(loadedDeletedIds);
       
-      if (storedDeletedIds) {
-        try {
-          const parsedIds = JSON.parse(storedDeletedIds);
-          deletedIds = new Set(parsedIds);
-          setDeletedSourceIds(deletedIds);
-        } catch (e) {
-          console.error("Error parsing deleted source IDs:", e);
-        }
-      }
+      // Fetch websites from Supabase
+      const websiteSources = await fetchCrawledWebsites(agentId, loadedDeletedIds);
       
-      const { data, error } = await supabase
-        .from("agent_sources")
-        .select("*")
-        .eq("agent_id", agentId)
-        .eq("type", "website")
-        .order("created_at", { ascending: false });
-        
-      if (error) throw error;
-      
-      if (data && data.length > 0) {
-        // Filter out deleted sources - this is crucial for preventing deleted items from reappearing
-        const filteredData = data.filter(source => !deletedIds.has(source.id));
-        
-        const websiteSources: WebsiteSourceItem[] = filteredData.map(source => {
-          let parsedContent: any = {};
-          
-          try {
-            parsedContent = JSON.parse(source.content);
-          } catch (e) {
-            console.error("Error parsing content:", e);
-          }
-          
-          return {
-            url: parsedContent.url || "Unknown URL",
-            count: parsedContent.pages_crawled || 0,
-            sourceId: source.id,
-            status: parsedContent.status || "completed",
-            error: parsedContent.error,
-            chars: source.chars || 0
-          };
-        });
-        
-        setIncludedLinks(websiteSources);
-        
-        // Update localStorage for persistence across page refreshes
-        localStorage.setItem(localStorageKey, JSON.stringify(websiteSources));
-      } else {
-        // If no data, ensure we clear the displayed links
-        setIncludedLinks([]);
-        localStorage.removeItem(localStorageKey);
-      }
+      // Update state and localStorage
+      setIncludedLinks(websiteSources);
+      saveWebsiteSources(localStorageKey, websiteSources);
     } catch (error) {
-      console.error("Error fetching crawled websites:", error);
+      console.error("Error loading website sources:", error);
+      toast.error("Failed to load website sources");
     }
   };
 
-  // Clear the deleted sources list (for debugging)
-  const clearDeletedSources = () => {
+  // Clear the deleted sources list
+  const handleClearDeletedSources = () => {
     setDeletedSourceIds(new Set());
-    localStorage.removeItem(deletedSourcesKey);
+    clearDeletedSources(deletedSourcesKey);
   };
 
   return {
@@ -115,7 +65,7 @@ export const useCrawledWebsites = ({ agentId }: UseCrawledWebsitesProps) => {
     setLastCheckTime,
     localStorageKey,
     deletedSourcesKey,
-    fetchCrawledWebsites,
-    clearDeletedSources
+    fetchCrawledWebsites: loadWebsiteSources,
+    clearDeletedSources: handleClearDeletedSources
   };
 };
