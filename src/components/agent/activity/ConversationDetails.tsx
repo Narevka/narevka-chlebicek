@@ -1,7 +1,8 @@
+
 import React, { useState } from "react";
 import { format } from "date-fns";
 import { Loader2, BarChart, Edit } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Message, Conversation } from "./types";
