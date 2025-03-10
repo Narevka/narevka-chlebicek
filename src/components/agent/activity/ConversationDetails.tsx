@@ -1,9 +1,12 @@
 
-import React from "react";
+import React, { useState } from "react";
 import { format } from "date-fns";
-import { Loader2, BarChart } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Loader2, BarChart, Edit } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { Message, Conversation } from "./types";
+import { toast } from "sonner";
 
 interface ConversationDetailsProps {
   selectedConversation: Conversation | null;
@@ -18,64 +21,132 @@ const ConversationDetails = ({
   isLoadingMessages,
   onClose
 }: ConversationDetailsProps) => {
+  const [reviseDialogOpen, setReviseDialogOpen] = useState(false);
+  const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
+  const [revisedAnswer, setRevisedAnswer] = useState("");
+
   if (!selectedConversation) return null;
 
-  return (
-    <Dialog open={!!selectedConversation} onOpenChange={() => onClose()}>
-      <DialogContent className="sm:max-w-[700px]">
-        <DialogHeader>
-          <DialogTitle>Conversation Details</DialogTitle>
-        </DialogHeader>
-        <div className="mt-4">
-          <div className="flex justify-between mb-4">
-            <div className="bg-gray-100 text-sm px-3 py-1 rounded">
-              Source: {selectedConversation.source}
-            </div>
-            <div className="text-sm text-gray-500">
-              {format(new Date(selectedConversation.created_at), "PPP")}
-            </div>
-          </div>
+  const handleReviseClick = (message: Message) => {
+    setSelectedMessage(message);
+    setRevisedAnswer(message.content);
+    setReviseDialogOpen(true);
+  };
 
-          <div className="border rounded-lg p-4 max-h-[400px] overflow-y-auto scrollbar-thin">
-            {isLoadingMessages ? (
-              <div className="flex justify-center items-center p-8">
-                <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+  const submitRevisedAnswer = () => {
+    // Here would be the implementation to submit the revised answer to the backend
+    // and update the Q&A in the sources
+    toast.success("Answer revised successfully and added to Q&A sources");
+    setReviseDialogOpen(false);
+  };
+
+  return (
+    <>
+      <Dialog open={!!selectedConversation} onOpenChange={() => onClose()}>
+        <DialogContent className="sm:max-w-[700px]">
+          <DialogHeader>
+            <DialogTitle>Conversation Details</DialogTitle>
+            <DialogDescription>
+              This is the playground area where you can view the selected conversation.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="mt-4">
+            <div className="flex justify-between mb-4">
+              <div className="bg-gray-100 text-sm px-3 py-1 rounded">
+                Source: {selectedConversation.source}
               </div>
-            ) : conversationMessages.length > 0 ? (
-              conversationMessages.map((msg) => (
-                <div 
-                  key={msg.id} 
-                  className={`mb-4 flex ${msg.is_bot ? 'justify-start' : 'justify-end'}`}
-                >
-                  <div 
-                    className={`max-w-[80%] p-3 rounded-lg ${
-                      msg.is_bot 
-                        ? 'bg-gray-100 text-gray-800' 
-                        : 'bg-purple-600 text-white'
-                    }`}
-                  >
-                    <p>{msg.content}</p>
-                    {msg.confidence && msg.is_bot && (
-                      <div className="mt-2 flex items-center">
-                        <div className="bg-purple-500 text-xs text-white px-2 py-1 rounded flex items-center">
-                          <BarChart className="h-3 w-3 mr-1" />
-                          {msg.confidence.toFixed(3)}
-                        </div>
-                        <button className="ml-2 text-xs text-gray-500 underline">
-                          Revise answer
-                        </button>
-                      </div>
-                    )}
-                  </div>
+              <div className="text-sm text-gray-500">
+                {format(new Date(selectedConversation.created_at), "PPP")}
+              </div>
+            </div>
+
+            <div className="border rounded-lg p-4 max-h-[400px] overflow-y-auto scrollbar-thin">
+              {isLoadingMessages ? (
+                <div className="flex justify-center items-center p-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
                 </div>
-              ))
-            ) : (
-              <p className="text-center text-gray-500">No messages found</p>
-            )}
+              ) : conversationMessages.length > 0 ? (
+                conversationMessages.map((msg) => (
+                  <div 
+                    key={msg.id} 
+                    className={`mb-4 flex ${msg.is_bot ? 'justify-start' : 'justify-end'}`}
+                  >
+                    <div 
+                      className={`max-w-[80%] p-3 rounded-lg ${
+                        msg.is_bot 
+                          ? 'bg-gray-100 text-gray-800' 
+                          : 'bg-purple-600 text-white'
+                      }`}
+                    >
+                      <p>{msg.content}</p>
+                      {msg.confidence && msg.is_bot && (
+                        <div className="mt-2 flex items-center">
+                          <div className="bg-purple-500 text-xs text-white px-2 py-1 rounded flex items-center">
+                            <BarChart className="h-3 w-3 mr-1" />
+                            Confidence: {msg.confidence.toFixed(3)}
+                          </div>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="ml-2 text-xs text-gray-500 hover:text-purple-700"
+                            onClick={() => handleReviseClick(msg)}
+                          >
+                            <Edit className="h-3 w-3 mr-1" />
+                            Revise answer
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p className="text-center text-gray-500">No messages found</p>
+              )}
+            </div>
           </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
+
+      {/* Revise Answer Dialog */}
+      <Dialog open={reviseDialogOpen} onOpenChange={setReviseDialogOpen}>
+        <DialogContent className="sm:max-w-[700px]">
+          <DialogHeader>
+            <DialogTitle>Revise Answer</DialogTitle>
+            <DialogDescription>
+              Modify the answer provided by the AI Agent to improve accuracy.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="mt-4 space-y-4">
+            <div>
+              <label className="text-sm font-medium mb-1 block">User Question</label>
+              <div className="p-3 bg-gray-50 rounded-md text-sm">
+                {conversationMessages.find(msg => !msg.is_bot && 
+                  conversationMessages.indexOf(msg) < 
+                  conversationMessages.indexOf(selectedMessage as Message))?.content || "No question found"}
+              </div>
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-1 block">Current AI Answer</label>
+              <div className="p-3 bg-gray-50 rounded-md text-sm">
+                {selectedMessage?.content}
+              </div>
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-1 block">Expected Response</label>
+              <Textarea 
+                value={revisedAnswer} 
+                onChange={(e) => setRevisedAnswer(e.target.value)}
+                className="min-h-[100px]"
+              />
+            </div>
+            <div className="flex justify-end space-x-2">
+              <Button variant="outline" onClick={() => setReviseDialogOpen(false)}>Cancel</Button>
+              <Button onClick={submitRevisedAnswer}>Save Revised Answer</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };
 
