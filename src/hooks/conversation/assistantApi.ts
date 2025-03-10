@@ -11,21 +11,24 @@ export const getAssistantResponse = async (
   source: string = "Playground"
 ) => {
   try {
-    // Log the request details for debugging
-    console.log("Sending request to chat-with-assistant:", { 
+    console.log("Starting request to chat-with-assistant:", { 
       message, 
       agentId, 
-      conversationId: threadId,
+      threadId,
       source 
     });
-    
-    // Call our edge function to get a response from the assistant
+
+    // If we have a threadId but it doesn't start with "thread_", format it properly
+    const formattedThreadId = threadId && !threadId.startsWith('thread_') 
+      ? `thread_${threadId}` 
+      : threadId;
+
     const responseData = await supabase.functions.invoke('chat-with-assistant', {
       body: { 
-        message: message,
-        agentId: agentId,
-        conversationId: threadId,
-        source: source // Pass source to the edge function
+        message,
+        agentId,
+        conversationId: formattedThreadId,
+        source
       }
     });
     
@@ -53,7 +56,6 @@ export const getAssistantResponse = async (
     console.error("Error getting assistant response:", error);
     toast.error(error.message || "Failed to get assistant response");
     
-    // Return error message
     return {
       botResponse: { 
         id: uuidv4(),

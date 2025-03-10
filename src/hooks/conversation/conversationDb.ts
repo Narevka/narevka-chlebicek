@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -26,39 +25,16 @@ export const saveMessageToDb = async (messageData: {
   }
 };
 
-export const createConversation = async (userId: string, source: string = "Playground") => {
+export const createConversation = async (userId: string, source: string = "Website") => {
   try {
-    // Validate and normalize source value
-    const validSources = ["Playground", "Website", "WordPress", "Bubble"];
-    
-    // Ensure source is a string and convert to proper case if needed
-    let normalizedSource: string;
-    
-    if (typeof source !== 'string' || !source.trim()) {
-      console.warn(`Invalid source provided: ${source}, defaulting to "Playground"`);
-      normalizedSource = "Playground";
-    } else {
-      // Try to match with valid sources (case insensitive)
-      const sourceLower = source.trim().toLowerCase();
-      const matchedSource = validSources.find(s => s.toLowerCase() === sourceLower);
-      
-      if (matchedSource) {
-        normalizedSource = matchedSource; // Use the properly cased version
-      } else {
-        // If not exactly matching our valid sources but not empty, use as is
-        normalizedSource = source.trim();
-        console.log(`Using custom source: "${normalizedSource}"`);
-      }
-    }
-    
-    console.log(`Creating new conversation for user: ${userId}, with source: ${normalizedSource}`);
+    console.log(`Creating new conversation for user: ${userId}, with source: ${source}`);
     
     const { data, error } = await supabase
       .from('conversations')
       .insert({
         user_id: userId,
         title: "New conversation",
-        source: normalizedSource
+        source: source
       })
       .select('id')
       .single();
@@ -73,7 +49,7 @@ export const createConversation = async (userId: string, source: string = "Playg
       return null;
     }
     
-    console.log(`Created conversation with ID: ${data.id}, source: ${normalizedSource}`);
+    console.log(`Created conversation with ID: ${data.id}, source: ${source}`);
     return data.id;
   } catch (error) {
     console.error("Error creating conversation:", error);
