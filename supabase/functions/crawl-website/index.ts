@@ -15,9 +15,9 @@ serve(async (req) => {
   }
 
   try {
-    const SPIDER_API_KEY = Deno.env.get('SPIDER_API_KEY');
-    if (!SPIDER_API_KEY) {
-      throw new Error('Missing Spider.cloud API key');
+    const FIRECRAWL_API_KEY = Deno.env.get('FIRECRAWL_API_KEY');
+    if (!FIRECRAWL_API_KEY) {
+      throw new Error('Missing Firecrawl API key');
     }
 
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
@@ -36,13 +36,13 @@ serve(async (req) => {
       userId, 
       limit = 5, 
       returnFormat = "markdown",
-      requestType = "smart", // 'http', 'headless', or 'smart'
-      enableProxies = false,
+      requestType = "smart", // Not directly used in Firecrawl but kept for compatibility
+      enableProxies = false, // Not directly used in Firecrawl but kept for compatibility
       enableMetadata = true,
-      enableAntiBot = false,
-      enableFullResources = false,
+      enableAntiBot = false, // Not directly used in Firecrawl but kept for compatibility
+      enableFullResources = false, // Not directly used in Firecrawl but kept for compatibility
       enableSubdomains = false,
-      enableTlds = false
+      enableTlds = false // Handled differently in Firecrawl
     } = await req.json();
     
     if (!url || !agentId || !userId) {
@@ -116,60 +116,58 @@ serve(async (req) => {
         // Add log entry for crawl start
         await updateSourceWithLog(supabase, sourceId, "info", `Background crawl process started for ${url}`);
         
-        // Prepare the request body for Spider.cloud API
-        const spiderRequestBody = {
+        // Prepare the request body for Firecrawl API
+        const firecrawlRequestBody = {
           url: url,
           limit: limit,
-          return_format: returnFormat,
-          request: requestType,
-          premium_proxies: enableProxies,
-          metadata: enableMetadata,
-          anti_bot: enableAntiBot,
-          full_resources: enableFullResources,
-          subdomains: enableSubdomains,
-          tld: enableTlds,
-          store_data: true
+          scrapeOptions: {
+            formats: [returnFormat],
+            metadata: enableMetadata
+          },
+          allowSubdomains: enableSubdomains,
+          // Firecrawl-specific settings, mapped from our original options
+          allowBackwardLinks: enableTlds // Using this as equivalent to TLDs in Spider.cloud
         };
         
-        // Log the Spider.cloud API request configuration
+        // Log the Firecrawl API request configuration
         await updateSourceWithLog(
           supabase, 
           sourceId, 
           "info", 
-          `Sending request to Spider.cloud API`, 
+          `Sending request to Firecrawl API`, 
           {
-            request_body: spiderRequestBody,
-            api_endpoint: "https://api.spider.cloud/crawl"
+            request_body: firecrawlRequestBody,
+            api_endpoint: "https://api.firecrawl.dev/v1/crawl"
           }
         );
         
-        console.log("Spider.cloud API request:", JSON.stringify(spiderRequestBody));
+        console.log("Firecrawl API request:", JSON.stringify(firecrawlRequestBody));
         
         // Start timing the API call
         const apiCallStartTime = Date.now();
         
-        // Call Spider.cloud API for crawling
-        const crawlResponse = await fetch('https://api.spider.cloud/crawl', {
+        // Call Firecrawl API for crawling
+        const crawlResponse = await fetch('https://api.firecrawl.dev/v1/crawl', {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${SPIDER_API_KEY}`,
+            'Authorization': `Bearer ${FIRECRAWL_API_KEY}`,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify(spiderRequestBody),
+          body: JSON.stringify(firecrawlRequestBody),
         });
 
         const apiCallDuration = Date.now() - apiCallStartTime;
         
         // Log response status and headers
-        console.log(`Spider.cloud API response status: ${crawlResponse.status} (took ${apiCallDuration}ms)`);
-        console.log(`Spider.cloud API response headers:`, Object.fromEntries(crawlResponse.headers.entries()));
+        console.log(`Firecrawl API response status: ${crawlResponse.status} (took ${apiCallDuration}ms)`);
+        console.log(`Firecrawl API response headers:`, Object.fromEntries(crawlResponse.headers.entries()));
         
         // Log the API response details
         await updateSourceWithLog(
           supabase, 
           sourceId, 
           crawlResponse.ok ? "info" : "error", 
-          `Received response from Spider.cloud API (${crawlResponse.status})`, 
+          `Received response from Firecrawl API (${crawlResponse.status})`, 
           {
             status: crawlResponse.status,
             statusText: crawlResponse.statusText,
@@ -180,13 +178,13 @@ serve(async (req) => {
 
         if (!crawlResponse.ok) {
           const errorData = await crawlResponse.text();
-          console.error('Spider.cloud API error:', errorData);
+          console.error('Firecrawl API error:', errorData);
           
           await updateSourceWithLog(
             supabase, 
             sourceId, 
             "error", 
-            `Spider.cloud API returned error: ${crawlResponse.status} ${crawlResponse.statusText}`, 
+            `Firecrawl API returned error: ${crawlResponse.status} ${crawlResponse.statusText}`, 
             {
               error_details: errorData
             }
@@ -199,8 +197,8 @@ serve(async (req) => {
               content: JSON.stringify({
                 url: url,
                 status: 'error',
-                error: `Spider.cloud API error: ${crawlResponse.status} ${errorData}`,
-                crawl_options: spiderRequestBody
+                error: `Firecrawl API error: ${crawlResponse.status} ${errorData}`,
+                crawl_options: firecrawlRequestBody
               })
             })
             .eq('id', sourceId);
@@ -208,36 +206,216 @@ serve(async (req) => {
           return;
         }
 
-        const crawlData = await crawlResponse.json();
+        const initialResponse = await crawlResponse.json();
         await updateSourceWithLog(
           supabase, 
           sourceId, 
           "info", 
-          `Crawl completed successfully. Processing data...`, 
+          `Crawl job initiated with Firecrawl. Job ID: ${initialResponse.id}`, 
           {
-            pages_received: crawlData?.length || 0,
-            requested_limit: limit
+            job_id: initialResponse.id,
+            status_url: initialResponse.url
           }
         );
         
-        console.log('Crawl completed, processing data...');
-        console.log(`Received ${crawlData?.length || 0} crawled pages (requested limit: ${limit})`);
+        console.log('Firecrawl job initiated:', initialResponse);
         
-        // Log first 3 pages URLs for debugging
-        if (Array.isArray(crawlData) && crawlData.length > 0) {
-          const sampleUrls = crawlData.slice(0, 3).map(item => item.url || 'No URL');
-          console.log(`Sample URLs crawled: ${sampleUrls.join(', ')}`);
+        // Now poll for the crawl results
+        let isCrawlComplete = false;
+        let crawlData: any[] = [];
+        let pollAttempts = 0;
+        const maxPollAttempts = 60; // Maximum number of polling attempts (30 minutes at 30-second intervals)
+        const pollInterval = 30000; // 30 seconds between polls
+        
+        await updateSourceWithLog(
+          supabase, 
+          sourceId, 
+          "info", 
+          `Starting to poll for crawl results. Will check every ${pollInterval/1000} seconds.`
+        );
+        
+        while (!isCrawlComplete && pollAttempts < maxPollAttempts) {
+          pollAttempts++;
           
           await updateSourceWithLog(
             supabase, 
             sourceId, 
             "info", 
-            `Sample URLs crawled (first 3 of ${crawlData.length})`, 
-            {
-              sample_urls: sampleUrls
+            `Polling for crawl results (attempt ${pollAttempts}/${maxPollAttempts})`
+          );
+          
+          // Wait before polling
+          await new Promise(resolve => setTimeout(resolve, pollInterval));
+          
+          // Poll for status
+          const statusResponse = await fetch(initialResponse.url, {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${FIRECRAWL_API_KEY}`,
+              'Content-Type': 'application/json',
+            },
+          });
+          
+          if (!statusResponse.ok) {
+            const errorData = await statusResponse.text();
+            console.error(`Error polling crawl status (attempt ${pollAttempts}):`, errorData);
+            
+            await updateSourceWithLog(
+              supabase, 
+              sourceId, 
+              "warning", 
+              `Error polling crawl status: ${statusResponse.status}`, 
+              { error_details: errorData }
+            );
+            
+            // Continue polling despite errors
+            continue;
+          }
+          
+          const statusData = await statusResponse.json();
+          
+          // Update the source with current status
+          await updateSourceWithLog(
+            supabase, 
+            sourceId, 
+            "info", 
+            `Crawl status update: ${statusData.status}`, 
+            { 
+              completed: statusData.completed,
+              total: statusData.total,
+              credits_used: statusData.creditsUsed,
+              expires_at: statusData.expiresAt
             }
           );
+          
+          // Check if we have data and if the crawl is complete
+          if (statusData.data && Array.isArray(statusData.data)) {
+            crawlData = crawlData.concat(statusData.data);
+            
+            await updateSourceWithLog(
+              supabase, 
+              sourceId, 
+              "info", 
+              `Received ${statusData.data.length} pages in this batch. Total pages so far: ${crawlData.length}`
+            );
+          }
+          
+          // If status is completed or we have all the data, we can stop polling
+          if (statusData.status === 'completed' || 
+              (statusData.completed && statusData.total && statusData.completed >= statusData.total)) {
+            isCrawlComplete = true;
+            
+            await updateSourceWithLog(
+              supabase, 
+              sourceId, 
+              "info", 
+              `Crawl completed successfully. Processing data...`, 
+              {
+                pages_received: crawlData.length,
+                requested_limit: limit,
+                completed_pages: statusData.completed,
+                total_pages: statusData.total
+              }
+            );
+            
+            break;
+          }
+          
+          // If there's a next URL to fetch more data, get it now
+          if (statusData.next) {
+            await updateSourceWithLog(
+              supabase, 
+              sourceId, 
+              "info", 
+              `Fetching next batch of results from: ${statusData.next}`
+            );
+            
+            // Fetch the next batch
+            const nextResponse = await fetch(statusData.next, {
+              method: 'GET',
+              headers: {
+                'Authorization': `Bearer ${FIRECRAWL_API_KEY}`,
+                'Content-Type': 'application/json',
+              },
+            });
+            
+            if (nextResponse.ok) {
+              const nextData = await nextResponse.json();
+              
+              if (nextData.data && Array.isArray(nextData.data)) {
+                crawlData = crawlData.concat(nextData.data);
+                
+                await updateSourceWithLog(
+                  supabase, 
+                  sourceId, 
+                  "info", 
+                  `Received ${nextData.data.length} additional pages. Total pages so far: ${crawlData.length}`
+                );
+              }
+            } else {
+              const errorText = await nextResponse.text();
+              await updateSourceWithLog(
+                supabase, 
+                sourceId, 
+                "warning", 
+                `Error fetching next batch: ${nextResponse.status}`, 
+                { error_details: errorText }
+              );
+            }
+          }
         }
+        
+        if (!isCrawlComplete) {
+          await updateSourceWithLog(
+            supabase, 
+            sourceId, 
+            "warning", 
+            `Crawl did not complete within maximum polling time (${maxPollAttempts * pollInterval/60000} minutes). Processing available data.`
+          );
+        }
+        
+        console.log(`Crawl completed, received ${crawlData.length} pages out of requested limit ${limit}`);
+        
+        // If no data received, handle error
+        if (!crawlData || crawlData.length === 0) {
+          await updateSourceWithLog(
+            supabase, 
+            sourceId, 
+            "error", 
+            `No pages received from crawl`
+          );
+          
+          // Update the source record with the error
+          await supabase
+            .from('agent_sources')
+            .update({
+              content: JSON.stringify({
+                url: url,
+                status: 'error',
+                error: "No pages received from crawl",
+                crawl_options: firecrawlRequestBody
+              })
+            })
+            .eq('id', sourceId);
+          return;
+        }
+        
+        // Log first 3 pages URLs for debugging
+        const sampleUrls = crawlData.slice(0, 3).map(item => {
+          return item.metadata?.sourceURL || 'No URL';
+        });
+        
+        console.log(`Sample URLs crawled: ${sampleUrls.join(', ')}`);
+        
+        await updateSourceWithLog(
+          supabase, 
+          sourceId, 
+          "info", 
+          `Sample URLs crawled (first 3 of ${crawlData.length})`, 
+          {
+            sample_urls: sampleUrls
+          }
+        );
         
         // Prepare content to save in database
         let aggregatedContent = '';
@@ -246,45 +424,54 @@ serve(async (req) => {
         let crawledUrls = [];
         let pageSizes = [];
         
-        if (Array.isArray(crawlData)) {
-          crawlData.forEach((item, index) => {
-            if (item.url) {
-              crawledUrls.push(item.url);
+        // Process the crawled data
+        crawlData.forEach((item, index) => {
+          // Get URL from metadata
+          const pageUrl = item.metadata?.sourceURL || `Page ${index+1}`;
+          crawledUrls.push(pageUrl);
+          
+          // Get content based on the format requested
+          let pageContent = '';
+          if (returnFormat === 'markdown' && item.markdown) {
+            pageContent = item.markdown;
+          } else if (returnFormat === 'html' && item.html) {
+            pageContent = item.html;
+          } else if (item.text) {
+            pageContent = item.text;
+          }
+          
+          if (pageContent) {
+            // For debugging
+            if (index < 3) {
+              console.log(`Page ${index+1} URL: ${pageUrl}, content length: ${pageContent.length}`);
             }
             
-            if (item.content && typeof item.content === 'string') {
-              // For debugging
-              if (index < 3) {
-                console.log(`Page ${index+1} URL: ${item.url || 'unknown'}, content length: ${item.content.length}`);
-              }
-              
-              aggregatedContent += `# ${item.url || 'Page ' + (contentCount + 1)}\n\n`;
-              aggregatedContent += item.content + '\n\n';
-              contentCount++;
-              totalChars += item.content.length;
-              
-              pageSizes.push({
-                url: item.url || `Page ${index+1}`,
-                chars: item.content.length,
-                size_kb: Math.round(item.content.length / 1024)
-              });
-            }
-          });
-          
-          // Log information about processed pages
-          await updateSourceWithLog(
-            supabase, 
-            sourceId, 
-            "info", 
-            `Content processing complete`, 
-            {
-              pages_with_content: contentCount,
-              total_chars: totalChars,
-              total_size_kb: Math.round(totalChars / 1024),
-              page_size_distribution: pageSizes.slice(0, 10)  // Show first 10 pages' sizes
-            }
-          );
-        }
+            aggregatedContent += `# ${pageUrl}\n\n`;
+            aggregatedContent += pageContent + '\n\n';
+            contentCount++;
+            totalChars += pageContent.length;
+            
+            pageSizes.push({
+              url: pageUrl,
+              chars: pageContent.length,
+              size_kb: Math.round(pageContent.length / 1024)
+            });
+          }
+        });
+        
+        // Log information about processed pages
+        await updateSourceWithLog(
+          supabase, 
+          sourceId, 
+          "info", 
+          `Content processing complete`, 
+          {
+            pages_with_content: contentCount,
+            total_chars: totalChars,
+            total_size_kb: Math.round(totalChars / 1024),
+            page_size_distribution: pageSizes.slice(0, 10)  // Show first 10 pages' sizes
+          }
+        );
         
         if (aggregatedContent.trim().length === 0) {
           await updateSourceWithLog(
@@ -302,7 +489,7 @@ serve(async (req) => {
                 url: url,
                 status: 'error',
                 error: "Failed to retrieve page content",
-                crawl_options: spiderRequestBody
+                crawl_options: firecrawlRequestBody
               })
             })
             .eq('id', sourceId);
@@ -335,13 +522,13 @@ serve(async (req) => {
           url: url,
           status: 'completed',
           requestedLimit: limit,
-          pagesReceived: crawlData?.length || 0,
+          pagesReceived: crawlData.length,
           pagesWithContent: contentCount,
           totalChars: totalChars,
           originalLength: aggregatedContent.length,
           storedLength: storedContent.length,
           crawledUrls: crawledUrls,
-          requestConfig: spiderRequestBody,
+          requestConfig: firecrawlRequestBody,
           completedAt: new Date().toISOString(),
           pageSizes: pageSizes.slice(0, 10),  // First 10 pages for reference
           processingStats: {
@@ -375,7 +562,8 @@ serve(async (req) => {
               total_chars: totalChars,
               original_length: aggregatedContent.length,
               stored_length: storedContent.length,
-              crawl_report: crawlReport
+              crawl_report: crawlReport,
+              logs: JSON.parse((await supabase.from('agent_sources').select('content').eq('id', sourceId).single()).data.content).logs
             }),
             chars: storedContent.length
           })

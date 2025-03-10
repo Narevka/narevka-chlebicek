@@ -54,7 +54,7 @@ const WebsiteItemDetails: React.FC<WebsiteItemDetailsProps> = ({
           <p><strong>Content Size:</strong> {formatSize(chars)}</p>
           <p><strong>Avg Page Size:</strong> {avgPageSize ? `${avgPageSize} KB` : "Unknown"}</p>
           {crawlOptions && (
-            <p><strong>Request Type:</strong> {crawlOptions.requestType || "Default"}</p>
+            <p><strong>Format:</strong> {crawlOptions.returnFormat || "Default"}</p>
           )}
         </div>
       </div>
