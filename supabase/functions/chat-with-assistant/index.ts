@@ -22,8 +22,12 @@ serve(async (req) => {
 
     const { message, agentId, conversationId } = await req.json();
     
-    if (!message || !agentId) {
-      throw new Error('Missing required parameters: message and agentId are required');
+    if (!message) {
+      throw new Error('Missing required parameter: message is required');
+    }
+
+    if (!agentId) {
+      throw new Error('Missing required parameter: agentId is required');
     }
 
     // Get Supabase client from request auth header
@@ -38,18 +42,39 @@ serve(async (req) => {
       { global: { headers: { Authorization: authHeader } } }
     );
 
-    // Get assistant ID from agent record
+    console.log(`Looking for agent with ID: ${agentId}`);
+
+    // Get assistant ID from agent record - use maybeSingle() instead of single()
     const { data: agentData, error: agentError } = await supabaseClient
       .from('agents')
-      .select('openai_assistant_id')
-      .eq('id', agentId)
-      .single();
-
-    if (agentError || !agentData?.openai_assistant_id) {
-      throw new Error(`Could not find OpenAI assistant ID for agent: ${agentError?.message || 'No assistant ID'}`);
+      .select('openai_assistant_id, name')
+      .eq('id', agentId);
+    
+    // Handle case when no agent is found
+    if (agentError) {
+      console.error("Database error when fetching agent:", agentError);
+      throw new Error(`Database error when fetching agent: ${agentError.message}`);
+    }
+    
+    if (!agentData || agentData.length === 0) {
+      console.error(`No agent found with ID: ${agentId}`);
+      throw new Error(`No agent found with ID: ${agentId}`);
+    }
+    
+    if (agentData.length > 1) {
+      console.error(`Multiple agents found with ID: ${agentId}. This should not happen.`);
+      throw new Error(`Multiple agents found with ID: ${agentId}. Please contact support.`);
     }
 
-    const assistantId = agentData.openai_assistant_id;
+    const agent = agentData[0];
+    
+    if (!agent.openai_assistant_id) {
+      console.error(`Agent found but no OpenAI assistant ID is configured. Agent name: ${agent.name}`);
+      throw new Error(`Agent "${agent.name}" exists but does not have an OpenAI assistant configured. Please configure the OpenAI assistant in agent settings.`);
+    }
+
+    const assistantId = agent.openai_assistant_id;
+    console.log(`Using OpenAI assistant ID: ${assistantId} for agent: ${agent.name}`);
     
     // Handle thread management
     let threadId = conversationId;
