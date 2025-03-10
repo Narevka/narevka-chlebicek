@@ -4,8 +4,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Info } from "lucide-react";
+import { Info, AlertTriangle } from "lucide-react";
 import CodeSnippet from "@/components/connect/CodeSnippet";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface EmbedTabProps {
   agentId: string | undefined;
@@ -24,6 +25,7 @@ const EmbedTab: React.FC<EmbedTabProps> = ({
 }) => {
   const [embedType, setEmbedType] = useState<"bubble" | "iframe">("bubble");
   const [website, setWebsite] = useState("www.example.com");
+  const [platform, setPlatform] = useState<"generic" | "wordpress">("generic");
 
   const bubbleCode = `<script>
   window.chatbaseConfig = {
@@ -60,6 +62,38 @@ const EmbedTab: React.FC<EmbedTabProps> = ({
   title="${agentName || 'AI Chat'}"
   allow="microphone"
 ></iframe>`;
+
+  const wordpressInstructions = `
+1. Go to your WordPress admin dashboard
+2. Add a new HTML block or use a Custom HTML widget
+3. Paste the code below into the HTML block/widget
+4. Save and publish your changes
+5. If the chat bubble doesn't appear, try adding the code to your theme's footer.php file
+6. You may need to clear your cache or use incognito mode to see changes
+`;
+
+  const debugCode = `
+// Add this to your page to help debug issues
+<script>
+  window.addEventListener('load', function() {
+    console.log('Checking chatbot configuration...');
+    console.log('Chatbase config:', window.chatbaseConfig);
+    console.log('Chatbase initialized:', window.chatbase ? true : false);
+    
+    // Try to fetch the embed script to test connectivity
+    fetch('${customDomain}/embed.min.js')
+      .then(response => {
+        console.log('Embed script fetch status:', response.status);
+        if (!response.ok) {
+          console.error('Failed to load embed script');
+        }
+      })
+      .catch(error => {
+        console.error('Error fetching embed script:', error);
+      });
+  });
+</script>
+`;
 
   return (
     <>
@@ -145,7 +179,63 @@ const EmbedTab: React.FC<EmbedTabProps> = ({
                 </div>
               </div>
               
-              <CodeSnippet code={embedType === "bubble" ? bubbleCode : iframeCode} />
+              <Tabs defaultValue="code" className="mb-6">
+                <TabsList>
+                  <TabsTrigger value="code">Embed Code</TabsTrigger>
+                  <TabsTrigger value="platform">Platform Instructions</TabsTrigger>
+                  <TabsTrigger value="debug">Troubleshooting</TabsTrigger>
+                </TabsList>
+                <TabsContent value="code">
+                  <CodeSnippet code={embedType === "bubble" ? bubbleCode : iframeCode} />
+                </TabsContent>
+                <TabsContent value="platform">
+                  <div className="mb-4">
+                    <RadioGroup 
+                      value={platform} 
+                      onValueChange={(value) => setPlatform(value as "generic" | "wordpress")}
+                      className="space-y-2 mb-4"
+                    >
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="generic" id="generic" />
+                        <Label htmlFor="generic">Generic Website</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="wordpress" id="wordpress" />
+                        <Label htmlFor="wordpress">WordPress</Label>
+                      </div>
+                    </RadioGroup>
+                    
+                    {platform === "wordpress" && (
+                      <div className="bg-blue-50 border border-blue-200 p-4 rounded-md my-4">
+                        <h4 className="font-medium text-blue-800 mb-2">WordPress Instructions</h4>
+                        <pre className="whitespace-pre-wrap text-sm bg-white p-3 rounded border">{wordpressInstructions}</pre>
+                      </div>
+                    )}
+                    
+                    <CodeSnippet code={embedType === "bubble" ? bubbleCode : iframeCode} />
+                  </div>
+                </TabsContent>
+                <TabsContent value="debug">
+                  <div className="bg-orange-50 border border-orange-200 p-4 rounded-md mb-4">
+                    <div className="flex items-start">
+                      <AlertTriangle className="h-5 w-5 text-orange-600 mr-2 mt-0.5" />
+                      <div>
+                        <h4 className="font-medium text-orange-800">Troubleshooting Embedding Issues</h4>
+                        <p className="text-orange-700 mt-1">If your chat bubble isn't appearing, check the following:</p>
+                        <ol className="list-decimal pl-5 mt-2 space-y-1 text-orange-700">
+                          <li>Verify the domain in your script matches your server URL exactly (including https://)</li>
+                          <li>Check browser console for errors (F12 or Right-click > Inspect > Console)</li>
+                          <li>Ensure there are no content security policies blocking the script</li>
+                          <li>Try adding the script right before the closing &lt;/body&gt; tag</li>
+                          <li>For WordPress sites, try using a plugin like "Header and Footer Scripts"</li>
+                        </ol>
+                      </div>
+                    </div>
+                  </div>
+                  <h4 className="font-medium mb-2">Add this debug code to your page:</h4>
+                  <CodeSnippet code={debugCode} />
+                </TabsContent>
+              </Tabs>
             </div>
           </CardContent>
         </Card>
@@ -188,4 +278,3 @@ const EmbedTab: React.FC<EmbedTabProps> = ({
 };
 
 export default EmbedTab;
-
