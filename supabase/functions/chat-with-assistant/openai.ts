@@ -28,17 +28,15 @@ export async function getAgentResponse(agent: any, message: string, threadId?: s
   
   try {
     let actualThreadId: string;
-    let isNewThread = false;
     
     // Check if a thread ID was provided
-    if (threadId) {
-      console.log(`Attempting to use existing thread: ${threadId}`);
-      actualThreadId = threadId;
-    } else {
+    if (!threadId) {
       console.log("No threadId provided, creating a new thread");
       actualThreadId = await createThread(openAIApiKey);
-      isNewThread = true;
       console.log(`Created new thread: ${actualThreadId}`);
+    } else {
+      console.log(`Attempting to use existing thread: ${threadId}`);
+      actualThreadId = threadId;
     }
     
     // Try to add the message to the thread
@@ -46,11 +44,10 @@ export async function getAgentResponse(agent: any, message: string, threadId?: s
       await addMessageToThread(openAIApiKey, actualThreadId, message);
       console.log(`Message added to thread ${actualThreadId}`);
     } catch (error) {
-      // If there's a thread not found error, create a new thread and try again
+      // If there's a thread not found error, create a new thread immediately
       if (error.message && error.message.includes("ThreadNotFound:")) {
         console.log(`Thread ${actualThreadId} not found, creating a new one`);
         actualThreadId = await createThread(openAIApiKey);
-        isNewThread = true;
         console.log(`Created new recovery thread: ${actualThreadId}`);
         
         // Try adding the message to the new thread
@@ -79,13 +76,14 @@ export async function getAgentResponse(agent: any, message: string, threadId?: s
       response = await getLatestAssistantMessage(openAIApiKey, actualThreadId);
       console.log(`Retrieved response of length: ${response.length}`);
     } catch (error) {
-      // If there's a thread not found error when getting the message, return an error message
+      // If there's a thread not found error when getting the message, create a new thread and return a fallback
       if (error.message && error.message.includes("ThreadNotFound:")) {
         console.error(`Thread ${actualThreadId} not found when getting assistant message`);
+        const newThreadId = await createThread(openAIApiKey);
         return {
           response: "I'm sorry, there was an error retrieving the response. Please try again.",
           confidence: 0.5,
-          threadId: await createThread(openAIApiKey) // Create a fresh thread for next time
+          threadId: newThreadId
         };
       }
       throw error;

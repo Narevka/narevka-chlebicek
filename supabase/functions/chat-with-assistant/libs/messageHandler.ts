@@ -27,8 +27,9 @@ export async function addMessageToThread(apiKey: string, threadId: string, messa
       const errorData = await messageResponse.json();
       console.error("Failed to add message:", errorData);
       
-      // Check if the error is related to the thread not being found
-      if (errorData.error?.message?.includes("No thread found with id")) {
+      // Explicitly check for thread not found error
+      if (errorData.error?.message?.includes("No thread found with id") || 
+          errorData.error?.type === "invalid_request_error") {
         throw new Error(`ThreadNotFound: ${threadId}`);
       }
       
@@ -39,8 +40,10 @@ export async function addMessageToThread(apiKey: string, threadId: string, messa
   } catch (error) {
     console.error("Error adding message to thread:", error);
     
-    // Rethrow with a clear error type if it's a thread not found error
-    if (error.message?.includes("No thread found") || error.message?.includes("ThreadNotFound:")) {
+    // Ensure consistent error format for thread not found errors
+    if (error.message?.includes("No thread found") || 
+        error.message?.includes("ThreadNotFound:") || 
+        error.message?.includes("invalid_request_error")) {
       throw new Error(`ThreadNotFound: ${threadId}`);
     }
     
@@ -69,8 +72,9 @@ export async function getLatestAssistantMessage(apiKey: string, threadId: string
       const errorData = await messagesResponse.json();
       console.error("Failed to retrieve messages:", errorData);
       
-      // Check if the error is related to the thread not being found
-      if (errorData.error?.message?.includes("No thread found with id")) {
+      // Explicitly check for thread not found error
+      if (errorData.error?.message?.includes("No thread found with id") || 
+          errorData.error?.type === "invalid_request_error") {
         throw new Error(`ThreadNotFound: ${threadId}`);
       }
       
@@ -90,8 +94,10 @@ export async function getLatestAssistantMessage(apiKey: string, threadId: string
   } catch (error) {
     console.error("Error retrieving messages:", error);
     
-    // Rethrow with a clear error type if it's a thread not found error
-    if (error.message?.includes("No thread found") || error.message?.includes("ThreadNotFound:")) {
+    // Ensure consistent error format for thread not found errors
+    if (error.message?.includes("No thread found") || 
+        error.message?.includes("ThreadNotFound:") || 
+        error.message?.includes("invalid_request_error")) {
       throw new Error(`ThreadNotFound: ${threadId}`);
     }
     
