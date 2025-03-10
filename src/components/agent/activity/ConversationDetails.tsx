@@ -37,57 +37,63 @@ const ConversationDetails = ({
   };
 
   return (
-    <div className="h-full p-6">
-      <div className="flex justify-between items-center mb-4">
-        <div className="bg-gray-100 text-sm px-3 py-1 rounded">
-          Source: {selectedConversation.source}
-        </div>
-        <div className="text-sm text-gray-500">
-          {format(new Date(selectedConversation.created_at), "PPP")}
+    <div className="h-full flex flex-col bg-white">
+      <div className="flex justify-between items-center p-6 border-b">
+        <div className="flex items-center space-x-4">
+          <div className="px-3 py-1 bg-gray-100 rounded-full text-sm">
+            Source: {selectedConversation.source}
+          </div>
+          <div className="text-sm text-gray-500">
+            {format(new Date(selectedConversation.created_at), "PPP")}
+          </div>
         </div>
       </div>
 
-      <div className="border rounded-lg bg-white p-4 h-[calc(100vh-200px)] overflow-y-auto">
+      <div className="flex-1 p-6 overflow-y-auto">
         {isLoadingMessages ? (
-          <div className="flex justify-center items-center p-8">
+          <div className="flex justify-center items-center h-full">
             <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
           </div>
         ) : conversationMessages.length > 0 ? (
-          conversationMessages.map((msg) => (
-            <div 
-              key={msg.id} 
-              className={`mb-4 flex ${msg.is_bot ? 'justify-start' : 'justify-end'}`}
-            >
+          <div className="space-y-6">
+            {conversationMessages.map((msg) => (
               <div 
-                className={`max-w-[80%] p-3 rounded-lg ${
-                  msg.is_bot 
-                    ? 'bg-gray-100 text-gray-800' 
-                    : 'bg-purple-600 text-white'
-                }`}
+                key={msg.id} 
+                className={`flex ${msg.is_bot ? 'justify-start' : 'justify-end'}`}
               >
-                <p>{msg.content}</p>
-                {msg.confidence && msg.is_bot && (
-                  <div className="mt-2 flex items-center">
-                    <div className="bg-purple-500 text-xs text-white px-2 py-1 rounded flex items-center">
-                      <BarChart className="h-3 w-3 mr-1" />
-                      Confidence: {msg.confidence.toFixed(3)}
+                <div 
+                  className={`max-w-[70%] p-4 rounded-lg ${
+                    msg.is_bot 
+                      ? 'bg-gray-50 text-gray-800' 
+                      : 'bg-purple-600 text-white'
+                  }`}
+                >
+                  <p className="text-base leading-relaxed">{msg.content}</p>
+                  {msg.confidence && msg.is_bot && (
+                    <div className="mt-3 flex items-center space-x-3">
+                      <div className="bg-purple-500 text-xs text-white px-2 py-1 rounded-full flex items-center">
+                        <BarChart className="h-3 w-3 mr-1" />
+                        {msg.confidence.toFixed(3)}
+                      </div>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="text-xs text-gray-500 hover:text-purple-700"
+                        onClick={() => handleReviseClick(msg)}
+                      >
+                        <Edit className="h-3 w-3 mr-1" />
+                        Revise answer
+                      </Button>
                     </div>
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      className="ml-2 text-xs text-gray-500 hover:text-purple-700"
-                      onClick={() => handleReviseClick(msg)}
-                    >
-                      <Edit className="h-3 w-3 mr-1" />
-                      Revise answer
-                    </Button>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
-            </div>
-          ))
+            ))}
+          </div>
         ) : (
-          <p className="text-center text-gray-500">No messages found</p>
+          <div className="flex items-center justify-center h-full">
+            <p className="text-gray-500">No messages found</p>
+          </div>
         )}
       </div>
 
