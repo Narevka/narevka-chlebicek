@@ -166,6 +166,8 @@ export type Database = {
           content: string
           conversation_id: string
           created_at: string
+          has_thumbs_down: boolean | null
+          has_thumbs_up: boolean | null
           id: string
           is_bot: boolean
         }
@@ -174,6 +176,8 @@ export type Database = {
           content: string
           conversation_id: string
           created_at?: string
+          has_thumbs_down?: boolean | null
+          has_thumbs_up?: boolean | null
           id?: string
           is_bot?: boolean
         }
@@ -182,6 +186,8 @@ export type Database = {
           content?: string
           conversation_id?: string
           created_at?: string
+          has_thumbs_down?: boolean | null
+          has_thumbs_up?: boolean | null
           id?: string
           is_bot?: boolean
         }

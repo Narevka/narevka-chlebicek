@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { Conversation, Message, PaginationState, FilterState } from "./types";
 import { toast } from "sonner";
@@ -94,12 +93,38 @@ export const fetchConversations = async (
           preview += `AI: ${botMessageData[0].content.substring(0, 30)}${botMessageData[0].content.length > 30 ? '...' : ''}`;
         }
         
-        // Return the conversation with added information
+        // Handle feedback filter
+        if (filters.feedback) {
+          try {
+            const { data: feedbackData } = await supabase
+              .from('messages')
+              .select('has_thumbs_up, has_thumbs_down')
+              .eq('conversation_id', conversation.id);
+            
+            const hasFeedback = feedbackData?.some(msg => 
+              (filters.feedback === 'thumbs_up' && msg.has_thumbs_up) || 
+              (filters.feedback === 'thumbs_down' && msg.has_thumbs_down)
+            ) || false;
+            
+            return { 
+              ...conversation, 
+              user_message: userMessageData && userMessageData.length > 0 ? userMessageData[0].content : null,
+              last_message: preview || "Empty conversation",
+              confidence: botMessageData && botMessageData.length > 0 ? botMessageData[0].confidence : null,
+              hasFeedback 
+            };
+          } catch (error) {
+            console.error("Error with feedback filtering:", error);
+            return conversation;
+          }
+        }
+        
         return {
           ...conversation,
           user_message: userMessageData && userMessageData.length > 0 ? userMessageData[0].content : null,
           last_message: preview || "Empty conversation",
-          confidence: botMessageData && botMessageData.length > 0 ? botMessageData[0].confidence : null
+          confidence: botMessageData && botMessageData.length > 0 ? botMessageData[0].confidence : null,
+          hasFeedback: false
         };
       })
     );
@@ -115,27 +140,7 @@ export const fetchConversations = async (
     
     // Handle feedback filter
     if (filters.feedback) {
-      try {
-        filteredConversations = await Promise.all(
-          filteredConversations.map(async (conversation) => {
-            const { data } = await supabase
-              .from('messages')
-              .select('has_thumbs_up, has_thumbs_down')
-              .eq('conversation_id', conversation.id);
-            
-            const hasFeedback = data?.some(msg => 
-              (filters.feedback === 'thumbs_up' && msg.has_thumbs_up) || 
-              (filters.feedback === 'thumbs_down' && msg.has_thumbs_down)
-            );
-            
-            return { ...conversation, hasFeedback };
-          })
-        );
-        
-        filteredConversations = filteredConversations.filter(conv => conv.hasFeedback);
-      } catch (error) {
-        console.error("Error with feedback filtering:", error);
-      }
+      filteredConversations = filteredConversations.filter(conv => conv.hasFeedback);
     }
     
     return { 

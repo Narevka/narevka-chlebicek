@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -7,6 +6,8 @@ export const saveMessageToDb = async (messageData: {
   content: string;
   is_bot: boolean;
   confidence?: number;
+  has_thumbs_up?: boolean;
+  has_thumbs_down?: boolean;
 }) => {
   try {
     const { error } = await supabase
