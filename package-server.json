@@ -6,7 +6,8 @@
   "main": "server.js",
   "type": "module",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "build": "echo 'Server-side build complete'"
   },
   "dependencies": {
     "express": "^4.18.2",

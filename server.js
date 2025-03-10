@@ -4,6 +4,7 @@ import path from 'path';
 import cors from 'cors';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
+import fs from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -16,6 +17,12 @@ app.use(cors());
 
 // Parse JSON request bodies
 app.use(express.json());
+
+// Logging middleware
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+  next();
+});
 
 // API Routes
 // Serve embed.min.js from public directory
@@ -64,11 +71,34 @@ app.post('/functions/chat-with-assistant', async (req, res) => {
   }
 });
 
-// Serve static files from the public directory (with higher priority)
+// Debug endpoint to check file availability
+app.get('/debug-files', (req, res) => {
+  try {
+    const publicFiles = fs.readdirSync(path.join(__dirname, 'public'));
+    const distFiles = fs.existsSync(path.join(__dirname, 'dist')) 
+      ? fs.readdirSync(path.join(__dirname, 'dist')) 
+      : 'dist directory not found';
+    
+    res.json({
+      currentDir: __dirname,
+      publicFiles,
+      distFiles,
+      env: {
+        NODE_ENV: process.env.NODE_ENV,
+        PORT: process.env.PORT
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Serve static files from the public directory (higher priority)
 app.use(express.static('public'));
 
-// Serve static files from the dist directory 
+// Serve static files from the dist directory
 app.use(express.static('dist'));
+app.use(express.static(path.join(__dirname, 'dist')));
 
 // Handle all API routes above, and then handle React routing for everything else
 app.get('*', function(req, res) {
@@ -78,12 +108,32 @@ app.get('*', function(req, res) {
   }
   
   // For all other routes, serve the React app
-  res.sendFile(path.join(__dirname, 'dist', 'index.html'), (err) => {
+  const indexPath = path.join(__dirname, 'dist', 'index.html');
+  
+  // Check if index.html exists before serving
+  fs.access(indexPath, fs.constants.F_OK, (err) => {
     if (err) {
-      console.error('Error serving index.html:', err);
-      res.status(500).send('Error loading application. Please try again later.');
+      console.error(`Error checking for index.html: ${err.message}`);
+      return res.status(500).send(`
+        <html>
+          <head><title>Application Error</title></head>
+          <body>
+            <h1>Error loading application</h1>
+            <p>The application could not be loaded. Please try again later.</p>
+            <p>Details: index.html not found in the dist directory.</p>
+          </body>
+        </html>
+      `);
     }
+    
+    res.sendFile(indexPath);
   });
+});
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error('Server error:', err);
+  res.status(500).send('Internal Server Error');
 });
 
 // For Vercel deployment

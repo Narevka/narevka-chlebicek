@@ -21,8 +21,9 @@
     { "src": "/chatbot-iframe/(.*)", "dest": "/server.js" },
     { "src": "/chatbot/(.*)", "dest": "/server.js" },
     { "src": "/functions/chat-with-assistant", "dest": "/server.js" },
-    { "src": "/(.*)", "dest": "/dist/$1" },
-    { "src": "/[^.]+", "dest": "/dist/index.html" }
+    { "handle": "filesystem" },
+    { "src": "/(.+\\.[a-z]+)$", "dest": "/$1" },
+    { "src": "/(.*)", "dest": "/index.html" }
   ],
   "env": {
     "SUPABASE_URL": "https://qaopcduyhmweewrcwkoy.supabase.co",
