@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from "react";
 import { Conversation, Message, PaginationState, FilterState } from "../types";
 import { useAuth } from "@/context/AuthContext";
@@ -103,7 +104,15 @@ export const useChatLogs = () => {
       
       // Update available sources including all sources
       if (filteredResult.length > 0) {
-        const sources = Array.from(new Set(filteredResult.map(convo => convo.source))).filter(Boolean);
+        // Fix for the TypeScript error - explicitly cast each source to string
+        const sources = Array.from(
+          new Set(
+            filteredResult
+              .map(convo => convo.source ? String(convo.source) : null)
+              .filter(Boolean) as string[]
+          )
+        );
+        
         setAvailableSources(['all', ...sources]);
       }
     } catch (error) {
