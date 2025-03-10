@@ -31,9 +31,14 @@ const WebsiteSource = () => {
   });
 
   // Add a custom console logger to capture logs
-  const captureLog = (message: string) => {
-    setDebugLogs(prev => [...prev, `[${new Date().toISOString()}] ${message}`]);
-    console.log(message);
+  const captureLog = (...messages: any[]) => {
+    const timestamp = new Date().toISOString();
+    const formattedMessage = messages.map(msg => 
+      typeof msg === 'object' ? JSON.stringify(msg) : String(msg)
+    ).join(' ');
+    
+    setDebugLogs(prev => [...prev, `[${timestamp}] ${formattedMessage}`]);
+    console.log(...messages);
   };
 
   const showDebugInfo = () => {
@@ -46,7 +51,7 @@ const WebsiteSource = () => {
     
     // More detailed information about included links
     if (includedLinks.length > 0) {
-      captureLog("- Included Links: " + JSON.stringify(includedLinks));
+      captureLog("- Included Links: ", JSON.stringify(includedLinks));
       captureLog("%c First Link Details:", "font-weight: bold");
       const firstLink = includedLinks[0];
       captureLog("  - URL: " + firstLink.url);
@@ -58,7 +63,7 @@ const WebsiteSource = () => {
       captureLog("  - Notification status: " + (firstLink.notificationShown ? "Shown" : "Not shown"));
       captureLog("  - Created at: " + (firstLink.createdAt || "Unknown"));
       if (firstLink.crawlReport) {
-        captureLog("  - Crawl report: " + JSON.stringify(firstLink.crawlReport));
+        captureLog("  - Crawl report: ", JSON.stringify(firstLink.crawlReport));
       }
     } else {
       captureLog("- No links included yet");
@@ -73,10 +78,10 @@ const WebsiteSource = () => {
       const websiteSourcesData = localStorage.getItem(localStorageKey);
       const deletedSourcesData = localStorage.getItem(deletedSourcesKey);
       
-      captureLog("- Website sources from localStorage: " + 
-        (websiteSourcesData ? JSON.stringify(JSON.parse(websiteSourcesData)) : "No data"));
-      captureLog("- Deleted sources from localStorage: " + 
-        (deletedSourcesData ? JSON.stringify(JSON.parse(deletedSourcesData)) : "No data"));
+      captureLog("- Website sources from localStorage: ", 
+        websiteSourcesData ? JSON.stringify(JSON.parse(websiteSourcesData)) : "No data");
+      captureLog("- Deleted sources from localStorage: ", 
+        deletedSourcesData ? JSON.stringify(JSON.parse(deletedSourcesData)) : "No data");
     } catch (error) {
       captureLog("Error parsing localStorage data: " + error);
     }
