@@ -42,46 +42,63 @@ serve(async (req) => {
     
     const agent = agents[0]
     
-    // Create a new thread ID if one doesn't exist
+    // Use the provided conversation ID as thread ID, or generate a new one
     let threadId = conversationId
     
-    // Always generate a thread ID unless we already have one
-    if (!threadId) {
-      threadId = openai.generateId() // This will generate a thread_* ID
-      console.log(`Created new thread ID: ${threadId}`)
-    } else {
-      console.log(`Using existing thread ID: ${threadId}`)
-    }
+    console.log(`Using thread ID: ${threadId || 'No thread ID provided'}`);
     
     try {
       // Get response from the agent
-      const { response, confidence } = await openai.getAgentResponse(agent, message, threadId)
-      console.log(`Got response from agent with threadId: ${threadId}`)
+      const { response, confidence, threadId: newThreadId } = await openai.getAgentResponse(agent, message, threadId)
+      console.log(`Got response from agent with threadId: ${newThreadId}`)
       
-      // Return the response with the properly formatted threadId
+      // Return the response with the thread ID
       return new Response(
-        JSON.stringify({ response, threadId, confidence }),
+        JSON.stringify({ response, threadId: newThreadId, confidence }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     } catch (error) {
       console.error("Error getting agent response:", error.message)
       
-      // If there's an issue with the thread, create a new one and try again
-      if (error.message?.includes("No thread found with id")) {
-        console.log("Thread ID error detected. Creating a new thread...")
-        const newThreadId = openai.generateId()
-        console.log(`Created new recovery thread ID: ${newThreadId}`)
-        
-        const { response, confidence } = await openai.getAgentResponse(agent, message, newThreadId)
-        console.log(`Got response from agent with new threadId: ${newThreadId}`)
-        
-        return new Response(
-          JSON.stringify({ response, threadId: newThreadId, confidence }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
+      // If there's any kind of error, create a new thread ID
+      let recoveryThreadId;
+      try {
+        // Try to create a real OpenAI thread
+        recoveryThreadId = await openai.createThread(Deno.env.get('OPENAI_API_KEY') || '');
+      } catch (threadError) {
+        // If that fails, just generate a client-side ID
+        console.error("Error creating recovery thread:", threadError.message);
+        recoveryThreadId = openai.generateId();
       }
       
-      throw error
+      console.log(`Created recovery thread ID: ${recoveryThreadId}`);
+      
+      // If the error seems to be thread-related, try again with the new thread
+      if (error.message?.includes("thread") || error.message?.includes("Thread")) {
+        try {
+          const { response, confidence, threadId: finalThreadId } = await openai.getAgentResponse(agent, message, recoveryThreadId)
+          console.log(`Got response from agent with recovery threadId: ${finalThreadId}`)
+          
+          return new Response(
+            JSON.stringify({ response, threadId: finalThreadId, confidence }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        } catch (retryError) {
+          // If the retry also fails, fall through to the error handler
+          console.error("Retry with new thread also failed:", retryError.message);
+          throw retryError;
+        }
+      }
+      
+      // Return a fallback response with the recovery thread ID if we couldn't get a real response
+      return new Response(
+        JSON.stringify({ 
+          response: "I'm sorry, I encountered an error processing your request. Please try again.", 
+          threadId: recoveryThreadId, 
+          confidence: 0.5 
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
     }
   } catch (error) {
     return handleError(error)

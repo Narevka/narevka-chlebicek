@@ -11,7 +11,7 @@ import { getAgentData } from "./libs/agentService.ts";
  * @param threadId Optional thread ID for continuing a conversation
  * @returns The response and confidence level
  */
-export async function getAgentResponse(agent: any, message: string, threadId?: string | null): Promise<{ response: string, confidence: number }> {
+export async function getAgentResponse(agent: any, message: string, threadId?: string | null): Promise<{ response: string, confidence: number, threadId: string }> {
   // Get the OpenAI API key from environment variables
   const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
   if (!openAIApiKey) {
@@ -28,53 +28,88 @@ export async function getAgentResponse(agent: any, message: string, threadId?: s
   
   try {
     let actualThreadId: string;
+    let isNewThread = false;
     
-    // Always create a new thread if no threadId is provided
-    if (!threadId) {
+    // Check if a thread ID was provided
+    if (threadId) {
+      console.log(`Attempting to use existing thread: ${threadId}`);
+      actualThreadId = threadId;
+    } else {
       console.log("No threadId provided, creating a new thread");
       actualThreadId = await createThread(openAIApiKey);
+      isNewThread = true;
       console.log(`Created new thread: ${actualThreadId}`);
-    } else {
-      console.log(`Using existing thread: ${threadId}`);
-      actualThreadId = threadId;
     }
     
-    // Add the user message to the thread
+    // Try to add the message to the thread
     try {
       await addMessageToThread(openAIApiKey, actualThreadId, message);
-    } catch (error: any) {
-      console.error(`Error adding message to thread: ${error.message}`);
-      
-      // If there's an error with the thread ID, create a new thread and try again
-      if (error.message?.includes("No thread found with id")) {
-        console.log("Thread not found, creating a new thread and retrying");
+      console.log(`Message added to thread ${actualThreadId}`);
+    } catch (error) {
+      // If there's a thread not found error, create a new thread and try again
+      if (error.message && error.message.includes("ThreadNotFound:")) {
+        console.log(`Thread ${actualThreadId} not found, creating a new one`);
         actualThreadId = await createThread(openAIApiKey);
-        console.log(`Created new thread after error: ${actualThreadId}`);
+        isNewThread = true;
+        console.log(`Created new recovery thread: ${actualThreadId}`);
+        
+        // Try adding the message to the new thread
         await addMessageToThread(openAIApiKey, actualThreadId, message);
+        console.log(`Message added to new thread ${actualThreadId}`);
       } else {
+        // If it's not a thread not found error, rethrow
         throw error;
       }
     }
     
     // Create a run with the assistant
+    console.log(`Creating run with assistant ${assistantId}`);
     const { runId, status: initialStatus } = await createRun(openAIApiKey, actualThreadId, assistantId);
     console.log(`Created run with ID: ${runId}, initial status: ${initialStatus}`);
     
     // Poll for the run completion
+    console.log(`Polling for run completion, initial status: ${initialStatus}`);
     const finalStatus = await pollForRunCompletion(openAIApiKey, actualThreadId, runId, initialStatus);
     console.log(`Run completed with status: ${finalStatus}`);
     
     // Get the latest assistant message
-    const response = await getLatestAssistantMessage(openAIApiKey, actualThreadId);
-    console.log(`Retrieved response of length: ${response.length}`);
+    let response;
+    try {
+      console.log(`Getting latest assistant message from thread ${actualThreadId}`);
+      response = await getLatestAssistantMessage(openAIApiKey, actualThreadId);
+      console.log(`Retrieved response of length: ${response.length}`);
+    } catch (error) {
+      // If there's a thread not found error when getting the message, return an error message
+      if (error.message && error.message.includes("ThreadNotFound:")) {
+        console.error(`Thread ${actualThreadId} not found when getting assistant message`);
+        return {
+          response: "I'm sorry, there was an error retrieving the response. Please try again.",
+          confidence: 0.5,
+          threadId: await createThread(openAIApiKey) // Create a fresh thread for next time
+        };
+      }
+      throw error;
+    }
     
-    // Return the response with the new thread ID
+    // Return the response with the thread ID
     return {
       response,
-      confidence: 0.95  // Default confidence level
+      confidence: 0.95, // Default confidence level
+      threadId: actualThreadId
     };
   } catch (error) {
     console.error(`Error getting response from OpenAI: ${error.message}`);
+    
+    // If there's any other error, create a new thread for the next interaction
+    let newThreadId;
+    try {
+      newThreadId = await createThread(openAIApiKey);
+      console.log(`Created new thread after error: ${newThreadId}`);
+    } catch (threadError) {
+      console.error(`Error creating new thread: ${threadError.message}`);
+      newThreadId = generateId(); // Fallback to generating an ID without actually creating a thread
+    }
+    
     throw error;
   }
 }
