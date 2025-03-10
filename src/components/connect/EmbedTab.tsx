@@ -133,6 +133,7 @@ const EmbedTab: React.FC<EmbedTabProps> = ({
         </Card>
       </div>
 
+      {/* Configuration section */}
       <div className="mb-10">
         <h2 className="text-2xl font-semibold mb-4">Configuration</h2>
         <Card>
@@ -224,7 +225,7 @@ const EmbedTab: React.FC<EmbedTabProps> = ({
                         <p className="text-orange-700 mt-1">If your chat bubble isn't appearing, check the following:</p>
                         <ol className="list-decimal pl-5 mt-2 space-y-1 text-orange-700">
                           <li>Verify the domain in your script matches your server URL exactly (including https://)</li>
-                          <li>Check browser console for errors (F12 or Right-click > Inspect > Console)</li>
+                          <li>Check browser console for errors (F12 or Right-click {'->'} Inspect {'->'} Console)</li>
                           <li>Ensure there are no content security policies blocking the script</li>
                           <li>Try adding the script right before the closing &lt;/body&gt; tag</li>
                           <li>For WordPress sites, try using a plugin like "Header and Footer Scripts"</li>
@@ -241,6 +242,7 @@ const EmbedTab: React.FC<EmbedTabProps> = ({
         </Card>
       </div>
 
+      {/* Backend Services Status section */}
       <div className="mb-10">
         <h2 className="text-2xl font-semibold mb-4">Backend Services Status</h2>
         <Card>
