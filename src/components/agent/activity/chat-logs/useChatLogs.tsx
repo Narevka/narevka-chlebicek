@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Conversation, Message, PaginationState, FilterState } from "../types";
 import { useAuth } from "@/context/AuthContext";
@@ -31,6 +32,7 @@ export const useChatLogs = () => {
   });
   const [showFilterPanel, setShowFilterPanel] = useState(false);
   const [availableSources, setAvailableSources] = useState<string[]>(['Playground', 'Website', 'WordPress', 'Bubble']);
+  const [deletedConversationIds, setDeletedConversationIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!user) return;
@@ -50,26 +52,36 @@ export const useChatLogs = () => {
         filters
       );
       
-      setConversations(filteredConversations);
+      // Filter out any conversations that are marked as deleted locally
+      const filteredResult = filteredConversations.filter(
+        convo => !deletedConversationIds.has(convo.id)
+      );
+      
+      setConversations(filteredResult);
       setPagination(prev => ({
         ...prev,
-        totalItems: totalItems
+        totalItems: totalItems - (totalItems > 0 ? deletedConversationIds.size : 0)
       }));
       
-      const sources = getUniqueSourcesFromConversations(filteredConversations);
+      const sources = getUniqueSourcesFromConversations(filteredResult);
       if (sources.length > 0) {
         setAvailableSources(['all', ...sources]);
       }
     } else {
       const { conversations: loadedConversations, totalItems } = await fetchConversations(pagination, filters);
       
-      setConversations(loadedConversations);
+      // Filter out any conversations that are marked as deleted locally
+      const filteredResult = loadedConversations.filter(
+        convo => !deletedConversationIds.has(convo.id)
+      );
+      
+      setConversations(filteredResult);
       setPagination(prev => ({
         ...prev,
-        totalItems: totalItems
+        totalItems: totalItems - (totalItems > 0 ? deletedConversationIds.size : 0)
       }));
       
-      const sources = Array.from(new Set(loadedConversations.map(convo => convo.source)));
+      const sources = Array.from(new Set(filteredResult.map(convo => convo.source)));
       if (sources.length > 0) {
         setAvailableSources(['all', ...sources]);
       }
@@ -94,6 +106,13 @@ export const useChatLogs = () => {
       prevConversations.filter(convo => convo.id !== conversationId)
     );
     
+    // Add to local deleted IDs set to prevent it from reappearing
+    setDeletedConversationIds(prev => {
+      const updated = new Set(prev);
+      updated.add(conversationId);
+      return updated;
+    });
+    
     // If the deleted conversation was selected, clear the selection
     if (selectedConversation?.id === conversationId) {
       setSelectedConversation(null);
@@ -107,10 +126,27 @@ export const useChatLogs = () => {
       if (!success) {
         // Only show error and revert if deletion failed
         toast.error("Failed to delete conversation");
+        
+        // Remove from deleted set
+        setDeletedConversationIds(prev => {
+          const updated = new Set(prev);
+          updated.delete(conversationId);
+          return updated;
+        });
+        
+        // Force reload conversations
         loadConversations();
       }
     } catch (error) {
       toast.error("Failed to delete conversation");
+      
+      // Remove from deleted set
+      setDeletedConversationIds(prev => {
+        const updated = new Set(prev);
+        updated.delete(conversationId);
+        return updated;
+      });
+      
       loadConversations();
     }
   };

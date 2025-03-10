@@ -8,7 +8,7 @@ export const deleteConversation = async (conversationId: string): Promise<boolea
     
     if (!userId) return false;
 
-    // Delete messages first (no need to verify ownership since RLS will handle that)
+    // First delete all messages associated with the conversation
     const { error: messagesError } = await supabase
       .from('messages')
       .delete()
@@ -19,7 +19,7 @@ export const deleteConversation = async (conversationId: string): Promise<boolea
       return false;
     }
     
-    // Delete the conversation
+    // Then delete the conversation itself
     const { error: conversationError } = await supabase
       .from('conversations')
       .delete()
@@ -28,6 +28,19 @@ export const deleteConversation = async (conversationId: string): Promise<boolea
     
     if (conversationError) {
       console.error("Error deleting conversation:", conversationError);
+      return false;
+    }
+
+    // Verify the conversation was actually deleted
+    const { data: verifyData } = await supabase
+      .from('conversations')
+      .select('id')
+      .eq('id', conversationId)
+      .eq('user_id', userId);
+    
+    // If we still find the conversation, deletion failed
+    if (verifyData && verifyData.length > 0) {
+      console.error("Conversation still exists after deletion attempt");
       return false;
     }
 
