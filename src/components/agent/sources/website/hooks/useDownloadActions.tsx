@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -58,6 +59,15 @@ export const useDownloadActions = () => {
           if (parsedContent.page_content && Array.isArray(parsedContent.page_content)) {
             content += "\n\n## Page Contents:\n\n";
             parsedContent.page_content.forEach((page: any, index: number) => {
+              content += `\n\n### [Page ${index + 1}] ${page.url}\n\n`;
+              content += page.content || "No content available";
+              content += "\n\n---\n\n";
+            });
+          }
+          // If we have individual pages format (newer Firecrawl format)
+          else if (parsedContent.pages && Array.isArray(parsedContent.pages)) {
+            content += "\n\n## Page Contents:\n\n";
+            parsedContent.pages.forEach((page: any, index: number) => {
               content += `\n\n### [Page ${index + 1}] ${page.url}\n\n`;
               content += page.content || "No content available";
               content += "\n\n---\n\n";
