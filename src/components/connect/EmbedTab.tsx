@@ -165,19 +165,25 @@ const EmbedTab: React.FC<EmbedTabProps> = ({
                 <strong>Chatbot iframe endpoint</strong>: Create a route for <code>/chatbot-iframe/:id</code> that renders the chatbot interface
               </li>
               <li className="text-gray-800">
-                <strong>API endpoints</strong>: Set up endpoints to handle message exchanges between the client and your AI backend
+                <strong>API endpoints</strong>: Set up an endpoint at <code>/functions/chat-with-assistant</code> to handle message exchanges
               </li>
               <li className="text-gray-800">
-                <strong>AI processing</strong>: Configure your own AI service (using OpenAI API or similar) to process user messages
+                <strong>AI processing</strong>: Connect the API to your chosen AI service (like OpenAI)
               </li>
             </ol>
             
             <div className="bg-blue-50 border border-blue-200 p-4 rounded-md">
-              <p className="text-blue-800 font-medium mb-2">Setup recommendation</p>
-              <p className="text-blue-700">
-                Consider using a Node.js server with Express to handle API routes and serve static files, 
-                along with a service like Nginx for proxying requests and serving the chatbot interface.
+              <p className="text-blue-800 font-medium mb-2">Backend implementation</p>
+              <p className="text-blue-700 mb-3">
+                We've provided all the necessary files in the project for you to implement your backend:
               </p>
+              <ul className="list-disc pl-5 text-blue-700 space-y-2">
+                <li><code>public/embed.min.js</code> - The client-side script for embedding the chatbot</li>
+                <li><code>public/chatbot-iframe-template.html</code> - The template for the chatbot iframe</li>
+                <li><code>public/chatbot.html</code> - A standalone chatbot page</li>
+                <li><code>server-implementation.js</code> - A reference Node.js server implementation</li>
+                <li><code>BACKEND_SETUP.md</code> - Detailed instructions for setting up your backend</li>
+              </ul>
             </div>
           </CardContent>
         </Card>
