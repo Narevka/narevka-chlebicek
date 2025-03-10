@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Conversation, Message, PaginationState, FilterState } from "../types";
 import { useAuth } from "@/context/AuthContext";
@@ -5,7 +6,9 @@ import { toast } from "sonner";
 import { 
   fetchConversations, 
   fetchMessagesForConversation, 
-  deleteConversation 
+  deleteConversation,
+  fetchFilteredConversations,
+  getUniqueSourcesFromConversations
 } from "../services";
 
 export const useChatLogs = () => {
@@ -40,18 +43,41 @@ export const useChatLogs = () => {
     if (!user) return;
     
     setIsLoading(true);
-    const { conversations: loadedConversations, totalItems } = await fetchConversations(pagination, filters);
     
-    setConversations(loadedConversations);
-    setPagination(prev => ({
-      ...prev,
-      totalItems: totalItems
-    }));
-    
-    // Extract unique sources for the filter dropdown
-    const sources = Array.from(new Set(loadedConversations.map(convo => convo.source)));
-    if (sources.length > 0) {
-      setAvailableSources(['all', ...sources]);
+    // Use the new filter service if filters are applied
+    if (Object.values(filters).some(value => value !== null)) {
+      const { conversations: filteredConversations, totalItems } = await fetchFilteredConversations(
+        user.id,
+        pagination,
+        filters
+      );
+      
+      setConversations(filteredConversations);
+      setPagination(prev => ({
+        ...prev,
+        totalItems: totalItems
+      }));
+      
+      // Extract unique sources
+      const sources = getUniqueSourcesFromConversations(filteredConversations);
+      if (sources.length > 0) {
+        setAvailableSources(['all', ...sources]);
+      }
+    } else {
+      // Use the regular fetch if no filters
+      const { conversations: loadedConversations, totalItems } = await fetchConversations(pagination, filters);
+      
+      setConversations(loadedConversations);
+      setPagination(prev => ({
+        ...prev,
+        totalItems: totalItems
+      }));
+      
+      // Extract unique sources
+      const sources = Array.from(new Set(loadedConversations.map(convo => convo.source)));
+      if (sources.length > 0) {
+        setAvailableSources(['all', ...sources]);
+      }
     }
     
     setIsLoading(false);
