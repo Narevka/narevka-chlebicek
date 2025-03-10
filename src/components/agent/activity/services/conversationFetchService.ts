@@ -1,7 +1,8 @@
 
 import { supabase } from "@/integrations/supabase/client";
-import { Conversation, Message, PaginationState, FilterState } from "./types";
+import { Conversation, PaginationState, FilterState } from "../types";
 import { toast } from "sonner";
+import { applyFiltersToQuery } from "./conversationFilterUtils";
 
 export const fetchConversations = async (
   pagination: PaginationState,
@@ -14,19 +15,7 @@ export const fetchConversations = async (
       .select('*', { count: 'exact' });
     
     // Apply filters to count query
-    if (filters.source && filters.source !== 'all') {
-      countQuery = countQuery.eq('source', filters.source);
-    }
-    
-    if (filters.dateRange) {
-      const today = new Date();
-      const sevenDaysAgo = new Date();
-      sevenDaysAgo.setDate(today.getDate() - 7);
-      
-      if (filters.dateRange === "last_7_days") {
-        countQuery = countQuery.gte('created_at', sevenDaysAgo.toISOString());
-      }
-    }
+    countQuery = applyFiltersToQuery(countQuery, filters);
     
     const { count, error: countError } = await countQuery;
     
@@ -45,19 +34,7 @@ export const fetchConversations = async (
       );
     
     // Apply same filters to main query
-    if (filters.source && filters.source !== 'all') {
-      conversationsQuery = conversationsQuery.eq('source', filters.source);
-    }
-    
-    if (filters.dateRange) {
-      const today = new Date();
-      const sevenDaysAgo = new Date();
-      sevenDaysAgo.setDate(today.getDate() - 7);
-      
-      if (filters.dateRange === "last_7_days") {
-        conversationsQuery = conversationsQuery.gte('created_at', sevenDaysAgo.toISOString());
-      }
-    }
+    conversationsQuery = applyFiltersToQuery(conversationsQuery, filters);
     
     const { data: conversationsData, error: conversationsError } = await conversationsQuery;
     
@@ -94,6 +71,14 @@ export const fetchConversations = async (
           preview += `AI: ${botMessageData[0].content.substring(0, 30)}${botMessageData[0].content.length > 30 ? '...' : ''}`;
         }
         
+        const enrichedConversation = {
+          ...conversation,
+          user_message: userMessageData && userMessageData.length > 0 ? userMessageData[0].content : null,
+          last_message: preview || "Empty conversation",
+          confidence: botMessageData && botMessageData.length > 0 ? botMessageData[0].confidence : null,
+          hasFeedback: false
+        };
+        
         // Handle feedback filter
         if (filters.feedback) {
           try {
@@ -107,37 +92,20 @@ export const fetchConversations = async (
               (filters.feedback === 'thumbs_down' && msg.has_thumbs_down)
             ) || false;
             
-            return { 
-              ...conversation, 
-              user_message: userMessageData && userMessageData.length > 0 ? userMessageData[0].content : null,
-              last_message: preview || "Empty conversation",
-              confidence: botMessageData && botMessageData.length > 0 ? botMessageData[0].confidence : null,
-              hasFeedback 
-            };
+            enrichedConversation.hasFeedback = hasFeedback;
           } catch (error) {
             console.error("Error with feedback filtering:", error);
-            return {
-              ...conversation,
-              user_message: userMessageData && userMessageData.length > 0 ? userMessageData[0].content : null,
-              last_message: preview || "Empty conversation",
-              confidence: botMessageData && botMessageData.length > 0 ? botMessageData[0].confidence : null,
-              hasFeedback: false
-            };
           }
         }
         
-        return {
-          ...conversation,
-          user_message: userMessageData && userMessageData.length > 0 ? userMessageData[0].content : null,
-          last_message: preview || "Empty conversation",
-          confidence: botMessageData && botMessageData.length > 0 ? botMessageData[0].confidence : null,
-          hasFeedback: false
-        };
+        return enrichedConversation;
       })
     );
     
-    // Handle confidence filtering (if required)
+    // Apply post-fetch filters that require the enriched conversation data
     let filteredConversations = conversationsWithMessages;
+    
+    // Handle confidence filtering (if required)
     if (filters.confidenceScore) {
       const threshold = parseFloat(filters.confidenceScore.replace('< ', ''));
       filteredConversations = filteredConversations.filter(convo => 
@@ -158,50 +126,5 @@ export const fetchConversations = async (
     console.error("Error fetching conversations:", error);
     toast.error("Failed to load conversations");
     return { conversations: [], totalItems: 0 };
-  }
-};
-
-export const fetchMessagesForConversation = async (conversationId: string) => {
-  try {
-    const { data, error } = await supabase
-      .from('messages')
-      .select('*')
-      .eq('conversation_id', conversationId)
-      .order('created_at', { ascending: true });
-    
-    if (error) throw error;
-    
-    return data || [];
-  } catch (error) {
-    console.error("Error fetching messages:", error);
-    toast.error("Failed to load conversation messages");
-    return [];
-  }
-};
-
-export const deleteConversation = async (conversationId: string) => {
-  try {
-    // Delete associated messages first
-    const { error: messagesError } = await supabase
-      .from('messages')
-      .delete()
-      .eq('conversation_id', conversationId);
-    
-    if (messagesError) throw messagesError;
-    
-    // Then delete the conversation
-    const { error } = await supabase
-      .from('conversations')
-      .delete()
-      .eq('id', conversationId);
-    
-    if (error) throw error;
-    
-    toast.success("Conversation deleted");
-    return true;
-  } catch (error) {
-    console.error("Error deleting conversation:", error);
-    toast.error("Failed to delete conversation");
-    return false;
   }
 };

@@ -1,9 +1,12 @@
-
 import { useState, useEffect } from "react";
 import { Conversation, Message, PaginationState, FilterState } from "../types";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
-import { fetchConversations, fetchMessagesForConversation, deleteConversation } from "../conversationService";
+import { 
+  fetchConversations, 
+  fetchMessagesForConversation, 
+  deleteConversation 
+} from "../services";
 
 export const useChatLogs = () => {
   const { user } = useAuth();
