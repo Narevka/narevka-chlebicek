@@ -7,27 +7,38 @@ import { corsHeaders } from './cors.ts'
  * @returns A formatted Response object
  */
 export function handleError(error: any): Response {
-  console.error('Error in chat-with-assistant function:', error);
+  console.error('[DEBUG] Error in chat-with-assistant function:', error);
   
   const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
   
   // Determine status code based on error type
   let statusCode = 500;
-  if (errorMessage.includes('not found')) {
+  if (errorMessage.toLowerCase().includes('not found')) {
     statusCode = 404;
-  } else if (errorMessage.includes('invalid_request_error')) {
+    console.log('[DEBUG] Setting status code to 404 for not found error');
+  } else if (errorMessage.toLowerCase().includes('invalid_request_error')) {
     statusCode = 400;
-  } else if (errorMessage.includes('ThreadNotFound')) {
+    console.log('[DEBUG] Setting status code to 400 for invalid request error');
+  } else if (errorMessage.toLowerCase().includes('thread')) {
     statusCode = 404;
+    console.log('[DEBUG] Setting status code to 404 for thread-related error');
   }
   
   // For thread not found errors, include a special flag so frontend can handle it
-  const responseBody: any = { error: errorMessage };
+  const responseBody: any = { 
+    error: errorMessage,
+    debug: {
+      originalError: typeof error === 'object' ? JSON.stringify(error) : String(error),
+      errorType: error?.constructor?.name || 'Unknown',
+      timestamp: new Date().toISOString()
+    }
+  };
   
-  if (errorMessage.includes('ThreadNotFound') || 
-      errorMessage.includes('Thread not found') || 
-      errorMessage.includes('No thread found')) {
+  // More comprehensive pattern matching for thread errors
+  if (errorMessage.toLowerCase().includes('thread') || 
+      errorMessage.toLowerCase().includes('not found')) {
     responseBody.threadNotFound = true;
+    console.log('[DEBUG] Adding threadNotFound flag to response');
   }
   
   return new Response(

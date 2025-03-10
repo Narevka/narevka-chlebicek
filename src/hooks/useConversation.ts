@@ -1,10 +1,25 @@
-
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { v4 as uuidv4 } from 'uuid';
 import { toast } from "sonner";
 import { Message } from "./conversation/types";
 import { saveMessageToDb, createConversation, updateConversationTitle, updateConversationSource } from "./conversation/conversationDb";
 import { getAssistantResponse } from "./conversation/assistantApi";
+
+const debugLog = (message: string, data?: any) => {
+  console.log(`[DEBUG-CONVERSATION] ${message}`, data || '');
+  
+  try {
+    const history = JSON.parse(localStorage.getItem('conversation_debug_history') || '[]');
+    history.push({
+      timestamp: new Date().toISOString(),
+      message,
+      data: data ? JSON.stringify(data).substring(0, 500) : undefined
+    });
+    localStorage.setItem('conversation_debug_history', JSON.stringify(history.slice(-50)));
+  } catch (e) {
+    console.error("Failed to save debug history:", e);
+  }
+};
 
 export const useConversation = (userId: string | undefined, agentId: string | undefined, source: string = "Website") => {
   const [messages, setMessages] = useState<Array<Message>>([
@@ -14,23 +29,25 @@ export const useConversation = (userId: string | undefined, agentId: string | un
   const [sendingMessage, setSendingMessage] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [threadId, setThreadId] = useState<string | null>(null);
+  const threadIdRef = useRef<string | null>(null);
+  const retryCount = useRef<number>(0);
   
-  // Use a safer source default value with validation and normalization
   const validSource = typeof source === 'string' && source.trim() !== '' 
     ? source.trim() 
     : "Website";
   
-  console.log(`useConversation: Source parameter is "${source}", normalized to "${validSource}"`);
+  debugLog(`Initializing with source parameter: "${source}", normalized to "${validSource}"`);
   
   useEffect(() => {
     const initConversation = async () => {
       if (!userId) return;
 
-      console.log(`useConversation: Initializing conversation with source: ${validSource}`);
+      debugLog(`Initializing conversation with source: ${validSource}`);
       const newConversationId = await createConversation(userId, validSource);
       
       if (newConversationId) {
         setConversationId(newConversationId);
+        debugLog(`Created new conversation with ID: ${newConversationId}`);
         
         await saveMessageToDb({
           conversation_id: newConversationId,
@@ -38,8 +55,9 @@ export const useConversation = (userId: string | undefined, agentId: string | un
           is_bot: true
         });
         
-        // Set initial threadId to null to ensure a new thread is created
         setThreadId(null);
+        threadIdRef.current = null;
+        debugLog(`Reset threadId to null for new conversation`);
       } else {
         console.error("Failed to create conversation");
         toast.error("Failed to initialize conversation");
@@ -50,9 +68,13 @@ export const useConversation = (userId: string | undefined, agentId: string | un
   }, [userId, validSource]);
   
   useEffect(() => {
-    // Update conversation source whenever it changes
+    threadIdRef.current = threadId;
+    debugLog(`Updated threadIdRef to: ${threadId || 'null'}`);
+  }, [threadId]);
+  
+  useEffect(() => {
     if (conversationId && validSource) {
-      console.log(`Updating conversation source for ${conversationId} to ${validSource}`);
+      debugLog(`Updating conversation source for ${conversationId} to ${validSource}`);
       updateConversationSource(conversationId, validSource);
     }
   }, [conversationId, validSource]);
@@ -68,31 +90,35 @@ export const useConversation = (userId: string | undefined, agentId: string | un
     
     setMessages(prev => [...prev, userMessage]);
     setSendingMessage(true);
+    debugLog(`Sending message: "${message.substring(0, 30)}..." with threadId: ${threadIdRef.current || 'null'}`);
     
     await saveMessageToDb({
       conversation_id: conversationId,
       content: message,
       is_bot: false
     });
+    debugLog(`Saved user message to database for conversation: ${conversationId}`);
     
     try {
-      console.log(`Sending message with source: ${validSource} and threadId: ${threadId || 'new'}`);
+      debugLog(`Sending message to assistant API with source: ${validSource}, threadId: ${threadIdRef.current || 'null'}`);
       const { botResponse, threadId: newThreadId } = await getAssistantResponse(
         message, 
         agentId, 
-        threadId,
+        threadIdRef.current,
         validSource
       );
       
-      console.log(`Received response with threadId: ${newThreadId || 'none'}`);
+      debugLog(`Received response with threadId: ${newThreadId || 'null'}`);
       
       if (newThreadId) {
-        console.log(`Setting new threadId: ${newThreadId}`);
+        debugLog(`Setting new threadId: ${newThreadId}`);
         setThreadId(newThreadId);
+        threadIdRef.current = newThreadId;
       }
       
       setMessages(prev => [...prev, botResponse]);
       
+      debugLog(`Saving bot message to database: ${botResponse.content.substring(0, 30)}...`);
       await saveMessageToDb({
         conversation_id: conversationId,
         content: botResponse.content,
@@ -101,39 +127,69 @@ export const useConversation = (userId: string | undefined, agentId: string | un
       });
       
       if (messages.length === 1) {
+        debugLog(`Updating conversation title for first message`);
         updateConversationTitle(conversationId, userId, message);
       }
+      
+      retryCount.current = 0;
     } catch (error) {
       console.error("Error in handleSendMessage:", error);
+      debugLog(`Error in handleSendMessage: ${error.message || 'Unknown error'}`);
       
-      // Check if it's a thread not found error, in which case, reset the thread ID
-      if (error.message && (
-          error.message.includes("Thread not found") || 
-          error.message.includes("ThreadNotFound") ||
-          error.message.includes("No thread found"))) {
-        console.log("Thread error detected, resetting threadId to null");
+      const errorMessage = error.message || '';
+      if (errorMessage.toLowerCase().includes("thread") || 
+          errorMessage.toLowerCase().includes("not found")) {
+        debugLog(`Thread error detected, resetting threadId to null (was: ${threadIdRef.current})`);
         setThreadId(null);
-        toast.error("Session expired. Starting a new conversation.");
+        threadIdRef.current = null;
+        
+        if (retryCount.current < 2) {
+          retryCount.current++;
+          toast.warning("Session reset. Retrying...");
+          debugLog(`Retry attempt #${retryCount.current}`);
+          
+          setTimeout(() => {
+            handleSendMessage(message);
+          }, 500);
+          return;
+        } else {
+          toast.error("Failed to establish a stable session. Please try again later.");
+          retryCount.current = 0;
+        }
       } else {
         toast.error("Failed to send message. Please try again.");
       }
+      
+      setMessages(prev => [...prev, {
+        id: uuidv4(),
+        content: "Sorry, I encountered a technical problem. Please try again.",
+        isUser: false
+      }]);
+      
+      await saveMessageToDb({
+        conversation_id: conversationId,
+        content: "Sorry, I encountered a technical problem. Please try again.",
+        is_bot: true
+      });
     } finally {
       setSendingMessage(false);
     }
     
     setInputMessage("");
-  }, [conversationId, threadId, agentId, userId, messages.length, validSource]);
+  }, [conversationId, threadIdRef, agentId, userId, messages.length, validSource]);
 
   const resetConversation = useCallback(async () => {
     if (!userId) return;
 
-    console.log(`Resetting conversation with source: ${validSource}`);
+    debugLog(`Resetting conversation with source: ${validSource}`);
     const newConversationId = await createConversation(userId, validSource);
     
     if (newConversationId) {
       setConversationId(newConversationId);
-      setThreadId(null); // Reset threadId to null for a fresh start
+      setThreadId(null);
+      threadIdRef.current = null;
       setMessages([{ id: uuidv4(), content: "Hi! What can I help you with?", isUser: false }]);
+      debugLog(`Created new conversation with ID: ${newConversationId}, reset threadId to null`);
       
       await saveMessageToDb({
         conversation_id: newConversationId,

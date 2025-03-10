@@ -7,7 +7,7 @@
  * @returns A promise that resolves when the message is added or rejects with an error
  */
 export async function addMessageToThread(apiKey: string, threadId: string, message: string): Promise<void> {
-  console.log(`Adding message to thread ${threadId}`);
+  console.log(`[DEBUG] Adding message to thread ${threadId}`);
   
   try {
     const messageResponse = await fetch(`https://api.openai.com/v1/threads/${threadId}/messages`, {
@@ -25,30 +25,31 @@ export async function addMessageToThread(apiKey: string, threadId: string, messa
     
     if (!messageResponse.ok) {
       const errorData = await messageResponse.json();
-      console.error("Failed to add message:", errorData);
+      console.error("[DEBUG] Failed to add message:", errorData);
       
       // Enhanced detection for thread not found errors with multiple patterns
-      if (errorData.error?.message?.includes("No thread found") || 
-          errorData.error?.message?.includes("Thread not found") ||
-          errorData.error?.message?.includes("thread") && errorData.error?.type === "invalid_request_error" ||
+      if (errorData.error?.message?.toLowerCase().includes("no thread found") || 
+          errorData.error?.message?.toLowerCase().includes("thread not found") ||
+          errorData.error?.message?.toLowerCase().includes("thread") && errorData.error?.type === "invalid_request_error" ||
           errorData.error?.type === "invalid_request_error" && threadId.includes("thread_")) {
-        console.log(`Thread not found error detected for ID: ${threadId}`);
+        console.log(`[DEBUG] Thread not found error detected for ID: ${threadId}`);
         throw new Error(`ThreadNotFound: ${threadId}`);
       }
       
       throw new Error(`Failed to add message: ${errorData.error?.message || 'Unknown error'}`);
     }
     
-    console.log("Message added successfully");
+    console.log("[DEBUG] Message added successfully");
   } catch (error) {
-    console.error("Error adding message to thread:", error);
+    console.error("[DEBUG] Error adding message to thread:", error);
     
     // Enhanced error propagation with broader pattern matching
-    if (error.message?.includes("No thread found") || 
-        error.message?.includes("Thread not found") ||
-        error.message?.includes("ThreadNotFound:") || 
-        error.message?.includes("invalid_request_error") && threadId.includes("thread_")) {
-      console.log(`Normalizing thread error for ID: ${threadId}`);
+    const errorMessage = error.message || '';
+    if (errorMessage.toLowerCase().includes("no thread found") || 
+        errorMessage.toLowerCase().includes("thread not found") ||
+        errorMessage.toLowerCase().includes("threadnotfound") || 
+        errorMessage.toLowerCase().includes("invalid_request_error") && threadId.includes("thread_")) {
+      console.log(`[DEBUG] Normalizing thread error for ID: ${threadId}`);
       throw new Error(`ThreadNotFound: ${threadId}`);
     }
     
@@ -63,7 +64,7 @@ export async function addMessageToThread(apiKey: string, threadId: string, messa
  * @returns The message content
  */
 export async function getLatestAssistantMessage(apiKey: string, threadId: string): Promise<string> {
-  console.log(`Getting latest message from thread ${threadId}`);
+  console.log(`[DEBUG] Getting latest message from thread ${threadId}`);
   
   try {
     const messagesResponse = await fetch(`https://api.openai.com/v1/threads/${threadId}/messages?order=desc&limit=1`, {
@@ -75,14 +76,14 @@ export async function getLatestAssistantMessage(apiKey: string, threadId: string
     
     if (!messagesResponse.ok) {
       const errorData = await messagesResponse.json();
-      console.error("Failed to retrieve messages:", errorData);
+      console.error("[DEBUG] Failed to retrieve messages:", errorData);
       
       // Enhanced detection for thread not found errors
-      if (errorData.error?.message?.includes("No thread found") || 
-          errorData.error?.message?.includes("Thread not found") ||
-          errorData.error?.message?.includes("thread") && errorData.error?.type === "invalid_request_error" ||
+      if (errorData.error?.message?.toLowerCase().includes("no thread found") || 
+          errorData.error?.message?.toLowerCase().includes("thread not found") ||
+          errorData.error?.message?.toLowerCase().includes("thread") && errorData.error?.type === "invalid_request_error" ||
           errorData.error?.type === "invalid_request_error" && threadId.includes("thread_")) {
-        console.log(`Thread not found error detected for ID: ${threadId}`);
+        console.log(`[DEBUG] Thread not found error detected for ID: ${threadId}`);
         throw new Error(`ThreadNotFound: ${threadId}`);
       }
       
@@ -100,14 +101,15 @@ export async function getLatestAssistantMessage(apiKey: string, threadId: string
     
     return '';
   } catch (error) {
-    console.error("Error retrieving messages:", error);
+    console.error("[DEBUG] Error retrieving messages:", error);
     
     // Enhanced error propagation with broader pattern matching
-    if (error.message?.includes("No thread found") || 
-        error.message?.includes("Thread not found") ||
-        error.message?.includes("ThreadNotFound:") || 
-        error.message?.includes("invalid_request_error") && threadId.includes("thread_")) {
-      console.log(`Normalizing thread error for ID: ${threadId}`);
+    const errorMessage = error.message || '';
+    if (errorMessage.toLowerCase().includes("no thread found") || 
+        errorMessage.toLowerCase().includes("thread not found") ||
+        errorMessage.toLowerCase().includes("threadnotfound") || 
+        errorMessage.toLowerCase().includes("invalid_request_error") && threadId.includes("thread_")) {
+      console.log(`[DEBUG] Normalizing thread error for ID: ${threadId}`);
       throw new Error(`ThreadNotFound: ${threadId}`);
     }
     
