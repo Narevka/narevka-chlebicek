@@ -14,9 +14,6 @@ import CodeSnippet from "@/components/connect/CodeSnippet";
 import { useToast } from "@/hooks/use-toast";
 import { v4 as uuidv4 } from "uuid";
 
-// Update this to use the actual production URL or current window origin for testing
-const EMBED_BASE_URL = window.location.origin || "https://chatbase.co"; 
-
 const Connect = () => {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
@@ -33,6 +30,9 @@ const Connect = () => {
   const location = useLocation();
   const [activeTab, setActiveTab] = useState("embed");
 
+  // Get the actual application origin
+  const APP_ORIGIN = window.location.origin;
+  
   // Update active tab based on URL hash
   useEffect(() => {
     if (!location.hash || location.hash === "#embed") {
@@ -48,7 +48,7 @@ const Connect = () => {
   const bubbleCode = `<script>
   window.chatbaseConfig = {
     chatbotId: "${id}",
-    domain: "${EMBED_BASE_URL}",
+    domain: "${APP_ORIGIN}",
     title: "${agent?.name || 'Chat with our AI'}",
     description: "${agent?.description || 'Ask me anything!'}",
     primaryColor: "#6366f1"
@@ -65,7 +65,7 @@ const Connect = () => {
       let s = document.createElement("script");
       s.type = "text/javascript";
       s.async = true;
-      s.src = "${EMBED_BASE_URL}/embed.min.js";
+      s.src = "${APP_ORIGIN}/embed.min.js";
       let p = document.getElementsByTagName("script")[0];
       p.parentNode.insertBefore(s, p);
     }
@@ -73,7 +73,7 @@ const Connect = () => {
 </script>`;
 
   const iframeCode = `<iframe
-  src="${EMBED_BASE_URL}/chatbot-iframe/${id}"
+  src="${APP_ORIGIN}/chatbot-iframe/${id}"
   width="100%"
   style="height: 100%; min-height: 700px"
   frameborder="0"
@@ -94,7 +94,7 @@ const hmac = crypto.createHmac('sha256', secretKey)
 // Add this to your chatbaseConfig
 window.chatbaseConfig = {
   chatbotId: "${id}",
-  domain: "${EMBED_BASE_URL}",
+  domain: "${APP_ORIGIN}",
   user: {
     id: userId,
     hmac: hmac
@@ -197,6 +197,17 @@ window.chatbaseConfig = {
                         className="max-w-md"
                       />
                     </div>
+                    
+                    <div className="bg-amber-50 border border-amber-200 p-4 rounded-md flex items-start mb-6">
+                      <Info className="h-5 w-5 text-amber-600 mr-2 mt-0.5" />
+                      <div>
+                        <p className="text-amber-800 font-medium">Important</p>
+                        <p className="text-amber-700">
+                          Make sure to include this code in your website. The domain in the config must match the domain where your app is hosted.
+                        </p>
+                      </div>
+                    </div>
+                    
                     <CodeSnippet code={embedType === "bubble" ? bubbleCode : iframeCode} />
                   </div>
                 </CardContent>
