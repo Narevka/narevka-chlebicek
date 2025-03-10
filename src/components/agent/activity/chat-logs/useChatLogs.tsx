@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Conversation, Message, PaginationState, FilterState } from "../types";
 import { useAuth } from "@/context/AuthContext";
@@ -44,7 +43,6 @@ export const useChatLogs = () => {
     
     setIsLoading(true);
     
-    // Use the new filter service if filters are applied
     if (Object.values(filters).some(value => value !== null)) {
       const { conversations: filteredConversations, totalItems } = await fetchFilteredConversations(
         user.id,
@@ -58,13 +56,11 @@ export const useChatLogs = () => {
         totalItems: totalItems
       }));
       
-      // Extract unique sources
       const sources = getUniqueSourcesFromConversations(filteredConversations);
       if (sources.length > 0) {
         setAvailableSources(['all', ...sources]);
       }
     } else {
-      // Use the regular fetch if no filters
       const { conversations: loadedConversations, totalItems } = await fetchConversations(pagination, filters);
       
       setConversations(loadedConversations);
@@ -73,7 +69,6 @@ export const useChatLogs = () => {
         totalItems: totalItems
       }));
       
-      // Extract unique sources
       const sources = Array.from(new Set(loadedConversations.map(convo => convo.source)));
       if (sources.length > 0) {
         setAvailableSources(['all', ...sources]);
@@ -93,14 +88,32 @@ export const useChatLogs = () => {
 
   const handleDeleteConversation = async (conversationId: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    const success = await deleteConversation(conversationId);
-    if (success) {
-      setConversations(conversations.filter(convo => convo.id !== conversationId));
-      if (selectedConversation?.id === conversationId) {
-        setSelectedConversation(null);
-        setConversationMessages([]);
+    
+    toast.promise(
+      (async () => {
+        const success = await deleteConversation(conversationId);
+        
+        if (success) {
+          setConversations(prevConversations => 
+            prevConversations.filter(convo => convo.id !== conversationId)
+          );
+          
+          if (selectedConversation?.id === conversationId) {
+            setSelectedConversation(null);
+            setConversationMessages([]);
+          }
+          
+          return true;
+        } else {
+          throw new Error("Failed to delete conversation");
+        }
+      })(),
+      {
+        loading: "Deleting conversation...",
+        success: "Conversation deleted successfully",
+        error: "Failed to delete conversation"
       }
-    }
+    );
   };
 
   const filteredConversations = conversations.filter(convo => {

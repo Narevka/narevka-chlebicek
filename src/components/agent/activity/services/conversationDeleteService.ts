@@ -4,6 +4,15 @@ import { toast } from "sonner";
 
 export const deleteConversation = async (conversationId: string): Promise<boolean> => {
   try {
+    // Get the user ID from the current session for security
+    const { data: sessionData } = await supabase.auth.getSession();
+    const userId = sessionData.session?.user?.id;
+    
+    if (!userId) {
+      toast.error("You must be logged in to delete conversations");
+      return false;
+    }
+
     // Delete associated messages first
     const { error: messagesError } = await supabase
       .from('messages')
@@ -12,11 +21,12 @@ export const deleteConversation = async (conversationId: string): Promise<boolea
     
     if (messagesError) throw messagesError;
     
-    // Then delete the conversation
+    // Then delete the conversation, ensuring it belongs to the current user
     const { error } = await supabase
       .from('conversations')
       .delete()
-      .eq('id', conversationId);
+      .eq('id', conversationId)
+      .eq('user_id', userId); // Important: only delete if it belongs to the current user
     
     if (error) throw error;
     
