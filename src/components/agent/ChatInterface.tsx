@@ -10,9 +10,10 @@ import { useConversation } from "@/hooks/useConversation";
 interface ChatInterfaceProps {
   agentName: string;
   agentId?: string;
+  source?: string;
 }
 
-const ChatInterface = ({ agentName, agentId }: ChatInterfaceProps) => {
+const ChatInterface = ({ agentName, agentId, source = "Playground" }: ChatInterfaceProps) => {
   const { user } = useAuth();
   const {
     messages,
@@ -21,7 +22,7 @@ const ChatInterface = ({ agentName, agentId }: ChatInterfaceProps) => {
     sendingMessage,
     handleSendMessage,
     resetConversation
-  } = useConversation(user?.id, agentId);
+  } = useConversation(user?.id, agentId, source);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {

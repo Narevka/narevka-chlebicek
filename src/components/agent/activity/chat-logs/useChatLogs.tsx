@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from "react";
 import { Conversation, Message, PaginationState, FilterState } from "../types";
 import { useAuth } from "@/context/AuthContext";
@@ -38,12 +39,17 @@ export const useChatLogs = () => {
     // Initialize from localStorage on component mount
     try {
       const storedIds = localStorage.getItem(DELETED_CONVERSATIONS_STORAGE_KEY);
-      console.log("Retrieved deleted IDs from localStorage:", storedIds);
-      return storedIds ? new Set(JSON.parse(storedIds)) : new Set<string>();
+      if (storedIds) {
+        const parsedIds = JSON.parse(storedIds);
+        console.log("Retrieved deleted IDs from localStorage:", parsedIds);
+        if (Array.isArray(parsedIds)) {
+          return new Set<string>(parsedIds);
+        }
+      }
     } catch (error) {
       console.error("Error loading deleted IDs from localStorage:", error);
-      return new Set<string>();
     }
+    return new Set<string>();
   });
 
   // Persist deletedConversationIds to localStorage whenever it changes
@@ -85,7 +91,8 @@ export const useChatLogs = () => {
       const { conversations: loadedConversations, totalItems } = result;
       
       // Filter out any conversations that are marked as deleted locally
-      console.log("Filtering conversations with deleted IDs:", Array.from(deletedConversationIds));
+      const deletedIdsArray = Array.from(deletedConversationIds);
+      console.log("Filtering conversations with deleted IDs:", deletedIdsArray);
       const filteredResult = loadedConversations.filter(
         convo => !deletedConversationIds.has(convo.id)
       );

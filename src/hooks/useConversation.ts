@@ -23,6 +23,8 @@ export const useConversation = (userId: string | undefined, agentId: string | un
     const initConversation = async () => {
       if (!userId) return;
 
+      // Use the source parameter passed to the hook
+      console.log("Initializing conversation with source:", source);
       const newConversationId = await createConversation(userId, source);
       
       if (newConversationId) {
@@ -91,7 +93,8 @@ export const useConversation = (userId: string | undefined, agentId: string | un
   const resetConversation = useCallback(async () => {
     if (!userId) return;
 
-    // Create a new conversation
+    // Create a new conversation with the same source
+    console.log("Resetting conversation with source:", source);
     const newConversationId = await createConversation(userId, source);
     
     if (newConversationId) {

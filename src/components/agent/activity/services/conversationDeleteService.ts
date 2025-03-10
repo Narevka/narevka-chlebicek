@@ -36,6 +36,23 @@ export const deleteConversation = async (conversationId: string): Promise<boolea
     }
     
     console.log("Successfully deleted conversation and messages for ID:", conversationId);
+    
+    // Store deleted ID in localStorage as an additional backup
+    try {
+      const DELETED_CONVERSATIONS_STORAGE_KEY = "deletedConversationIds";
+      const storedIdsString = localStorage.getItem(DELETED_CONVERSATIONS_STORAGE_KEY);
+      const storedIds = storedIdsString ? JSON.parse(storedIdsString) : [];
+      
+      if (!storedIds.includes(conversationId)) {
+        storedIds.push(conversationId);
+        localStorage.setItem(DELETED_CONVERSATIONS_STORAGE_KEY, JSON.stringify(storedIds));
+        console.log("Added conversation ID to deleted list in localStorage");
+      }
+    } catch (storageError) {
+      console.error("Error updating localStorage:", storageError);
+      // Continue even if localStorage fails
+    }
+    
     return true;
   } catch (error) {
     console.error("Error in deleteConversation:", error);
