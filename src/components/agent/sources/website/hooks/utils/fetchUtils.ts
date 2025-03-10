@@ -34,13 +34,26 @@ export const fetchCrawledWebsites = async (
         console.error("Error parsing content:", e);
       }
       
+      // Extract crawl report if available
+      const crawlReport = parsedContent.crawl_report || null;
+      
+      // Extract debug logs if available
+      const debugLogs = parsedContent.logs || [];
+      
       return {
         url: parsedContent.url || "Unknown URL",
         count: parsedContent.pages_crawled || 0,
         sourceId: source.id,
         status: parsedContent.status || "completed",
         error: parsedContent.error,
-        chars: source.chars || 0
+        chars: source.chars || 0,
+        requestedLimit: parsedContent.crawl_options?.limit,
+        crawlOptions: parsedContent.crawl_options || {},
+        crawlReport: crawlReport,
+        debugLogs: debugLogs,
+        createdAt: source.created_at,
+        // Extract page size distribution data if available
+        pageSizes: crawlReport?.pageSizes || []
       };
     });
   } catch (error) {

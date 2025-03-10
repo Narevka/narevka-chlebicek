@@ -36,6 +36,7 @@ export const useWebsiteLogs = (includedLinks: WebsiteSourceItem[]) => {
       `Created: ${link.createdAt || "Unknown"}`,
       `Pages: ${link.count || 0}`,
       `Size: ${link.chars ? Math.round(link.chars / 1024) + 'KB' : 'Unknown'}`,
+      `Average Page Size: ${(link.chars && link.count) ? Math.round(link.chars / link.count / 1024) + 'KB/page' : 'Unknown'}`,
       `Requested limit: ${link.requestedLimit || "Default"}`,
       ''
     ];
@@ -79,6 +80,35 @@ export const useWebsiteLogs = (includedLinks: WebsiteSourceItem[]) => {
     if (link.crawlReport) {
       formattedLogs.push('');
       formattedLogs.push('--- CRAWL REPORT ---');
+      
+      // Add a summary section with the most important metrics
+      formattedLogs.push('Summary:');
+      formattedLogs.push(`- Total Pages: ${link.count || 0}`);
+      formattedLogs.push(`- Total Size: ${link.chars ? (Math.round(link.chars / 1024) + 'KB') : 'Unknown'}`);
+      
+      if (link.chars && link.count) {
+        formattedLogs.push(`- Average Page Size: ${Math.round(link.chars / link.count / 1024)}KB per page`);
+      }
+      
+      if (link.crawlReport.originalLength && link.crawlReport.storedLength) {
+        const truncationPercentage = Math.round((1 - link.crawlReport.storedLength / link.crawlReport.originalLength) * 100);
+        if (truncationPercentage > 0) {
+          formattedLogs.push(`- Content Truncation: ${truncationPercentage}% of content was truncated (stored ${Math.round(link.crawlReport.storedLength / 1024)}KB of ${Math.round(link.crawlReport.originalLength / 1024)}KB)`);
+        }
+      }
+      
+      // Add page size distribution if available
+      if (link.crawlReport.pageSizes && link.crawlReport.pageSizes.length > 0) {
+        formattedLogs.push('');
+        formattedLogs.push('Page Size Distribution (Sample):');
+        link.crawlReport.pageSizes.forEach((page: any, i: number) => {
+          const size = page.size_kb || Math.round(page.chars / 1024);
+          formattedLogs.push(`- ${page.url}: ${size}KB`);
+        });
+      }
+      
+      formattedLogs.push('');
+      formattedLogs.push('Full Report:');
       try {
         const reportStr = JSON.stringify(link.crawlReport, null, 2);
         reportStr.split('\n').forEach(line => {
