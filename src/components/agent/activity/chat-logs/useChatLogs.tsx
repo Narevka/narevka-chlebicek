@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Conversation, Message, PaginationState, FilterState } from "../types";
 import { useAuth } from "@/context/AuthContext";
@@ -101,35 +100,18 @@ export const useChatLogs = () => {
       setConversationMessages([]);
     }
     
-    // Show a temporary toast for immediate feedback
-    const toastId = toast.loading("Deleting conversation...");
-    
-    // Perform the actual deletion in the background
+    // Perform the deletion in the background without blocking UI
     try {
       const success = await deleteConversation(conversationId);
       
-      if (success) {
-        toast.success("Conversation deleted successfully", {
-          id: toastId,
-        });
-        
-        // Silently refresh the conversations list in the background
-        // to ensure our data stays in sync with the server
-        setTimeout(() => {
-          loadConversations().catch(console.error);
-        }, 500);
-      } else {
-        // If deletion failed, revert the UI change
-        toast.error("Failed to delete conversation", {
-          id: toastId,
-        });
-        loadConversations(); // Reload to restore the conversation
+      if (!success) {
+        // Only show error and revert if deletion failed
+        toast.error("Failed to delete conversation");
+        loadConversations();
       }
     } catch (error) {
-      toast.error("Failed to delete conversation", {
-        id: toastId,
-      });
-      loadConversations(); // Reload to restore the conversation
+      toast.error("Failed to delete conversation");
+      loadConversations();
     }
   };
 
