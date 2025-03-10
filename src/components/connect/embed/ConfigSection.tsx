@@ -35,20 +35,29 @@ const ConfigSection: React.FC<ConfigSectionProps> = ({
     primaryColor: "#6366f1"
   }
   
+  console.log('Initializing chat widget...');
+  
   (function() {
     if (!window.chatbase || window.chatbase("getState") !== "initialized") {
+      console.log('Creating chatbase object...');
       window.chatbase = (...arguments) => {
         if (!window.chatbase.q) {
           window.chatbase.q = [];
         }
         window.chatbase.q.push(arguments);
+        console.log('Chatbase command queued:', arguments);
       };
+      
       let s = document.createElement("script");
       s.type = "text/javascript";
       s.async = true;
       s.src = "${customDomain}/embed.min.js";
+      s.onload = () => console.log('Embed script loaded successfully');
+      s.onerror = (e) => console.error('Error loading embed script:', e);
+      
       let p = document.getElementsByTagName("script")[0];
       p.parentNode.insertBefore(s, p);
+      console.log('Embed script tag added to page');
     }
   })();
 </script>`;
