@@ -24,20 +24,23 @@ export const saveMessageToDb = async (messageData: {
 
 export const createConversation = async (userId: string, source: string = "Playground") => {
   try {
-    console.log("Creating new conversation for user:", userId, "source:", source);
+    // Sanitize source to ensure it's a valid value
+    const validSource = source || "Website";
+    console.log("Creating new conversation for user:", userId, "source:", validSource);
+    
     const { data, error } = await supabase
       .from('conversations')
       .insert({
         user_id: userId,
         title: "New conversation",
-        source: source
+        source: validSource
       })
       .select('id')
       .single();
 
     if (error) throw error;
     
-    console.log("Created conversation with ID:", data.id);
+    console.log("Created conversation with ID:", data.id, "source:", validSource);
     return data.id;
   } catch (error) {
     console.error("Error creating conversation:", error);

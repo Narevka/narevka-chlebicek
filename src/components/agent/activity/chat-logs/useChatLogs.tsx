@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from "react";
 import { Conversation, Message, PaginationState, FilterState } from "../types";
 import { useAuth } from "@/context/AuthContext";
@@ -11,8 +10,8 @@ import {
   getUniqueSourcesFromConversations
 } from "../services";
 
-// Local storage key for deleted conversation IDs
-const DELETED_CONVERSATIONS_STORAGE_KEY = "deletedConversationIds";
+// Export DELETED_CONVERSATIONS_STORAGE_KEY as a constant
+export const DELETED_CONVERSATIONS_STORAGE_KEY = "deletedConversationIds";
 
 export const useChatLogs = () => {
   const { user } = useAuth();
@@ -36,15 +35,12 @@ export const useChatLogs = () => {
   const [showFilterPanel, setShowFilterPanel] = useState(false);
   const [availableSources, setAvailableSources] = useState<string[]>(['Playground', 'Website', 'WordPress', 'Bubble']);
   const [deletedConversationIds, setDeletedConversationIds] = useState<Set<string>>(() => {
-    // Initialize from localStorage on component mount
     try {
       const storedIds = localStorage.getItem(DELETED_CONVERSATIONS_STORAGE_KEY);
       if (storedIds) {
-        const parsedIds = JSON.parse(storedIds);
+        const parsedIds = JSON.parse(storedIds) as string[];
         console.log("Retrieved deleted IDs from localStorage:", parsedIds);
-        if (Array.isArray(parsedIds)) {
-          return new Set<string>(parsedIds);
-        }
+        return new Set<string>(parsedIds);
       }
     } catch (error) {
       console.error("Error loading deleted IDs from localStorage:", error);
@@ -70,9 +66,7 @@ export const useChatLogs = () => {
   const loadConversations = useCallback(async () => {
     if (!user) return;
     
-    console.log("Loading conversations, user:", user.id);
-    console.log("Current deleted IDs:", Array.from(deletedConversationIds));
-    
+    console.log("Loading conversations for user:", user.id);
     setIsLoading(true);
     
     try {
@@ -90,14 +84,16 @@ export const useChatLogs = () => {
       
       const { conversations: loadedConversations, totalItems } = result;
       
-      // Filter out any conversations that are marked as deleted locally
-      const deletedIdsArray = Array.from(deletedConversationIds);
-      console.log("Filtering conversations with deleted IDs:", deletedIdsArray);
+      // Filter out deleted conversations
       const filteredResult = loadedConversations.filter(
         convo => !deletedConversationIds.has(convo.id)
       );
       
-      console.log("Original count:", loadedConversations.length, "Filtered count:", filteredResult.length);
+      console.log("Loaded conversations:", {
+        total: loadedConversations.length,
+        filtered: filteredResult.length,
+        sources: filteredResult.map(c => c.source)
+      });
       
       setConversations(filteredResult);
       setPagination(prev => ({
@@ -105,7 +101,7 @@ export const useChatLogs = () => {
         totalItems: Math.max(0, totalItems - deletedConversationIds.size)
       }));
       
-      // Update available sources
+      // Update available sources including all sources
       if (filteredResult.length > 0) {
         const sources = Array.from(new Set(filteredResult.map(convo => convo.source))).filter(Boolean);
         setAvailableSources(['all', ...sources]);
