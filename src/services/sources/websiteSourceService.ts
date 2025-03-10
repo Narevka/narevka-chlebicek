@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { SourceItem } from "@/types/sources";
 import { toast } from "sonner";
 import { CrawlOptions } from "@/hooks/useAgentSources";
+import { fetchAgentSources } from "./baseSourceService";
 
 export const addWebsiteSource = async (
   agentId: string, 
