@@ -43,7 +43,14 @@ app.get('/chatbot/:filename', (req, res) => {
 // Serve the chatbot iframe template - capture and forward source parameter
 app.get('/chatbot-iframe/:id', (req, res) => {
   // Capture the source parameter for conversation tracking
-  const source = req.query.source || 'Website';
+  // Make sure to normalize the source value
+  let source = req.query.source || 'Website';
+  
+  // Normalize WordPress source (ensure consistent casing)
+  if (typeof source === 'string' && source.toLowerCase() === 'wordpress') {
+    source = 'WordPress';
+  }
+  
   console.log(`Chatbot iframe requested for agent ${req.params.id} with source: ${source}`);
   
   // Read the template file
@@ -53,11 +60,29 @@ app.get('/chatbot-iframe/:id', (req, res) => {
       return res.status(500).send('Error loading chatbot');
     }
     
-    // Insert the source parameter into the template
-    const modifiedTemplate = data.replace(
-      /window\.chatbaseConfig\s*=\s*{/g, 
-      `window.chatbaseConfig = {\n    source: "${source}",`
-    );
+    // Replace existing source value or add it if not present
+    let modifiedTemplate;
+    if (data.includes('window.chatbaseConfig')) {
+      if (data.includes('source:')) {
+        // Replace existing source
+        modifiedTemplate = data.replace(
+          /source:.*?"(.+?)"/g, 
+          `source: "${source}"`
+        );
+      } else {
+        // Add source if not present
+        modifiedTemplate = data.replace(
+          /window\.chatbaseConfig\s*=\s*{/g, 
+          `window.chatbaseConfig = {\n    source: "${source}",`
+        );
+      }
+    } else {
+      // If no config, add it (unlikely case)
+      modifiedTemplate = data.replace(
+        /<head>/,
+        `<head>\n<script>window.chatbaseConfig = { source: "${source}" };</script>`
+      );
+    }
     
     res.send(modifiedTemplate);
   });
@@ -65,7 +90,13 @@ app.get('/chatbot-iframe/:id', (req, res) => {
 
 // Serve the standalone chatbot page
 app.get('/chatbot/:id', (req, res) => {
-  const source = req.query.source || 'Website';
+  let source = req.query.source || 'Website';
+  
+  // Normalize WordPress source
+  if (typeof source === 'string' && source.toLowerCase() === 'wordpress') {
+    source = 'WordPress';
+  }
+  
   console.log(`Standalone chatbot requested for agent ${req.params.id} with source: ${source}`);
   
   // Read the template file
@@ -75,11 +106,21 @@ app.get('/chatbot/:id', (req, res) => {
       return res.status(500).send('Error loading chatbot');
     }
     
-    // Insert the source parameter into the template
-    const modifiedTemplate = data.replace(
-      /window\.chatbaseConfig\s*=\s*{/g, 
-      `window.chatbaseConfig = {\n    source: "${source}",`
-    );
+    // Insert or update the source parameter in the template
+    let modifiedTemplate;
+    if (data.includes('source:')) {
+      // Replace existing source
+      modifiedTemplate = data.replace(
+        /source:.*?"(.+?)"/g, 
+        `source: "${source}"`
+      );
+    } else {
+      // Add source if not present
+      modifiedTemplate = data.replace(
+        /window\.chatbaseConfig\s*=\s*{/g, 
+        `window.chatbaseConfig = {\n    source: "${source}",`
+      );
+    }
     
     res.send(modifiedTemplate);
   });
@@ -89,8 +130,12 @@ app.get('/chatbot/:id', (req, res) => {
 app.post('/functions/chat-with-assistant', async (req, res) => {
   try {
     const { message, agentId, conversationId } = req.body;
-    // Capture source if provided in the request
-    const source = req.body.source || 'Website';
+    
+    // Capture source if provided in the request, normalize if it's WordPress
+    let source = req.body.source || 'Website';
+    if (typeof source === 'string' && source.toLowerCase() === 'wordpress') {
+      source = 'WordPress';
+    }
     
     const supabaseUrl = process.env.SUPABASE_URL;
     const functionUrl = `${supabaseUrl}/functions/v1/chat-with-assistant`;
@@ -112,7 +157,7 @@ app.post('/functions/chat-with-assistant', async (req, res) => {
         message,
         agentId,
         conversationId,
-        source // Forward the source parameter
+        source
       }),
     });
     

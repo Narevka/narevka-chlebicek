@@ -33,28 +33,40 @@ const ConfigSection: React.FC<ConfigSectionProps> = ({
     title: "${agentName || 'Chat with our AI'}",
     description: "${agentDescription || 'Ask me anything!'}",
     primaryColor: "#6366f1",
-    source: "WordPress" // Set source specifically to WordPress for WordPress embedding
+    source: "WordPress" // Explicitly set source to WordPress
   }
   
   console.log('Initializing chat widget with source: WordPress');
   
   (function() {
+    var elementId = 'chatbase-bubble-script';
+    if (document.getElementById(elementId)) {
+      console.log('Script already exists, refreshing...');
+      document.getElementById(elementId).remove();
+    }
+    
     if (!window.chatbase || window.chatbase("getState") !== "initialized") {
-      console.log('Creating chatbase object...');
-      window.chatbase = (...arguments) => {
+      console.log('Creating chatbase object with WordPress source...');
+      window.chatbase = function() {
+        var args = arguments;
         if (!window.chatbase.q) {
           window.chatbase.q = [];
         }
-        window.chatbase.q.push(arguments);
-        console.log('Chatbase command queued:', arguments);
+        window.chatbase.q.push(args);
+        console.log('Chatbase command queued:', args);
+        return window.chatbase;
       };
       
       let s = document.createElement("script");
+      s.id = elementId;
       s.type = "text/javascript";
       s.async = true;
       s.src = "${customDomain}/embed.min.js";
-      s.onload = () => console.log('Embed script loaded successfully');
-      s.onerror = (e) => console.error('Error loading embed script:', e);
+      s.onload = function() { 
+        console.log('Embed script loaded successfully');
+        window.chatbase("setSource", "WordPress"); // Force set source
+      };
+      s.onerror = function(e) { console.error('Error loading embed script:', e); };
       
       let p = document.getElementsByTagName("script")[0];
       p.parentNode.insertBefore(s, p);
@@ -78,11 +90,17 @@ const ConfigSection: React.FC<ConfigSectionProps> = ({
 3. Paste the code below into the HTML block/widget
 4. Save and publish your changes
 5. If the chat bubble doesn't appear, try adding the code to your theme's footer.php file
-6. You may need to clear your cache or use incognito mode to see changes
-7. Important: To make changes visible to all users (including those in incognito mode), make sure to:
-   - Clear your WordPress cache (if using a caching plugin)
-   - Clear your browser cache
-   - Publish your changes - make sure to click the "Update" or "Publish" button
+
+IMPORTANT: To make your changes visible to all users:
+- In the WordPress editor, click the "Update" or "Publish" button in the top-right corner
+- If using a caching plugin, clear your WordPress cache
+- Clear your browser cache or test in incognito mode
+
+If the chat bubble is visible when logged in as admin but not in incognito:
+- Make sure you've clicked "Update" or "Publish" - this is critical!
+- Go to Settings → Permalink and click "Save Changes" (this refreshes WordPress routes)
+- Try clearing all caches (WordPress cache plugins, browser cache, CDN cache if applicable)
+- Check if any security plugins might be blocking scripts for anonymous users
 `;
 
   const debugCode = `

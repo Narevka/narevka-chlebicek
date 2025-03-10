@@ -24,18 +24,37 @@ export const saveMessageToDb = async (messageData: {
 
 export const createConversation = async (userId: string, source: string = "Playground") => {
   try {
-    // Validate source value - ensure it's one of the allowed values or use default
+    // Validate and normalize source value
     const validSources = ["Playground", "Website", "WordPress", "Bubble"];
-    const validSource = validSources.includes(source) ? source : "Website";
     
-    console.log(`Creating new conversation for user: ${userId}, with source: ${validSource} (original source: ${source})`);
+    // Ensure source is a string and convert to proper case if needed
+    let normalizedSource: string;
+    
+    if (typeof source !== 'string' || !source.trim()) {
+      console.warn(`Invalid source provided: ${source}, defaulting to "Playground"`);
+      normalizedSource = "Playground";
+    } else {
+      // Try to match with valid sources (case insensitive)
+      const sourceLower = source.trim().toLowerCase();
+      const matchedSource = validSources.find(s => s.toLowerCase() === sourceLower);
+      
+      if (matchedSource) {
+        normalizedSource = matchedSource; // Use the properly cased version
+      } else {
+        // If not exactly matching our valid sources but not empty, use as is
+        normalizedSource = source.trim();
+        console.log(`Using custom source: "${normalizedSource}"`);
+      }
+    }
+    
+    console.log(`Creating new conversation for user: ${userId}, with source: ${normalizedSource}`);
     
     const { data, error } = await supabase
       .from('conversations')
       .insert({
         user_id: userId,
         title: "New conversation",
-        source: validSource
+        source: normalizedSource
       })
       .select('id')
       .single();
@@ -50,7 +69,7 @@ export const createConversation = async (userId: string, source: string = "Playg
       return null;
     }
     
-    console.log(`Created conversation with ID: ${data.id}, source: ${validSource}`);
+    console.log(`Created conversation with ID: ${data.id}, source: ${normalizedSource}`);
     return data.id;
   } catch (error) {
     console.error("Error creating conversation:", error);
@@ -80,12 +99,23 @@ export const updateConversationSource = async (conversationId: string, source: s
   try {
     // Validate source value
     const validSources = ["Playground", "Website", "WordPress", "Bubble"];
-    const validSource = validSources.includes(source) ? source : "Website";
     
-    console.log(`Updating conversation source: ${conversationId}, new source: ${validSource}`);
+    // Ensure source is a string
+    if (typeof source !== 'string' || !source.trim()) {
+      console.warn(`Invalid source provided: ${source}, defaulting to "Website"`);
+      source = "Website";
+    }
+    
+    // Try to match with valid sources (case insensitive)
+    const sourceLower = source.trim().toLowerCase();
+    const matchedSource = validSources.find(s => s.toLowerCase() === sourceLower);
+    
+    const normalizedSource = matchedSource || source.trim();
+    
+    console.log(`Updating conversation source: ${conversationId}, new source: ${normalizedSource}`);
     const { error } = await supabase
       .from('conversations')
-      .update({ source: validSource })
+      .update({ source: normalizedSource })
       .eq('id', conversationId);
 
     if (error) throw error;

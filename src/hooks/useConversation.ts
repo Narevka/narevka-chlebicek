@@ -17,22 +17,18 @@ export const useConversation = (userId: string | undefined, agentId: string | un
   const [sendingMessage, setSendingMessage] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [threadId, setThreadId] = useState<string | null>(null);
+  
+  // Ensure source is a valid string
+  const validSource = typeof source === 'string' && source.trim() !== '' 
+    ? source.trim() 
+    : "Playground";
 
   useEffect(() => {
     // Create a new conversation when component mounts
     const initConversation = async () => {
       if (!userId) return;
 
-      // Make sure source is a valid string
-      let validSource: string;
-      if (typeof source === 'string' && source.trim() !== '') {
-        validSource = source;
-      } else {
-        console.warn(`Invalid source provided: ${source}, defaulting to "Playground"`);
-        validSource = "Playground";
-      }
-
-      console.log(`Initializing conversation with source: ${validSource}`);
+      console.log(`useConversation: Initializing conversation with source: ${validSource}`);
       const newConversationId = await createConversation(userId, validSource);
       
       if (newConversationId) {
@@ -51,7 +47,7 @@ export const useConversation = (userId: string | undefined, agentId: string | un
     };
 
     initConversation();
-  }, [userId, source]);
+  }, [userId, validSource]);
 
   const handleSendMessage = useCallback(async (message: string) => {
     if (!message.trim() || !conversationId || !agentId) return;
@@ -73,7 +69,14 @@ export const useConversation = (userId: string | undefined, agentId: string | un
     });
     
     try {
-      const { botResponse, threadId: newThreadId } = await getAssistantResponse(message, agentId, threadId);
+      // Ensure source is passed to the assistant API
+      console.log(`Sending message with source: ${validSource}`);
+      const { botResponse, threadId: newThreadId } = await getAssistantResponse(
+        message, 
+        agentId, 
+        threadId,
+        validSource // Pass source to the assistant API
+      );
       
       // Update thread ID if it's a new conversation
       if (newThreadId && !threadId) {
@@ -99,14 +102,14 @@ export const useConversation = (userId: string | undefined, agentId: string | un
     }
     
     setInputMessage("");
-  }, [conversationId, threadId, agentId, userId, messages.length]);
+  }, [conversationId, threadId, agentId, userId, messages.length, validSource]);
 
   const resetConversation = useCallback(async () => {
     if (!userId) return;
 
     // Create a new conversation with the same source
-    console.log("Resetting conversation with source:", source);
-    const newConversationId = await createConversation(userId, source);
+    console.log(`Resetting conversation with source: ${validSource}`);
+    const newConversationId = await createConversation(userId, validSource);
     
     if (newConversationId) {
       setConversationId(newConversationId);
@@ -124,7 +127,7 @@ export const useConversation = (userId: string | undefined, agentId: string | un
     } else {
       toast.error("Failed to reset conversation");
     }
-  }, [userId, source]);
+  }, [userId, validSource]);
 
   return {
     messages,

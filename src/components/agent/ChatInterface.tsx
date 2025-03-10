@@ -1,5 +1,5 @@
 
-import React from "react";
+import React, { useEffect } from "react";
 import { RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import MessageList from "./MessageList";
@@ -16,8 +16,13 @@ interface ChatInterfaceProps {
 const ChatInterface = ({ agentName, agentId, source = "Playground" }: ChatInterfaceProps) => {
   const { user } = useAuth();
   
+  // Validate source - ensure it's a string and not empty
+  const validSource = typeof source === 'string' && source.trim() !== '' 
+    ? source.trim() 
+    : "Playground";
+  
   // Log the source for debugging purposes
-  console.log(`Initializing ChatInterface with source: "${source}"`);
+  console.log(`ChatInterface: Using conversation source: "${validSource}"`);
   
   const {
     messages,
@@ -26,7 +31,12 @@ const ChatInterface = ({ agentName, agentId, source = "Playground" }: ChatInterf
     sendingMessage,
     handleSendMessage,
     resetConversation
-  } = useConversation(user?.id, agentId, source);
+  } = useConversation(user?.id, agentId, validSource);
+
+  // Effect to log when source changes
+  useEffect(() => {
+    console.log(`ChatInterface: Source parameter changed to "${validSource}"`);
+  }, [validSource]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
@@ -49,8 +59,8 @@ const ChatInterface = ({ agentName, agentId, source = "Playground" }: ChatInterf
           </div>
           <div>
             <h3 className="text-md font-medium">{agentName}</h3>
-            {source && source !== "Playground" && (
-              <div className="text-xs text-gray-500 text-center">Source: {source}</div>
+            {validSource && validSource !== "Playground" && (
+              <div className="text-xs text-gray-500 text-center">Source: {validSource}</div>
             )}
           </div>
           <div>
