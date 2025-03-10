@@ -62,6 +62,7 @@ export const useCrawlStatusChecker = ({
                 continue;
               }
 
+              // Check if status changed
               if (content.status && content.status !== link.status) {
                 // Log the full content for debugging
                 console.log(`Status change for source ${link.sourceId} (${link.url}):`, content);
@@ -75,17 +76,21 @@ export const useCrawlStatusChecker = ({
                   error: content.error,
                   count: content.pages_crawled || link.count,
                   chars: data.chars || link.chars,
-                  crawlReport: crawlReport
+                  crawlReport: crawlReport,
+                  notificationShown: false // Reset notification flag when status changes
                 };
                 hasChanges = true;
 
-                if (content.status === 'completed') {
+                // Only show notification if it hasn't been shown yet and status is completed or error
+                if (content.status === 'completed' && !link.notificationShown) {
+                  updatedLinks[i].notificationShown = true; // Mark as shown
                   const limitInfo = link.requestedLimit 
                     ? ` (got ${content.pages_crawled || 0} of ${link.requestedLimit} pages)`
                     : '';
                   toast.success(`Crawl completed for ${link.url}${limitInfo}`);
                   console.log(`Crawl completed for ${link.url}${limitInfo}`);
-                } else if (content.status === 'error') {
+                } else if (content.status === 'error' && !link.notificationShown) {
+                  updatedLinks[i].notificationShown = true; // Mark as shown
                   toast.error(`Crawl failed for ${link.url}: ${content.error}`);
                   console.error(`Crawl failed for ${link.url}: ${content.error}`);
                 }
@@ -151,7 +156,8 @@ export const useCrawlStatusChecker = ({
           error: content.error,
           count: content.pages_crawled || newLinks[index].count,
           chars: data.chars || newLinks[index].chars,
-          crawlReport: crawlReport
+          crawlReport: crawlReport,
+          notificationShown: true // Mark notification as shown for manual checks
         };
         
         setIncludedLinks(newLinks);

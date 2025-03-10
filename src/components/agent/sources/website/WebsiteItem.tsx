@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -20,6 +19,7 @@ export interface WebsiteSourceItem {
   requestedLimit?: number;
   crawlOptions?: any;
   crawlReport?: any;
+  notificationShown?: boolean; // Add this flag to track notification state
 }
 
 interface WebsiteItemProps {

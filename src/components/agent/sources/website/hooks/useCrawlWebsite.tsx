@@ -51,7 +51,8 @@ export const useCrawlWebsite = ({
         status: 'crawling',
         chars: 0,
         requestedLimit: crawlOptions.limit,
-        crawlOptions: crawlOptions
+        crawlOptions: crawlOptions,
+        notificationShown: false // Add flag to track if completion notification was shown
       };
       
       const updatedLinks = [newLink, ...includedLinks];

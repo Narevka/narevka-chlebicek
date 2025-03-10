@@ -30,20 +30,33 @@ const WebsiteSource = () => {
   });
 
   const showDebugInfo = () => {
-    console.log("Website sources state:", {
-      includedLinks,
-      isLoading,
-      downloadingId,
-      agentId
-    });
+    // Enhanced debugging: Output more detailed information to the console
+    console.log("%c Website Crawler Debug Information", "font-size: 16px; font-weight: bold; color: blue;");
+    console.log("%c Current State:", "font-weight: bold");
+    console.log("- Agent ID:", agentId);
+    console.log("- Loading state:", isLoading);
+    console.log("- Downloading ID:", downloadingId);
+    console.log("- Included Links:", includedLinks);
     
     // Show localStorage data
     const localStorageKey = `websiteSources-${agentId}`;
     const deletedSourcesKey = `deletedSources-${agentId}`;
     
-    console.log("LocalStorage data:");
-    console.log("- Website sources:", localStorage.getItem(localStorageKey));
-    console.log("- Deleted sources:", localStorage.getItem(deletedSourcesKey));
+    console.log("%c localStorage Data:", "font-weight: bold");
+    try {
+      const websiteSourcesData = localStorage.getItem(localStorageKey);
+      const deletedSourcesData = localStorage.getItem(deletedSourcesKey);
+      
+      console.log("- Website sources from localStorage:", 
+        websiteSourcesData ? JSON.parse(websiteSourcesData) : "No data");
+      console.log("- Deleted sources from localStorage:", 
+        deletedSourcesData ? JSON.parse(deletedSourcesData) : "No data");
+    } catch (error) {
+      console.error("Error parsing localStorage data:", error);
+    }
+    
+    // Notify user that debug info has been printed
+    alert("Debug information has been printed to the browser console. Press F12 or right-click -> Inspect -> Console to view it.");
   };
 
   return (
