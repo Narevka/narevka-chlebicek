@@ -1,12 +1,18 @@
 
 {
   "version": 2,
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
   "builds": [
-    { 
+    {
       "src": "server.js",
-      "use": "@vercel/node",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "package.json",
+      "use": "@vercel/static-build",
       "config": {
-        "includeFiles": ["dist/**", "public/**"]
+        "distDir": "dist"
       }
     }
   ],
@@ -15,7 +21,8 @@
     { "src": "/chatbot-iframe/(.*)", "dest": "/server.js" },
     { "src": "/chatbot/(.*)", "dest": "/server.js" },
     { "src": "/functions/chat-with-assistant", "dest": "/server.js" },
-    { "src": "/(.*)", "dest": "/server.js" }
+    { "src": "/(.*)", "dest": "/dist/$1" },
+    { "src": "/[^.]+", "dest": "/dist/index.html" }
   ],
   "env": {
     "SUPABASE_URL": "https://qaopcduyhmweewrcwkoy.supabase.co",
