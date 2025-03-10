@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Conversation, Message, PaginationState, FilterState } from "../types";
 import { useAuth } from "@/context/AuthContext";
@@ -89,32 +90,47 @@ export const useChatLogs = () => {
   const handleDeleteConversation = async (conversationId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     
-    await toast.promise(
-      (async () => {
-        const success = await deleteConversation(conversationId);
-        
-        if (success) {
-          setConversations(prevConversations => 
-            prevConversations.filter(convo => convo.id !== conversationId)
-          );
-          
-          if (selectedConversation?.id === conversationId) {
-            setSelectedConversation(null);
-            setConversationMessages([]);
-          }
-          
-          await loadConversations();
-          return "Conversation deleted successfully";
-        } else {
-          throw new Error("Failed to delete conversation");
-        }
-      })(),
-      {
-        loading: "Deleting conversation...",
-        success: (msg) => msg,
-        error: "Failed to delete conversation"
-      }
+    // Immediately update UI to remove the conversation
+    setConversations(prevConversations => 
+      prevConversations.filter(convo => convo.id !== conversationId)
     );
+    
+    // If the deleted conversation was selected, clear the selection
+    if (selectedConversation?.id === conversationId) {
+      setSelectedConversation(null);
+      setConversationMessages([]);
+    }
+    
+    // Show a temporary toast for immediate feedback
+    const toastId = toast.loading("Deleting conversation...");
+    
+    // Perform the actual deletion in the background
+    try {
+      const success = await deleteConversation(conversationId);
+      
+      if (success) {
+        toast.success("Conversation deleted successfully", {
+          id: toastId,
+        });
+        
+        // Silently refresh the conversations list in the background
+        // to ensure our data stays in sync with the server
+        setTimeout(() => {
+          loadConversations().catch(console.error);
+        }, 500);
+      } else {
+        // If deletion failed, revert the UI change
+        toast.error("Failed to delete conversation", {
+          id: toastId,
+        });
+        loadConversations(); // Reload to restore the conversation
+      }
+    } catch (error) {
+      toast.error("Failed to delete conversation", {
+        id: toastId,
+      });
+      loadConversations(); // Reload to restore the conversation
+    }
   };
 
   const filteredConversations = conversations.filter(convo => {

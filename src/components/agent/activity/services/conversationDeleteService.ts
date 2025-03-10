@@ -9,7 +9,6 @@ export const deleteConversation = async (conversationId: string): Promise<boolea
     const userId = sessionData.session?.user?.id;
     
     if (!userId) {
-      toast.error("You must be logged in to delete conversations");
       return false;
     }
 
@@ -22,11 +21,10 @@ export const deleteConversation = async (conversationId: string): Promise<boolea
       .single();
 
     if (verifyError || !conversationData) {
-      toast.error("Conversation not found or access denied");
       return false;
     }
 
-    // Delete associated messages first within a transaction
+    // Delete associated messages first
     const { error: messagesError } = await supabase
       .from('messages')
       .delete()
@@ -34,7 +32,7 @@ export const deleteConversation = async (conversationId: string): Promise<boolea
     
     if (messagesError) {
       console.error("Error deleting messages:", messagesError);
-      throw messagesError;
+      return false;
     }
     
     // Then delete the conversation
@@ -46,13 +44,12 @@ export const deleteConversation = async (conversationId: string): Promise<boolea
     
     if (conversationError) {
       console.error("Error deleting conversation:", conversationError);
-      throw conversationError;
+      return false;
     }
 
     return true;
   } catch (error) {
     console.error("Error in deleteConversation:", error);
-    toast.error("Failed to delete conversation");
     return false;
   }
 };
