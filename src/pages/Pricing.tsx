@@ -42,7 +42,7 @@ const Pricing = () => {
             description="Unleash the power of AI documentation."
             price={getPrice(0, 0)}
             isPriceMonthly={true}
-            features={["Feature 1", "Feature 2", "Feature 3"]}
+            features={["customowe akcje", "Feature 2", "Feature 3"]}
             buttonText="Get started for free"
             buttonVariant="outline"
             iconSrc="/lovable-uploads/0487f87e-5421-475b-92c4-0f67f771578c.png"
