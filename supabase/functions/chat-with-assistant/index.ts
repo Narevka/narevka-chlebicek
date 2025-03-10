@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
 
@@ -30,41 +29,35 @@ serve(async (req) => {
       throw new Error('Missing required parameter: agentId is required');
     }
 
-    // Get Supabase client from request auth header
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      throw new Error('No authorization header');
-    }
-    
+    // Create anonymous Supabase client for public access
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') || '',
       Deno.env.get('SUPABASE_ANON_KEY') || '',
-      { global: { headers: { Authorization: authHeader } } }
     );
 
     console.log(`Looking for agent with ID: ${agentId}`);
 
-    // Get assistant ID from agent record - use eq() and maybeSingle() to properly handle the case when no agent is found
+    // Get assistant ID from agent record, allow public access if is_public is true
     const { data: agentData, error: agentError } = await supabaseClient
       .from('agents')
-      .select('openai_assistant_id, name')
+      .select('openai_assistant_id, name, is_public')
       .eq('id', agentId)
+      .eq('is_public', true) // Only get public agents
       .maybeSingle();
     
-    // Handle case when no agent is found
     if (agentError) {
       console.error("Database error when fetching agent:", agentError);
       throw new Error(`Database error when fetching agent: ${agentError.message}`);
     }
     
     if (!agentData) {
-      console.error(`No agent found with ID: ${agentId}`);
-      throw new Error(`No agent found with ID: ${agentId}`);
+      console.error(`No public agent found with ID: ${agentId}`);
+      throw new Error(`No public agent found with ID: ${agentId}. Make sure the agent is set to public in your dashboard.`);
     }
     
     if (!agentData.openai_assistant_id) {
       console.error(`Agent found but no OpenAI assistant ID is configured. Agent name: ${agentData.name}`);
-      throw new Error(`Agent "${agentData.name}" exists but does not have an OpenAI assistant configured. Please configure the OpenAI assistant in agent settings.`);
+      throw new Error(`Agent "${agentData.name}" exists but does not have an OpenAI assistant configured.`);
     }
 
     const assistantId = agentData.openai_assistant_id;
