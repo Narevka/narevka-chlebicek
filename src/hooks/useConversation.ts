@@ -23,9 +23,17 @@ export const useConversation = (userId: string | undefined, agentId: string | un
     const initConversation = async () => {
       if (!userId) return;
 
-      // Use the source parameter passed to the hook
-      console.log("Initializing conversation with source:", source);
-      const newConversationId = await createConversation(userId, source);
+      // Make sure source is a valid string
+      let validSource: string;
+      if (typeof source === 'string' && source.trim() !== '') {
+        validSource = source;
+      } else {
+        console.warn(`Invalid source provided: ${source}, defaulting to "Playground"`);
+        validSource = "Playground";
+      }
+
+      console.log(`Initializing conversation with source: ${validSource}`);
+      const newConversationId = await createConversation(userId, validSource);
       
       if (newConversationId) {
         setConversationId(newConversationId);
@@ -36,6 +44,9 @@ export const useConversation = (userId: string | undefined, agentId: string | un
           content: "Hi! What can I help you with?",
           is_bot: true
         });
+      } else {
+        console.error("Failed to create conversation");
+        toast.error("Failed to initialize conversation");
       }
     };
 

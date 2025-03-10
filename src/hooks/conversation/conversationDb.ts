@@ -24,9 +24,11 @@ export const saveMessageToDb = async (messageData: {
 
 export const createConversation = async (userId: string, source: string = "Playground") => {
   try {
-    // Sanitize source to ensure it's a valid value
-    const validSource = source || "Website";
-    console.log("Creating new conversation for user:", userId, "source:", validSource);
+    // Validate source value - ensure it's one of the allowed values or use default
+    const validSources = ["Playground", "Website", "WordPress", "Bubble"];
+    const validSource = validSources.includes(source) ? source : "Website";
+    
+    console.log(`Creating new conversation for user: ${userId}, with source: ${validSource} (original source: ${source})`);
     
     const { data, error } = await supabase
       .from('conversations')
@@ -38,9 +40,17 @@ export const createConversation = async (userId: string, source: string = "Playg
       .select('id')
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error("Database error creating conversation:", error);
+      throw error;
+    }
     
-    console.log("Created conversation with ID:", data.id, "source:", validSource);
+    if (!data || !data.id) {
+      console.error("No data returned when creating conversation");
+      return null;
+    }
+    
+    console.log(`Created conversation with ID: ${data.id}, source: ${validSource}`);
     return data.id;
   } catch (error) {
     console.error("Error creating conversation:", error);
@@ -68,10 +78,14 @@ export const updateConversationSource = async (conversationId: string, source: s
   if (!conversationId) return;
 
   try {
-    console.log("Updating conversation source:", conversationId, "new source:", source);
+    // Validate source value
+    const validSources = ["Playground", "Website", "WordPress", "Bubble"];
+    const validSource = validSources.includes(source) ? source : "Website";
+    
+    console.log(`Updating conversation source: ${conversationId}, new source: ${validSource}`);
     const { error } = await supabase
       .from('conversations')
-      .update({ source: source })
+      .update({ source: validSource })
       .eq('id', conversationId);
 
     if (error) throw error;

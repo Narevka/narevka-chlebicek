@@ -15,6 +15,10 @@ interface ChatInterfaceProps {
 
 const ChatInterface = ({ agentName, agentId, source = "Playground" }: ChatInterfaceProps) => {
   const { user } = useAuth();
+  
+  // Log the source for debugging purposes
+  console.log(`Initializing ChatInterface with source: "${source}"`);
+  
   const {
     messages,
     inputMessage,
@@ -45,6 +49,9 @@ const ChatInterface = ({ agentName, agentId, source = "Playground" }: ChatInterf
           </div>
           <div>
             <h3 className="text-md font-medium">{agentName}</h3>
+            {source && source !== "Playground" && (
+              <div className="text-xs text-gray-500 text-center">Source: {source}</div>
+            )}
           </div>
           <div>
             <Button variant="ghost" size="icon" onClick={resetConversation}>

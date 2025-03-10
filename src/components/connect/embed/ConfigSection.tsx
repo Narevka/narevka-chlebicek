@@ -33,10 +33,10 @@ const ConfigSection: React.FC<ConfigSectionProps> = ({
     title: "${agentName || 'Chat with our AI'}",
     description: "${agentDescription || 'Ask me anything!'}",
     primaryColor: "#6366f1",
-    source: "Website" // This tracks the source of conversations
+    source: "WordPress" // Set source specifically to WordPress for WordPress embedding
   }
   
-  console.log('Initializing chat widget...');
+  console.log('Initializing chat widget with source: WordPress');
   
   (function() {
     if (!window.chatbase || window.chatbase("getState") !== "initialized") {
@@ -79,6 +79,10 @@ const ConfigSection: React.FC<ConfigSectionProps> = ({
 4. Save and publish your changes
 5. If the chat bubble doesn't appear, try adding the code to your theme's footer.php file
 6. You may need to clear your cache or use incognito mode to see changes
+7. Important: To make changes visible to all users (including those in incognito mode), make sure to:
+   - Clear your WordPress cache (if using a caching plugin)
+   - Clear your browser cache
+   - Publish your changes - make sure to click the "Update" or "Publish" button
 `;
 
   const debugCode = `
@@ -88,6 +92,7 @@ const ConfigSection: React.FC<ConfigSectionProps> = ({
     console.log('Checking chatbot configuration...');
     console.log('Chatbase config:', window.chatbaseConfig);
     console.log('Chatbase initialized:', window.chatbase ? true : false);
+    console.log('Source value:', window.chatbaseConfig ? window.chatbaseConfig.source : 'not set');
     
     // Try to fetch the embed script to test connectivity
     fetch('${customDomain}/embed.min.js')

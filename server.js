@@ -20,7 +20,7 @@ app.use(express.json());
 
 // Logging middleware
 app.use((req, res, next) => {
-  console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.path} - Query params: ${JSON.stringify(req.query)}`);
   next();
 });
 
@@ -40,25 +40,67 @@ app.get('/chatbot/:filename', (req, res) => {
   }
 });
 
-// Serve the chatbot iframe template
+// Serve the chatbot iframe template - capture and forward source parameter
 app.get('/chatbot-iframe/:id', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public/chatbot-iframe-template.html'));
+  // Capture the source parameter for conversation tracking
+  const source = req.query.source || 'Website';
+  console.log(`Chatbot iframe requested for agent ${req.params.id} with source: ${source}`);
+  
+  // Read the template file
+  fs.readFile(path.join(__dirname, 'public/chatbot-iframe-template.html'), 'utf8', (err, data) => {
+    if (err) {
+      console.error('Error reading chatbot template:', err);
+      return res.status(500).send('Error loading chatbot');
+    }
+    
+    // Insert the source parameter into the template
+    const modifiedTemplate = data.replace(
+      /window\.chatbaseConfig\s*=\s*{/g, 
+      `window.chatbaseConfig = {\n    source: "${source}",`
+    );
+    
+    res.send(modifiedTemplate);
+  });
 });
 
 // Serve the standalone chatbot page
 app.get('/chatbot/:id', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public/chatbot.html'));
+  const source = req.query.source || 'Website';
+  console.log(`Standalone chatbot requested for agent ${req.params.id} with source: ${source}`);
+  
+  // Read the template file
+  fs.readFile(path.join(__dirname, 'public/chatbot.html'), 'utf8', (err, data) => {
+    if (err) {
+      console.error('Error reading chatbot template:', err);
+      return res.status(500).send('Error loading chatbot');
+    }
+    
+    // Insert the source parameter into the template
+    const modifiedTemplate = data.replace(
+      /window\.chatbaseConfig\s*=\s*{/g, 
+      `window.chatbaseConfig = {\n    source: "${source}",`
+    );
+    
+    res.send(modifiedTemplate);
+  });
 });
 
 // Proxy route for chat messages
 app.post('/functions/chat-with-assistant', async (req, res) => {
   try {
     const { message, agentId, conversationId } = req.body;
+    // Capture source if provided in the request
+    const source = req.body.source || 'Website';
     
     const supabaseUrl = process.env.SUPABASE_URL;
     const functionUrl = `${supabaseUrl}/functions/v1/chat-with-assistant`;
     
-    console.log(`Proxying request to ${functionUrl}`, { message, agentId, conversationId });
+    console.log(`Proxying request to ${functionUrl}`, { 
+      message, 
+      agentId, 
+      conversationId,
+      source
+    });
     
     const response = await fetch(functionUrl, {
       method: 'POST',
@@ -69,7 +111,8 @@ app.post('/functions/chat-with-assistant', async (req, res) => {
       body: JSON.stringify({
         message,
         agentId,
-        conversationId
+        conversationId,
+        source // Forward the source parameter
       }),
     });
     

@@ -102,18 +102,28 @@ export const useChatLogs = () => {
         totalItems: Math.max(0, totalItems - deletedConversationIds.size)
       }));
       
-      // Update available sources including all sources
+      // Update available sources including all known sources
       if (filteredResult.length > 0) {
-        // Fix for the TypeScript error - explicitly cast each source to string
-        const sources = Array.from(
-          new Set(
-            filteredResult
-              .map(convo => convo.source ? String(convo.source) : null)
-              .filter(Boolean) as string[]
-          )
-        );
+        // Safely extract all source values, ensure they're strings, and remove nulls
+        const sources: string[] = [];
+        const uniqueSources = new Set<string>();
         
-        setAvailableSources(['all', ...sources]);
+        filteredResult.forEach(convo => {
+          if (convo.source) {
+            // Ensure source is a string
+            const sourceStr = String(convo.source);
+            uniqueSources.add(sourceStr);
+          }
+        });
+        
+        // Always include our standard sources in the list even if not present in conversations
+        const standardSources = ['Playground', 'Website', 'WordPress', 'Bubble'];
+        standardSources.forEach(source => uniqueSources.add(source));
+        
+        // Convert Set to Array and add 'all' option at the beginning
+        setAvailableSources(['all', ...Array.from(uniqueSources)]);
+        
+        console.log("Available sources updated:", ['all', ...Array.from(uniqueSources)]);
       }
     } catch (error) {
       console.error("Error in loadConversations:", error);
