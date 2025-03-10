@@ -18,10 +18,10 @@ export const getAssistantResponse = async (
       source 
     });
 
-    // If we have a threadId but it doesn't start with "thread_", format it properly
-    const formattedThreadId = threadId && !threadId.startsWith('thread_') 
-      ? `thread_${threadId}` 
-      : threadId;
+    // Always use null for threadId on first message to ensure a new thread is created
+    const formattedThreadId = threadId;
+    
+    console.log(`Using threadId: ${formattedThreadId}`);
 
     const responseData = await supabase.functions.invoke('chat-with-assistant', {
       body: { 
@@ -40,6 +40,7 @@ export const getAssistantResponse = async (
     console.log("Response from chat-with-assistant:", responseData.data);
     
     const newThreadId = responseData.data.threadId || null;
+    console.log(`Received new threadId: ${newThreadId}`);
     
     const botResponse: Message = { 
       id: uuidv4(),

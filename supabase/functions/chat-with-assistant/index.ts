@@ -42,29 +42,47 @@ serve(async (req) => {
     
     const agent = agents[0]
     
-    // Get either existing thread or create a new one
-    // Make sure to handle the conversationId format correctly
+    // Create a new thread ID if one doesn't exist
     let threadId = conversationId
     
-    // If we don't have a threadId yet or it doesn't start with "thread_",
-    // we'll create a new properly formatted one
-    if (!threadId || (typeof threadId === 'string' && !threadId.startsWith('thread_'))) {
+    // Always generate a thread ID unless we already have one
+    if (!threadId) {
       threadId = openai.generateId() // This will generate a thread_* ID
-      console.log(`Creating new thread ID: ${threadId}`)
+      console.log(`Created new thread ID: ${threadId}`)
     } else {
       console.log(`Using existing thread ID: ${threadId}`)
     }
     
-    // Get response from the agent
-    const { response, confidence } = await openai.getAgentResponse(agent, message, threadId)
-    
-    console.log(`Got response from agent with threadId: ${threadId}`)
-    
-    // Return the response with the properly formatted threadId
-    return new Response(
-      JSON.stringify({ response, threadId, confidence }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
+    try {
+      // Get response from the agent
+      const { response, confidence } = await openai.getAgentResponse(agent, message, threadId)
+      console.log(`Got response from agent with threadId: ${threadId}`)
+      
+      // Return the response with the properly formatted threadId
+      return new Response(
+        JSON.stringify({ response, threadId, confidence }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    } catch (error) {
+      console.error("Error getting agent response:", error.message)
+      
+      // If there's an issue with the thread, create a new one and try again
+      if (error.message?.includes("No thread found with id")) {
+        console.log("Thread ID error detected. Creating a new thread...")
+        const newThreadId = openai.generateId()
+        console.log(`Created new recovery thread ID: ${newThreadId}`)
+        
+        const { response, confidence } = await openai.getAgentResponse(agent, message, newThreadId)
+        console.log(`Got response from agent with new threadId: ${newThreadId}`)
+        
+        return new Response(
+          JSON.stringify({ response, threadId: newThreadId, confidence }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+      
+      throw error
+    }
   } catch (error) {
     return handleError(error)
   }

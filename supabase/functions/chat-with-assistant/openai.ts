@@ -7,26 +7,34 @@ import { corsHeaders } from "./cors.ts";
  * @returns The thread ID
  */
 export async function createThread(apiKey: string): Promise<string> {
-  const threadResponse = await fetch('https://api.openai.com/v1/threads', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`,
-      'OpenAI-Beta': 'assistants=v2'
-    },
-    body: JSON.stringify({})
-  });
+  console.log("Creating new OpenAI thread");
   
-  if (!threadResponse.ok) {
-    const errorData = await threadResponse.json();
-    throw new Error(`Failed to create thread: ${errorData.error?.message || 'Unknown error'}`);
+  try {
+    const threadResponse = await fetch('https://api.openai.com/v1/threads', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+        'OpenAI-Beta': 'assistants=v2'
+      },
+      body: JSON.stringify({})
+    });
+    
+    if (!threadResponse.ok) {
+      const errorData = await threadResponse.json();
+      console.error("Failed to create thread:", errorData);
+      throw new Error(`Failed to create thread: ${errorData.error?.message || 'Unknown error'}`);
+    }
+    
+    const threadData = await threadResponse.json();
+    const threadId = threadData.id;
+    
+    console.log("Created new thread:", threadId);
+    return threadId;
+  } catch (error) {
+    console.error("Error creating thread:", error);
+    throw error;
   }
-  
-  const threadData = await threadResponse.json();
-  const threadId = threadData.id;
-  
-  console.log("Created new thread:", threadId);
-  return threadId;
 }
 
 /**
@@ -36,22 +44,32 @@ export async function createThread(apiKey: string): Promise<string> {
  * @param message The message to add
  */
 export async function addMessageToThread(apiKey: string, threadId: string, message: string): Promise<void> {
-  const messageResponse = await fetch(`https://api.openai.com/v1/threads/${threadId}/messages`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`,
-      'OpenAI-Beta': 'assistants=v2'
-    },
-    body: JSON.stringify({
-      role: 'user',
-      content: message
-    })
-  });
+  console.log(`Adding message to thread ${threadId}`);
   
-  if (!messageResponse.ok) {
-    const errorData = await messageResponse.json();
-    throw new Error(`Failed to add message: ${errorData.error?.message || 'Unknown error'}`);
+  try {
+    const messageResponse = await fetch(`https://api.openai.com/v1/threads/${threadId}/messages`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+        'OpenAI-Beta': 'assistants=v2'
+      },
+      body: JSON.stringify({
+        role: 'user',
+        content: message
+      })
+    });
+    
+    if (!messageResponse.ok) {
+      const errorData = await messageResponse.json();
+      console.error("Failed to add message:", errorData);
+      throw new Error(`Failed to add message: ${errorData.error?.message || 'Unknown error'}`);
+    }
+    
+    console.log("Message added successfully");
+  } catch (error) {
+    console.error("Error adding message to thread:", error);
+    throw error;
   }
 }
 
@@ -239,12 +257,34 @@ export async function getAgentResponse(agent: any, message: string, threadId?: s
   }
   
   try {
-    // Create a new thread if none was provided
-    const actualThreadId = threadId || await createThread(openAIApiKey);
-    console.log(`Using thread ID: ${actualThreadId}`);
+    let actualThreadId: string;
+    
+    // Always create a new thread if no threadId is provided
+    if (!threadId) {
+      console.log("No threadId provided, creating a new thread");
+      actualThreadId = await createThread(openAIApiKey);
+      console.log(`Created new thread: ${actualThreadId}`);
+    } else {
+      console.log(`Using existing thread: ${threadId}`);
+      actualThreadId = threadId;
+    }
     
     // Add the user message to the thread
-    await addMessageToThread(openAIApiKey, actualThreadId, message);
+    try {
+      await addMessageToThread(openAIApiKey, actualThreadId, message);
+    } catch (error: any) {
+      console.error(`Error adding message to thread: ${error.message}`);
+      
+      // If there's an error with the thread ID, create a new thread and try again
+      if (error.message?.includes("No thread found with id")) {
+        console.log("Thread not found, creating a new thread and retrying");
+        actualThreadId = await createThread(openAIApiKey);
+        console.log(`Created new thread after error: ${actualThreadId}`);
+        await addMessageToThread(openAIApiKey, actualThreadId, message);
+      } else {
+        throw error;
+      }
+    }
     
     // Create a run with the assistant
     const { runId, status: initialStatus } = await createRun(openAIApiKey, actualThreadId, assistantId);
@@ -258,8 +298,7 @@ export async function getAgentResponse(agent: any, message: string, threadId?: s
     const response = await getLatestAssistantMessage(openAIApiKey, actualThreadId);
     console.log(`Retrieved response of length: ${response.length}`);
     
-    // Return the response with a default confidence level
-    // In a real implementation, you might want to get this from the OpenAI API or calculate it somehow
+    // Return the response with the new thread ID
     return {
       response,
       confidence: 0.95  // Default confidence level
@@ -269,3 +308,4 @@ export async function getAgentResponse(agent: any, message: string, threadId?: s
     throw error;
   }
 }
+

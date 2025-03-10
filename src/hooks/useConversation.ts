@@ -1,13 +1,14 @@
+
 import { useState, useEffect, useCallback } from "react";
 import { v4 as uuidv4 } from 'uuid';
 import { toast } from "sonner";
 import { Message } from "./conversation/types";
-import { saveMessageToDb, createConversation, updateConversationTitle } from "./conversation/conversationDb";
+import { saveMessageToDb, createConversation, updateConversationTitle, updateConversationSource } from "./conversation/conversationDb";
 import { getAssistantResponse } from "./conversation/assistantApi";
 
 export const useConversation = (userId: string | undefined, agentId: string | undefined, source: string = "Website") => {
   const [messages, setMessages] = useState<Array<Message>>([
-    { content: "Hi! What can I help you with?", isUser: false }
+    { id: uuidv4(), content: "Hi! What can I help you with?", isUser: false }
   ]);
   const [inputMessage, setInputMessage] = useState("");
   const [sendingMessage, setSendingMessage] = useState(false);
@@ -29,6 +30,9 @@ export const useConversation = (userId: string | undefined, agentId: string | un
           content: "Hi! What can I help you with?",
           is_bot: true
         });
+        
+        // Set initial threadId to null to ensure a new thread is created
+        setThreadId(null);
       } else {
         console.error("Failed to create conversation");
         toast.error("Failed to initialize conversation");
@@ -37,6 +41,14 @@ export const useConversation = (userId: string | undefined, agentId: string | un
 
     initConversation();
   }, [userId, source]);
+  
+  useEffect(() => {
+    // Update conversation source whenever it changes
+    if (conversationId && source) {
+      console.log(`Updating conversation source for ${conversationId} to ${source}`);
+      updateConversationSource(conversationId, source);
+    }
+  }, [conversationId, source]);
 
   const handleSendMessage = useCallback(async (message: string) => {
     if (!message.trim() || !conversationId || !agentId) return;
@@ -102,8 +114,8 @@ export const useConversation = (userId: string | undefined, agentId: string | un
     
     if (newConversationId) {
       setConversationId(newConversationId);
-      setThreadId(null);
-      setMessages([{ content: "Hi! What can I help you with?", isUser: false }]);
+      setThreadId(null); // Reset threadId to null for a fresh start
+      setMessages([{ id: uuidv4(), content: "Hi! What can I help you with?", isUser: false }]);
       
       await saveMessageToDb({
         conversation_id: newConversationId,
