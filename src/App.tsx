@@ -1,47 +1,72 @@
+import React, { useState, useEffect } from 'react';
+import { Routes, Route, BrowserRouter } from 'react-router-dom';
+import { Toaster } from 'react-hot-toast';
+import Index from './pages/Index';
+import Dashboard from './pages/Dashboard';
+import AgentDetail from './pages/AgentDetail';
+import Auth from './pages/Auth';
+import Pricing from './pages/Pricing';
+import Affiliates from './pages/Affiliates';
+import Docs from './pages/Docs';
+import Blog from './pages/Blog';
+import NotFound from './pages/NotFound';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import Terms from './pages/Terms';
 
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { AuthProvider } from "@/context/AuthContext";
-import Index from "./pages/Index";
-import Auth from "./pages/Auth";
-import Dashboard from "./pages/Dashboard";
-import AgentDetail from "./pages/AgentDetail";
-import Connect from "./pages/Connect";
-import NotFound from "./pages/NotFound";
-import Pricing from "./pages/Pricing";
-import Affiliates from "./pages/Affiliates";
-import Blog from "./pages/Blog";
-import Docs from "./pages/Docs";
+function App() {
+  const [loading, setLoading] = useState(true);
+  const { checkAuth } = useAuth();
 
-const queryClient = new QueryClient();
+  useEffect(() => {
+    const verifyAuth = async () => {
+      await checkAuth();
+      setLoading(false);
+    };
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <AuthProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/auth" element={<Auth />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/agents/:id" element={<AgentDetail />} />
-            <Route path="/agents/:id/connect" element={<Connect />} />
-            <Route path="/pricing" element={<Pricing />} />
-            <Route path="/affiliates" element={<Affiliates />} />
-            <Route path="/blog" element={<Blog />} />
-            <Route path="/docs" element={<Docs />} />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
-    </AuthProvider>
-  </QueryClientProvider>
-);
+    verifyAuth();
+  }, [checkAuth]);
 
-export default App;
+  const DashboardWithAuth = () => {
+    const { user } = useAuth();
+    return user ? <Dashboard /> : <Auth />;
+  };
+
+  const AgentDetailWithAuth = () => {
+    const { user } = useAuth();
+    return user ? <AgentDetail /> : <Auth />;
+  };
+
+  if (loading) {
+    return <div>Loading...</div>;
+  }
+
+  return (
+    <div className="App">
+      <Toaster position="top-right" />
+      <Routes>
+        <Route path="/" element={<Index />} />
+        <Route path="/dashboard" element={<DashboardWithAuth />} />
+        <Route path="/agents/:agentId" element={<AgentDetailWithAuth />} />
+        <Route path="/auth" element={<Auth />} />
+        <Route path="/pricing" element={<Pricing />} />
+        <Route path="/affiliates" element={<Affiliates />} />
+        <Route path="/docs" element={<Docs />} />
+        <Route path="/blog" element={<Blog />} />
+        <Route path="/terms" element={<Terms />} />
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </div>
+  );
+}
+
+function AppWithProviders() {
+  return (
+    <BrowserRouter>
+      <AuthProvider>
+        <App />
+      </AuthProvider>
+    </BrowserRouter>
+  );
+}
+
+export default AppWithProviders;

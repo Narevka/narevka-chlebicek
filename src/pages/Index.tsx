@@ -97,10 +97,11 @@ const Index = () => {
         button: "Start your free trial"
       },
       guarantee: {
-        title: "Our Money-Back Guarantee",
-        text: "If your revenue doesn't increase within 3 months, we'll give you a full refund.",
-        signature: "- Karol Sapiołko, Founder",
-        note: "Seriously. Check our terms and conditions, I'm not joking."
+        text: "If your revenue doesn't increase by 10% within 3 months, I'll give you a full refund.",
+        signature: "- Karol Sapiołko, Owner",
+        note: "Seriously, check our",
+        termsLink: "terms and conditions",
+        noteEnd: "I'm not joking."
       }
     },
     pl: {
@@ -168,10 +169,11 @@ const Index = () => {
         button: "Rozpocznij darmowy okres próbny"
       },
       guarantee: {
-        title: "Nasza gwarancja zwrotu pieniędzy",
-        text: "Jak nie wzrosną ci przychody przez 3 miesiące to zwrócę ci hajs.",
+        text: "Jak twoje przychody nie wzrosną o 10% przez 3 miesiące to zwrócę ci hajs.",
         signature: "- Karol Sapiołko, Właściciel",
-        note: "Poważnie, sprawdź w regulaminie, nie żartuje."
+        note: "Serio, sprawdź w",
+        termsLink: "regulaminie",
+        noteEnd: "nie żartuję."
       }
     }
   };
@@ -469,10 +471,11 @@ const Index = () => {
               <ShieldCheck className="w-8 h-8 text-green-600" />
             </div>
           </div>
-          <h2 className="text-2xl font-bold mb-4">{t.guarantee.title}</h2>
           <p className="text-xl mb-2 font-semibold">{t.guarantee.text}</p>
           <p className="text-gray-700 italic mb-2">{t.guarantee.signature}</p>
-          <p className="text-sm text-gray-500">{t.guarantee.note}</p>
+          <p className="text-sm text-gray-500">
+            {t.guarantee.note} <Link to="/terms" className="text-blue-500 hover:underline">{t.guarantee.termsLink}</Link>, {t.guarantee.noteEnd}
+          </p>
         </div>
       </section>
 
