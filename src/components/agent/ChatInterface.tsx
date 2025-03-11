@@ -1,5 +1,5 @@
 
-import React from "react";
+import React, { useEffect } from "react";
 import { RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import MessageList from "./MessageList";
@@ -25,6 +25,11 @@ const ChatInterface = ({ agentName, agentId, source = "Playground" }: ChatInterf
     isInitializing,
     source: normalizedSource
   } = useConversation(user?.id, agentId, source);
+
+  useEffect(() => {
+    // Add a console log to track source changes
+    console.log(`ChatInterface source: ${normalizedSource}`);
+  }, [normalizedSource]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey && inputMessage.trim() !== '') {

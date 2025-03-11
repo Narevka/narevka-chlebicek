@@ -8,9 +8,9 @@ import { getAssistantResponse } from "./conversation/assistantApi";
 import { useConversationSource } from "./conversation/useConversationSource";
 import { useMessages } from "./conversation/useMessages";
 
-export const useConversation = (userId: string | undefined, agentId: string | undefined, source: string = "Playground") => {
+export const useConversation = (userId: string | undefined, agentId: string | undefined, initialSource: string = "Playground") => {
   // Get conversation ID and normalized source
-  const { conversationId, source: normalizedSource, resetConversation: resetConversationSource } = useConversationSource(userId, source);
+  const { conversationId, source: normalizedSource, resetConversation: resetConversationSource } = useConversationSource(userId, initialSource);
   
   // Get messages specific to this conversation and source
   const { messages, addMessage, setMessages, resetMessages } = useMessages(conversationId, normalizedSource);
@@ -19,6 +19,15 @@ export const useConversation = (userId: string | undefined, agentId: string | un
   const [sendingMessage, setSendingMessage] = useState(false);
   const [threadId, setThreadId] = useState<string | null>(null);
   const [isInitializing, setIsInitializing] = useState(false);
+  const [currentSource, setCurrentSource] = useState(normalizedSource);
+
+  useEffect(() => {
+    // Update current source if the normalized source changes
+    if (normalizedSource && normalizedSource !== currentSource) {
+      console.log(`Source changed from ${currentSource} to ${normalizedSource}`);
+      setCurrentSource(normalizedSource);
+    }
+  }, [normalizedSource, currentSource]);
 
   const handleSendMessage = useCallback(async (message: string) => {
     if (!message.trim() || !conversationId || !agentId || isInitializing) return;
@@ -26,11 +35,14 @@ export const useConversation = (userId: string | undefined, agentId: string | un
     setSendingMessage(true);
     
     try {
+      console.log(`Sending message using source: ${currentSource}`);
+      
       // Add user message to UI immediately
       const userMessage = {
         id: uuidv4(),
         content: message,
-        isUser: true
+        isUser: true,
+        created_at: new Date().toISOString()
       };
       
       addMessage(userMessage);
@@ -44,10 +56,17 @@ export const useConversation = (userId: string | undefined, agentId: string | un
       });
       
       // Get AI response
-      const { botResponse, threadId: newThreadId } = await getAssistantResponse(message, agentId, threadId);
+      const { botResponse, threadId: newThreadId, source: responseSource } = 
+        await getAssistantResponse(message, agentId, threadId, currentSource);
       
       if (newThreadId && !threadId) {
         setThreadId(newThreadId);
+      }
+      
+      // Update source if it changed
+      if (responseSource && responseSource !== currentSource) {
+        console.log(`Source updated from ${currentSource} to ${responseSource}`);
+        setCurrentSource(responseSource);
       }
       
       // Add bot response to UI
@@ -70,7 +89,7 @@ export const useConversation = (userId: string | undefined, agentId: string | un
     } finally {
       setSendingMessage(false);
     }
-  }, [conversationId, threadId, agentId, isInitializing, addMessage]);
+  }, [conversationId, threadId, agentId, isInitializing, addMessage, currentSource]);
 
   // Combined reset function that handles both conversation source and messages
   const resetConversation = useCallback(async () => {
@@ -94,6 +113,6 @@ export const useConversation = (userId: string | undefined, agentId: string | un
     resetConversation,
     isInitializing,
     conversationId,
-    source: normalizedSource
+    source: currentSource
   };
 };
