@@ -1,6 +1,6 @@
 
 import { useState, useEffect, useCallback } from "react";
-import { Conversation, Message, FilterState } from "../types";
+import { Conversation, Message, FilterState, PaginationState } from "../types";
 import { useAuth } from "@/context/AuthContext";
 import { 
   fetchConversations, 
@@ -9,13 +9,6 @@ import {
 } from "../services";
 import { deleteConversation } from "../services/conversationDeleteService";
 import { fetchMessagesForConversation } from "../services/messageService";
-
-// Define our own PaginationState interface to avoid conflicts with the one in types.ts
-export interface PaginationState {
-  currentPage: number;
-  pageSize: number;
-  totalItems?: number; // Made optional to avoid errors
-}
 
 export const useChatLogs = () => {
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -122,16 +115,21 @@ export const useChatLogs = () => {
       setIsLoading(true);
       
       try {
-        // Fetch conversations with the current pagination and filters
-        const result = await fetchConversations({
-          ...pagination,
-          totalItems: totalItems // Ensure totalItems is passed
-        }, {
-          ...filterOptions,
-          searchTerm // Pass searchTerm
-        });
+        // Pass the filter options but handle searchTerm separately
+        const result = await fetchConversations(
+          pagination, 
+          filterOptions // Only pass filterOptions here, not searchTerm
+        );
         
-        const filteredResult = result.conversations || [];
+        // Apply search term filtering on the client side if needed
+        let filteredResult = result.conversations || [];
+        
+        if (searchTerm && searchTerm.trim() !== '') {
+          filteredResult = filteredResult.filter(convo => 
+            convo.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (convo.last_message && convo.last_message.toLowerCase().includes(searchTerm.toLowerCase()))
+          );
+        }
         
         setConversations(filteredResult);
         setTotalItems(result.totalItems);
@@ -170,7 +168,7 @@ export const useChatLogs = () => {
     };
     
     fetchFilteredData();
-  }, [userId, pagination, filterOptions, searchTerm, totalItems]);
+  }, [userId, pagination, filterOptions, searchTerm]);
 
   // Handler functions for the ChatLogsSection component
   const handleSelectConversation = useCallback((conversation: Conversation) => {
@@ -219,27 +217,21 @@ export const useChatLogs = () => {
 
   return {
     conversations,
-    filteredConversations: conversations, // Alias for ChatLogsSection
     selectedConversation,
-    conversationMessages: messages, // Alias for ChatLogsSection
+    conversationMessages: messages,
     isLoading,
-    isLoadingMessages,
+    isLoadingMessages: isMessagesLoading,
     error,
     messagesError,
     totalItems,
     totalPages,
     pagination,
     setPagination,
-    filterOptions,
-    filters: filterOptions, // Alias for ChatLogsSection
-    setFilterOptions,
-    availableSources,
+    filters: filterOptions,
     searchTerm,
     setSearchTerm,
     showFilterPanel,
-    selectedConversationId,
-    removeConversation,
-    // Add the handler functions needed by ChatLogsSection
+    availableSources,
     handleSelectConversation,
     handleDeleteConversation,
     handlePageChange,
@@ -250,4 +242,3 @@ export const useChatLogs = () => {
     setSelectedConversation
   };
 };
-

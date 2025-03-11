@@ -32,6 +32,7 @@ const ChatLogsSection = () => {
     <div className="flex h-full">
       <ConversationListPanel
         conversations={conversations}
+        filteredConversations={conversations}
         searchTerm={searchTerm}
         setSearchTerm={setSearchTerm}
         isLoading={isLoading}
