@@ -4,7 +4,7 @@ import { useAuth } from "@/context/AuthContext.tsx";
 import { useIsMobile } from "@/hooks/use-mobile.tsx";
 import { SplashCursor } from "@/components/ui/fluid-cursor";
 import { GradientButton } from "@/components/gradient-button";
-import { ChevronDown, ArrowRight, Check, Star, CreditCard, DollarSign } from "lucide-react";
+import { ChevronDown, ArrowRight, Check, Star, CreditCard, DollarSign, HandHeart, ShieldCheck } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { useState, useEffect } from "react";
 import LanguageSelector from "@/components/LanguageSelector";
@@ -95,6 +95,12 @@ const Index = () => {
         title: "Ready to transform your customer experience?",
         subtitle: "Join thousands of businesses already using Chatbase to provide exceptional service",
         button: "Start your free trial"
+      },
+      guarantee: {
+        title: "Our Money-Back Guarantee",
+        text: "If your revenue doesn't increase within 3 months, we'll give you a full refund.",
+        signature: "- Karol Sapiołko, Founder",
+        note: "Seriously. Check our terms and conditions, I'm not joking."
       }
     },
     pl: {
@@ -160,6 +166,12 @@ const Index = () => {
         title: "Gotowy na transformację doświadczeń Twoich klientów?",
         subtitle: "Dołącz do tysięcy firm już korzystających z Chatbase, aby zapewnić wyjątkową obsługę",
         button: "Rozpocznij darmowy okres próbny"
+      },
+      guarantee: {
+        title: "Nasza gwarancja zwrotu pieniędzy",
+        text: "Jak nie wzrosną ci przychody przez 3 miesiące to zwrócę ci hajs.",
+        signature: "- Karol Sapiołko, Właściciel",
+        note: "Poważnie, sprawdź w regulaminie, nie żartuje."
       }
     }
   };
@@ -446,6 +458,21 @@ const Index = () => {
               highlighted={false}
             />
           </div>
+        </div>
+      </section>
+
+      {/* Guarantee Section - Added as requested */}
+      <section className="py-12 px-4 sm:px-6 lg:px-8 bg-white border-t border-gray-100">
+        <div className="max-w-3xl mx-auto text-center">
+          <div className="flex justify-center mb-6">
+            <div className="bg-green-100 p-3 rounded-full">
+              <ShieldCheck className="w-8 h-8 text-green-600" />
+            </div>
+          </div>
+          <h2 className="text-2xl font-bold mb-4">{t.guarantee.title}</h2>
+          <p className="text-xl mb-2 font-semibold">{t.guarantee.text}</p>
+          <p className="text-gray-700 italic mb-2">{t.guarantee.signature}</p>
+          <p className="text-sm text-gray-500">{t.guarantee.note}</p>
         </div>
       </section>
 
