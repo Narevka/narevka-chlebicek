@@ -15,6 +15,7 @@ type AuthContextType = {
   }>;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
+  checkAuth: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -74,6 +75,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut();
   };
 
+  const checkAuth = async () => {
+    const { data } = await supabase.auth.getSession();
+    setSession(data.session);
+    setUser(data.session?.user ?? null);
+  };
+
   const value = {
     session,
     user,
@@ -82,6 +89,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     signUp,
     signInWithGoogle,
     signOut,
+    checkAuth,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
