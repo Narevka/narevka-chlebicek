@@ -14,13 +14,11 @@ const Index = () => {
   const isMobile = useIsMobile();
   const [language, setLanguage] = useState<string>("pl"); // Default to Polish
   
-  // Load language from localStorage or detect from browser
   useEffect(() => {
     const savedLanguage = localStorage.getItem('preferredLanguage');
     if (savedLanguage && ['en', 'pl'].includes(savedLanguage)) {
       setLanguage(savedLanguage);
     } else {
-      // Detect browser language
       const userLanguage = navigator.language || navigator.languages?.[0] || 'en';
       const primaryLanguage = userLanguage.split('-')[0];
       const detectedLanguage = ['pl', 'en'].includes(primaryLanguage) ? primaryLanguage : 'en';
@@ -28,13 +26,11 @@ const Index = () => {
     }
   }, []);
   
-  // Save language preference to localStorage
   const handleLanguageChange = (newLanguage: string) => {
     setLanguage(newLanguage);
     localStorage.setItem('preferredLanguage', newLanguage);
   };
   
-  // Content localization data
   const content = {
     en: {
       heroTitle: "The road to freedom starts from here",
@@ -168,17 +164,14 @@ const Index = () => {
     }
   };
 
-  // Get content based on selected language
   const t = content[language as keyof typeof content];
   
   const words = t.typewriter;
 
-  // Top navigation component
   const TopNav = () => (
     <header className="fixed top-0 left-0 right-0 bg-white bg-opacity-90 backdrop-blur-sm z-50 border-b border-gray-100">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
-          {/* Logo */}
           <div className="flex items-center">
             <Link to="/" className="flex items-center">
               <div className="bg-black rounded p-1.5 mr-2">
@@ -188,7 +181,6 @@ const Index = () => {
             </Link>
           </div>
           
-          {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-8">
             <Link to="/affiliates" className="text-gray-600 hover:text-gray-900 font-medium">
               {language === 'pl' ? 'Partnerzy' : 'Affiliates'}
@@ -219,7 +211,6 @@ const Index = () => {
             />
           </div>
           
-          {/* Dashboard Button */}
           <div className="flex items-center space-x-4">
             <div className="md:hidden">
               <LanguageSelector 
@@ -244,7 +235,6 @@ const Index = () => {
       <SplashCursor />
       <TopNav />
       
-      {/* Hero Section - Updated to match the screenshots */}
       <section className="pt-24 px-4 sm:px-6 lg:px-8 flex items-center justify-center min-h-[70vh]">
         <div className="max-w-5xl mx-auto">
           <div className="flex flex-col items-center justify-center text-center">
@@ -252,7 +242,6 @@ const Index = () => {
               {t.heroTitle}
             </p>
             
-            {/* Custom typewriter effect that matches the screenshots */}
             <TypewriterEffectSmooth 
               words={[]} 
               className="mb-8" 
@@ -275,7 +264,6 @@ const Index = () => {
         </div>
       </section>
 
-      {/* Key Features Section */}
       <section className="py-16 px-4 sm:px-6 lg:px-8 bg-white">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-12">
@@ -303,7 +291,6 @@ const Index = () => {
         </div>
       </section>
 
-      {/* How It Works Section */}
       <section className="py-16 px-4 sm:px-6 lg:px-8 bg-pink-50">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-12">
@@ -326,7 +313,6 @@ const Index = () => {
         </div>
       </section>
 
-      {/* Social Proof Section */}
       <section className="py-16 px-4 sm:px-6 lg:px-8 bg-white">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-12">
@@ -365,7 +351,6 @@ const Index = () => {
         </div>
       </section>
 
-      {/* Pricing Options Section */}
       <section className="py-16 px-4 sm:px-6 lg:px-8 bg-gray-50">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-12">
@@ -464,7 +449,6 @@ const Index = () => {
         </div>
       </section>
 
-      {/* Final CTA Section */}
       <section className="py-16 px-4 sm:px-6 lg:px-8 bg-gradient-to-r from-pink-100 to-pink-50">
         <div className="max-w-3xl mx-auto text-center">
           <h2 className="text-3xl font-bold mb-6">{t.cta.title}</h2>
@@ -479,7 +463,6 @@ const Index = () => {
         </div>
       </section>
 
-      {/* Footer */}
       <footer className="py-12 px-4 sm:px-6 lg:px-8 bg-gray-900 text-white">
         <div className="max-w-7xl mx-auto">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
@@ -531,7 +514,6 @@ const Index = () => {
   );
 };
 
-// Feature card component for the key features section
 const FeatureCard = ({ icon, title, description }) => (
   <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
     <div className="flex justify-center mb-4">
@@ -542,7 +524,6 @@ const FeatureCard = ({ icon, title, description }) => (
   </div>
 );
 
-// Step card component for the how it works section
 const StepCard = ({ number, title, description }) => (
   <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
     <div className="flex justify-center mb-4">
@@ -555,7 +536,6 @@ const StepCard = ({ number, title, description }) => (
   </div>
 );
 
-// Testimonial card component for the social proof section
 const TestimonialCard = ({ quote, author, company }) => (
   <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
     <div className="mb-4 text-yellow-500 flex justify-center">
@@ -573,7 +553,6 @@ const TestimonialCard = ({ quote, author, company }) => (
   </div>
 );
 
-// Pricing card component for the pricing options section
 const PricingCard = ({ title, price, period, description, features, buttonText, buttonLink, highlighted }) => (
   <div className={`rounded-xl shadow-sm border ${highlighted ? 'border-blue-500 ring-2 ring-blue-200' : 'border-gray-100'} bg-white overflow-hidden`}>
     <div className={`p-6 ${highlighted ? 'bg-blue-50' : ''}`}>

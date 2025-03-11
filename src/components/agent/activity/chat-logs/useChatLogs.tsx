@@ -1,5 +1,6 @@
+
 import { useState, useEffect, useCallback } from "react";
-import { Conversation, Message, PaginationState, FilterState } from "../types";
+import { Conversation, Message, FilterState } from "../types";
 import { useAuth } from "@/context/AuthContext";
 import { 
   fetchConversations, 
@@ -8,6 +9,13 @@ import {
 } from "../services";
 import { deleteConversation } from "../services/conversationDeleteService";
 import { fetchMessagesForConversation } from "../services/messageService";
+
+// Define the PaginationState type with the missing totalItems property
+export interface PaginationState {
+  currentPage: number;
+  pageSize: number;
+  totalItems?: number; // Made optional to avoid errors
+}
 
 export const useChatLogs = () => {
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -25,8 +33,9 @@ export const useChatLogs = () => {
     dateRange: null,
     confidenceScore: null,
     feedback: null,
-    searchTerm: '',
   });
+  // Add searchTerm state separately since it's not in FilterState
+  const [searchTerm, setSearchTerm] = useState('');
 
   const { user } = useAuth();
   const userId = user?.id;
@@ -111,7 +120,10 @@ export const useChatLogs = () => {
       
       try {
         // Fetch conversations with the current pagination and filters
-        const result = await fetchConversations(pagination, filterOptions);
+        const result = await fetchConversations(pagination, {
+          ...filterOptions,
+          searchTerm: searchTerm // Pass searchTerm separately
+        });
         
         const filteredResult = result.conversations || [];
         
@@ -137,8 +149,7 @@ export const useChatLogs = () => {
             new Set(
               filteredResult
                 .map(convo => convo.source)
-                .filter(Boolean)
-                .filter((source): source is string => typeof source === 'string')
+                .filter((source): source is string => typeof source === 'string' && source !== null)
             )
           );
           
@@ -152,7 +163,7 @@ export const useChatLogs = () => {
     };
     
     fetchFilteredData();
-  }, [userId, pagination, filterOptions]);
+  }, [userId, pagination, filterOptions, searchTerm]);
 
   return {
     conversations,
@@ -167,9 +178,11 @@ export const useChatLogs = () => {
     availableSources,
     loadMessages,
     messages,
-    isMessagesLoading,
+    isMessagesLoading: isMessagesLoading,
     messagesError,
     selectedConversationId,
-    removeConversation
+    removeConversation,
+    searchTerm,
+    setSearchTerm
   };
 };
