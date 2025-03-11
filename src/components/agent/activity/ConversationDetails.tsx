@@ -62,13 +62,13 @@ const ConversationDetails = ({
             {conversationMessages.map((msg, index) => (
               <div 
                 key={msg.id || index} 
-                className={`flex ${!msg.is_bot ? 'justify-end' : 'justify-start'}`}
+                className={`flex ${msg.is_bot ? 'justify-start' : 'justify-end'}`}
               >
                 <div 
                   className={`max-w-[70%] p-4 rounded-lg ${
-                    !msg.is_bot 
-                      ? 'bg-purple-600 text-white' 
-                      : 'bg-gray-50 text-gray-800'
+                    msg.is_bot 
+                      ? 'bg-gray-50 text-gray-800' 
+                      : 'bg-purple-600 text-white'
                   }`}
                 >
                   <p className="text-base leading-relaxed">{msg.content}</p>

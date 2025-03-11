@@ -1,25 +1,16 @@
-
 import { FilterState } from "../types";
 
 export const applyFiltersToQuery = (query: any, filters: FilterState) => {
   let filteredQuery = query;
 
-  // Source filter - handle sources in a case-insensitive manner
+  // Source filter - now properly handling embedded source
   if (filters.source && filters.source !== 'all') {
-    // For embedded sources, use an exact match
-    if (filters.source.toLowerCase() === 'embedded') {
-      filteredQuery = filteredQuery.eq('source', 'embedded');
-      console.log(`Applied exact source filter for: ${filters.source}`);
-    } 
-    // For Playground, also match any source containing "playground" (case insensitive)
-    else if (filters.source === 'Playground') {
-      filteredQuery = filteredQuery.eq('source', 'Playground');
-      console.log(`Applied exact source filter for: ${filters.source}`);
-    }
-    // For all other sources, use exact match
-    else {
+    if (filters.source === 'Playground') {
+      // Show only Playground conversations, without the OR condition
+      // This prevents duplication in Activity Tab
       filteredQuery = filteredQuery.eq('source', filters.source);
-      console.log(`Applied source filter: ${filters.source}`);
+    } else {
+      filteredQuery = filteredQuery.eq('source', filters.source);
     }
   }
 

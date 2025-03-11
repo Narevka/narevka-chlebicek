@@ -35,7 +35,7 @@ const ChatInput = ({
           size="icon"
           className="ml-2"
           onClick={handleSendMessage}
-          disabled={sendingMessage || inputMessage.trim() === ''}
+          disabled={sendingMessage || !inputMessage.trim()}
         >
           <Send className="h-4 w-4" />
         </Button>

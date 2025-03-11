@@ -21,6 +21,9 @@ serve(async (req) => {
   }
 
   // Declare variables at the function scope so they're available everywhere
+  let origin = '';
+  let referer = '';
+  let refererDomain = '';
   let supabaseClient = null;
   let threadId = '';
   let finalConversationId = '';
@@ -38,16 +41,8 @@ serve(async (req) => {
       agentId, 
       conversationId: inputConversationId, 
       dbConversationId: inputDbConversationId, 
-      userId,
-      source = 'Playground'  // Default source if none provided
+      userId 
     } = await req.json();
-    
-    // Validate and normalize the source
-    const normalizedSource = source?.toLowerCase().includes('embed') 
-      ? 'embedded' 
-      : (source || 'Playground');
-    
-    console.log(`Processing message for agent: ${agentId}, source: ${normalizedSource}`);
     
     // Set conversation variables from input
     finalConversationId = inputConversationId || '';
@@ -58,6 +53,8 @@ serve(async (req) => {
     
     // Validate request body
     validateRequestBody({ message, agentId });
+    
+    console.log(`Processing message for agent: ${agentId}, userId: ${userId}`);
 
     // Get agent data from Supabase
     const agentData = await getAgentData(agentId);
@@ -65,7 +62,42 @@ serve(async (req) => {
     
     console.log(`Using OpenAI assistant ID: ${assistantId} for agent: ${agentData.name}`);
     
+    // Get auth token from request (if it exists)
+    const authHeader = req.headers.get('Authorization');
+    
+    // Extract request origins for security and tracking
+    origin = req.headers.get('Origin') || '';
+    referer = req.headers.get('Referer') || '';
+    
+    // You can add more allowed domains as needed
+    const allowedOrigins = [
+      'https://www.narevka.com', 
+      'https://narevka.com',
+      'http://localhost:3000',
+      'http://localhost:4000'
+    ];
+    
+    // Extract domain from referer as fallback for origin check
+    try {
+      if (referer) {
+        const url = new URL(referer);
+        refererDomain = url.origin;
+      }
+    } catch (e) {
+      console.warn('Could not parse referer URL');
+    }
+    
+    // Verify request origin for extra security
+    const isAllowedOrigin = allowedOrigins.some(allowed => 
+      origin.includes(allowed) || refererDomain.includes(allowed)
+    );
+    
+    if (!isAllowedOrigin && origin && origin !== 'null') {
+      console.warn(`Request from unauthorized origin: ${origin}, referer: ${referer}`);
+    }
+    
     // Initialize Supabase client using SERVICE ROLE KEY for database operations
+    // This bypasses RLS policies and allows full database access
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
     
@@ -96,28 +128,33 @@ serve(async (req) => {
         // Generate a conversation ID if not provided
         const generatedConversationId = crypto.randomUUID();
         
-        // Now insert the conversation with user ID (or null for embedded chats)
+        // After schema modification, we can use NULL for user_id in embedded chats
+        // This is more correct than using a dummy user
+        const userIdForEmbeddedChat = null; // Use NULL for embedded chats
+        
+        // Now insert the conversation with our special user ID
         const { data, error } = await supabaseClient
           .from('conversations')
           .insert({
             id: generatedConversationId,
-            user_id: userId, // This can be null for embedded chats
-            title: 'New Conversation',
-            source: normalizedSource,
+            user_id: userIdForEmbeddedChat, // Use NULL as user_id
+            title: 'Embedded Chat',
+            source: 'embedded',
             metadata: { 
               anonymous_id: userIdentifier,
               timestamp: new Date().toISOString(),
-              thread_id: threadId // Store OpenAI thread ID in metadata
-            }
+              origin: origin || refererDomain || 'unknown'
+            } // Store additional information in metadata
           })
           .select('id')
           .single();
         
         if (error) throw error;
         finalConversationDbId = data.id;
-        console.log(`Created new conversation in database with ID: ${finalConversationDbId}, source: ${normalizedSource}`);
+        console.log(`Created new conversation in database with ID: ${finalConversationDbId}`);
       } catch (error) {
         console.error('Error creating conversation in database:', error);
+        // Continue without database operations
       }
     }
     
@@ -134,6 +171,7 @@ serve(async (req) => {
         console.log('Saved user message to database');
       } catch (error) {
         console.error('Error saving user message to database:', error);
+        // Continue without database operations
       }
     }
     
@@ -166,6 +204,7 @@ serve(async (req) => {
         console.log('Saved bot message to database');
       } catch (error) {
         console.error('Error saving bot message to database:', error);
+        // Continue without database operations
       }
     }
     
@@ -174,8 +213,7 @@ serve(async (req) => {
         threadId: threadId,
         dbConversationId: finalConversationDbId,
         response: assistantResponse,
-        confidence: confidence,
-        source: normalizedSource // Return the normalized source to client
+        confidence: confidence
       }),
       {
         headers: { 

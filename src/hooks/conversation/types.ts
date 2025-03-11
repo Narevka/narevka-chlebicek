@@ -16,14 +16,3 @@ export interface ConversationState {
   conversationId: string | null;
   threadId: string | null;
 }
-
-export interface MessageFromDB {
-  id: string;
-  conversation_id: string;
-  content: string;
-  is_bot: boolean;
-  confidence?: number;
-  created_at: string;
-  has_thumbs_up?: boolean;
-  has_thumbs_down?: boolean;
-}

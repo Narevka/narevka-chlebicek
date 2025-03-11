@@ -1,13 +1,9 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Message } from "@/components/agent/activity/types";
-import { Message as UIMessage } from "@/hooks/conversation/types";
+import { Message } from "../types";
 
 export const fetchMessagesForConversation = async (conversationId: string): Promise<Message[]> => {
   try {
-    console.log(`Fetching messages for conversation: ${conversationId}`);
-    
     // Get messages for the conversation
     const { data, error } = await supabase
       .from('messages')
@@ -17,44 +13,29 @@ export const fetchMessagesForConversation = async (conversationId: string): Prom
 
     if (error) throw error;
 
-    if (!data || data.length === 0) {
-      console.log(`No messages found for conversation: ${conversationId}`);
-      return [];
-    }
+    // Identify and filter out duplicate messages
+    // This handles the case where the same message was saved multiple times
+    const uniqueMessages: Message[] = [];
+    const contentMap = new Map<string, boolean>();
     
-    console.log(`Found ${data.length} messages for conversation: ${conversationId}`);
+    data?.forEach(msg => {
+      // Create a unique key from content + is_bot + a timestamp within 5 seconds
+      // This accounts for messages with identical content that are sent within seconds of each other
+      const timeKey = Math.floor(new Date(msg.created_at).getTime() / 5000);
+      const key = `${msg.content}-${msg.is_bot}-${timeKey}`;
+      
+      if (!contentMap.has(key)) {
+        contentMap.set(key, true);
+        uniqueMessages.push(msg);
+      }
+    });
 
-    // Data is already in the Activity Message format, so we return it directly
-    return data as Message[];
+    console.log(`Filtered ${data?.length || 0} messages down to ${uniqueMessages.length} unique messages`);
+    
+    return uniqueMessages || [];
   } catch (error) {
     console.error("Error fetching messages:", error);
     toast.error("Failed to load conversation messages");
     return [];
   }
-};
-
-// Add a utility function to convert between message formats
-export const convertUIMessageToActivityMessage = (message: UIMessage, conversationId: string): Message => {
-  return {
-    id: message.id,
-    conversation_id: conversationId,
-    content: message.content,
-    is_bot: !message.isUser,
-    created_at: message.created_at || new Date().toISOString(),
-    confidence: message.confidence,
-    has_thumbs_up: message.has_thumbs_up,
-    has_thumbs_down: message.has_thumbs_down
-  };
-};
-
-export const convertActivityMessageToUIMessage = (message: Message): UIMessage => {
-  return {
-    id: message.id,
-    content: message.content,
-    isUser: !message.is_bot,
-    created_at: message.created_at,
-    confidence: message.confidence,
-    has_thumbs_up: message.has_thumbs_up,
-    has_thumbs_down: message.has_thumbs_down
-  };
 };

@@ -1,6 +1,6 @@
 
 import React from "react";
-import { Message } from "@/hooks/conversation/types";
+import { Message } from "@/hooks/useConversation";
 
 interface MessageListProps {
   messages: Message[];

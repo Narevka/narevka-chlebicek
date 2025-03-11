@@ -2,78 +2,74 @@
 import { useState, useEffect, useCallback } from "react";
 import { v4 as uuidv4 } from 'uuid';
 import { toast } from "sonner";
-import { Message } from "./conversation/types";
-import { saveMessageToDb } from "./conversation/conversationDb";
+import { Message, ConversationState } from "./conversation/types";
+import { saveMessageToDb, createConversation, updateConversationTitle } from "./conversation/conversationDb";
 import { getAssistantResponse } from "./conversation/assistantApi";
-import { useConversationSource } from "./conversation/useConversationSource";
-import { useMessages } from "./conversation/useMessages";
 
-export const useConversation = (userId: string | undefined, agentId: string | undefined, initialSource: string = "Playground") => {
-  // Get conversation ID and normalized source
-  const { conversationId, source: normalizedSource, resetConversation: resetConversationSource } = useConversationSource(userId, initialSource);
-  
-  // Get messages specific to this conversation and source
-  const { messages, addMessage, setMessages, resetMessages } = useMessages(conversationId, normalizedSource);
-  
+// Export the Message type with the correct syntax for isolatedModules
+export type { Message };
+
+export const useConversation = (userId: string | undefined, agentId: string | undefined, source: string = "Playground") => {
+  const [messages, setMessages] = useState<Array<Message>>([
+    { content: "Hi! What can I help you with?", isUser: false }
+  ]);
   const [inputMessage, setInputMessage] = useState("");
   const [sendingMessage, setSendingMessage] = useState(false);
+  const [conversationId, setConversationId] = useState<string | null>(null);
   const [threadId, setThreadId] = useState<string | null>(null);
-  const [isInitializing, setIsInitializing] = useState(false);
-  const [currentSource, setCurrentSource] = useState(normalizedSource);
 
   useEffect(() => {
-    // Update current source if the normalized source changes
-    if (normalizedSource && normalizedSource !== currentSource) {
-      console.log(`Source changed from ${currentSource} to ${normalizedSource}`);
-      setCurrentSource(normalizedSource);
-    }
-  }, [normalizedSource, currentSource]);
+    // Create a new conversation when component mounts
+    const initConversation = async () => {
+      if (!userId) return;
+
+      // Use the source parameter passed to the hook
+      console.log("Initializing conversation with source:", source);
+      const newConversationId = await createConversation(userId, source);
+      
+      if (newConversationId) {
+        setConversationId(newConversationId);
+        
+        // Save initial bot message
+        await saveMessageToDb({
+          conversation_id: newConversationId,
+          content: "Hi! What can I help you with?",
+          is_bot: true
+        });
+      }
+    };
+
+    initConversation();
+  }, [userId, source]);
 
   const handleSendMessage = useCallback(async (message: string) => {
-    if (!message.trim() || !conversationId || !agentId || isInitializing) return;
+    if (!message.trim() || !conversationId || !agentId) return;
     
+    const userMessage = {
+      id: uuidv4(),
+      content: message,
+      isUser: true
+    };
+    
+    setMessages(prev => [...prev, userMessage]);
     setSendingMessage(true);
     
+    // Save user message to database
+    await saveMessageToDb({
+      conversation_id: conversationId,
+      content: message,
+      is_bot: false
+    });
+    
     try {
-      console.log(`Sending message using source: ${currentSource}`);
+      const { botResponse, threadId: newThreadId } = await getAssistantResponse(message, agentId, threadId);
       
-      // Add user message to UI immediately
-      const userMessage = {
-        id: uuidv4(),
-        content: message,
-        isUser: true,
-        created_at: new Date().toISOString()
-      };
-      
-      addMessage(userMessage);
-      setInputMessage("");
-      
-      // Save to database
-      await saveMessageToDb({
-        conversation_id: conversationId,
-        content: message,
-        is_bot: false
-      });
-      
-      // Get AI response
-      const { botResponse, threadId: newThreadId, source: responseSource } = 
-        await getAssistantResponse(message, agentId, threadId, currentSource);
-      
+      // Update thread ID if it's a new conversation
       if (newThreadId && !threadId) {
         setThreadId(newThreadId);
       }
       
-      // Update source if it changed
-      if (responseSource && responseSource !== currentSource) {
-        console.log(`Source updated from ${currentSource} to ${responseSource}`);
-        setCurrentSource(responseSource);
-      }
-      
-      // Add bot response to UI
-      addMessage({
-        ...botResponse,
-        isUser: false
-      });
+      setMessages(prev => [...prev, botResponse]);
       
       // Save bot response to database
       await saveMessageToDb({
@@ -83,26 +79,41 @@ export const useConversation = (userId: string | undefined, agentId: string | un
         confidence: botResponse.confidence
       });
       
-    } catch (error) {
-      console.error("Error in message handling:", error);
-      toast.error("Failed to get response");
+      // Update conversation title with the first user message if it's the second message in the conversation
+      if (messages.length === 1) {
+        updateConversationTitle(conversationId, userId, message);
+      }
     } finally {
       setSendingMessage(false);
     }
-  }, [conversationId, threadId, agentId, isInitializing, addMessage, currentSource]);
+    
+    setInputMessage("");
+  }, [conversationId, threadId, agentId, userId, messages.length]);
 
-  // Combined reset function that handles both conversation source and messages
   const resetConversation = useCallback(async () => {
-    // First reset the messages UI
-    resetMessages();
+    if (!userId) return;
+
+    // Create a new conversation with the same source
+    console.log("Resetting conversation with source:", source);
+    const newConversationId = await createConversation(userId, source);
     
-    // Then reset the conversation in the database and storage
-    await resetConversationSource();
-    
-    // Clear thread ID
-    setThreadId(null);
-    
-  }, [resetMessages, resetConversationSource]);
+    if (newConversationId) {
+      setConversationId(newConversationId);
+      setThreadId(null); // Reset OpenAI thread ID
+      setMessages([{ content: "Hi! What can I help you with?", isUser: false }]);
+      
+      // Save initial bot message
+      await saveMessageToDb({
+        conversation_id: newConversationId,
+        content: "Hi! What can I help you with?",
+        is_bot: true
+      });
+      
+      toast.success("Conversation reset");
+    } else {
+      toast.error("Failed to reset conversation");
+    }
+  }, [userId, source]);
 
   return {
     messages,
@@ -110,9 +121,6 @@ export const useConversation = (userId: string | undefined, agentId: string | un
     setInputMessage,
     sendingMessage,
     handleSendMessage,
-    resetConversation,
-    isInitializing,
-    conversationId,
-    source: currentSource
+    resetConversation
   };
 };

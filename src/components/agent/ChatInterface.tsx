@@ -1,5 +1,5 @@
 
-import React, { useEffect } from "react";
+import React from "react";
 import { RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import MessageList from "./MessageList";
@@ -21,25 +21,11 @@ const ChatInterface = ({ agentName, agentId, source = "Playground" }: ChatInterf
     setInputMessage,
     sendingMessage,
     handleSendMessage,
-    resetConversation,
-    isInitializing,
-    source: normalizedSource
+    resetConversation
   } = useConversation(user?.id, agentId, source);
 
-  useEffect(() => {
-    // Add a console log to track source changes
-    console.log(`ChatInterface source: ${normalizedSource}`);
-  }, [normalizedSource]);
-
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey && inputMessage.trim() !== '') {
-      e.preventDefault();
-      handleSendMessage(inputMessage);
-    }
-  };
-
-  const handleSendButtonClick = () => {
-    if (inputMessage.trim() !== '') {
+    if (e.key === "Enter") {
       handleSendMessage(inputMessage);
     }
   };
@@ -59,7 +45,6 @@ const ChatInterface = ({ agentName, agentId, source = "Playground" }: ChatInterf
           </div>
           <div>
             <h3 className="text-md font-medium">{agentName}</h3>
-            <div className="text-xs text-gray-500 text-center">Source: {normalizedSource}</div>
           </div>
           <div>
             <Button variant="ghost" size="icon" onClick={resetConversation}>
@@ -73,7 +58,7 @@ const ChatInterface = ({ agentName, agentId, source = "Playground" }: ChatInterf
         <ChatInput
           inputMessage={inputMessage}
           setInputMessage={setInputMessage}
-          handleSendMessage={handleSendButtonClick}
+          handleSendMessage={() => handleSendMessage(inputMessage)}
           handleKeyDown={handleKeyDown}
           sendingMessage={sendingMessage}
         />

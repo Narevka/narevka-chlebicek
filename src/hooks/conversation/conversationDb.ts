@@ -11,90 +11,37 @@ export const saveMessageToDb = async (messageData: {
   has_thumbs_down?: boolean;
 }) => {
   try {
-    console.log(`Saving message to conversation ${messageData.conversation_id}`, {
-      is_bot: messageData.is_bot,
-      preview: messageData.content.substring(0, 30) + (messageData.content.length > 30 ? '...' : '')
-    });
-    
     const { error } = await supabase
       .from('messages')
       .insert(messageData);
 
     if (error) throw error;
-    
-    console.log("Message saved successfully");
   } catch (error) {
     console.error("Error saving message:", error);
     toast.error("Failed to save message");
   }
 };
 
-// Enhanced conversation creation with strict source validation
 export const createConversation = async (userId: string, source: string = "Playground") => {
   try {
-    // Normalize source names to standard values
-    let normalizedSource = source || "Playground";
-    if (normalizedSource.toLowerCase().includes("playground")) {
-      normalizedSource = "Playground";
-    } else if (normalizedSource.toLowerCase().includes("embed")) {
-      normalizedSource = "embedded";
-    }
+    // Sanitize source to ensure it's a valid value
+    const validSource = source || "Website";
+    console.log("Creating new conversation for user:", userId, "source:", validSource);
     
-    console.log(`Creating new conversation for ${userId ? 'user: ' + userId : 'anonymous user'}, source: ${normalizedSource}`);
-    
-    // Create a unique storage key based on source
-    const sourceStorageKey = `current_conversation_${normalizedSource}`;
-    
-    // Check for existing conversation ID in local storage
-    const sessionConversationId = sessionStorage.getItem(sourceStorageKey);
-    
-    if (sessionConversationId) {
-      console.log(`Found existing conversation in session for source ${normalizedSource}: ${sessionConversationId}`);
-      
-      // Verify this conversation actually exists in the database
-      const { data: existingConvo } = await supabase
-        .from('conversations')
-        .select('id, source')
-        .eq('id', sessionConversationId)
-        .maybeSingle();
-        
-      if (existingConvo) {
-        console.log(`Verified existing conversation for source ${normalizedSource}: ${sessionConversationId}`);
-        
-        // Fix the source if it doesn't match what we expect
-        if (existingConvo.source !== normalizedSource) {
-          console.log(`Correcting source from ${existingConvo.source} to ${normalizedSource}`);
-          await updateConversationSource(sessionConversationId, normalizedSource);
-        }
-        
-        return sessionConversationId;
-      } else {
-        console.log(`Session conversation ID not found in database for source ${normalizedSource}, will create new`);
-        // Remove invalid session storage value
-        sessionStorage.removeItem(sourceStorageKey);
-      }
-    }
-    
-    // Create a new conversation
     const { data, error } = await supabase
       .from('conversations')
       .insert({
         user_id: userId,
         title: "New conversation",
-        source: normalizedSource
+        source: validSource
       })
       .select('id')
       .single();
 
     if (error) throw error;
     
-    const newId = data.id;
-    console.log(`Created conversation with ID: ${newId}, source: ${normalizedSource}`);
-    
-    // Store in session storage with source-specific key
-    sessionStorage.setItem(sourceStorageKey, newId);
-    
-    return newId;
+    console.log("Created conversation with ID:", data.id, "source:", validSource);
+    return data.id;
   } catch (error) {
     console.error("Error creating conversation:", error);
     return null;
@@ -121,18 +68,10 @@ export const updateConversationSource = async (conversationId: string, source: s
   if (!conversationId) return;
 
   try {
-    // Normalize source name
-    let normalizedSource = source;
-    if (normalizedSource.toLowerCase().includes("playground")) {
-      normalizedSource = "Playground";
-    } else if (normalizedSource.toLowerCase().includes("embed")) {
-      normalizedSource = "embedded";
-    }
-    
-    console.log("Updating conversation source:", conversationId, "new source:", normalizedSource);
+    console.log("Updating conversation source:", conversationId, "new source:", source);
     const { error } = await supabase
       .from('conversations')
-      .update({ source: normalizedSource })
+      .update({ source: source })
       .eq('id', conversationId);
 
     if (error) throw error;
