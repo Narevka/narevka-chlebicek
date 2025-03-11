@@ -4,12 +4,23 @@ import { FilterState } from "../types";
 export const applyFiltersToQuery = (query: any, filters: FilterState) => {
   let filteredQuery = query;
 
-  // Source filter - prevent duplicates by handling source properly
+  // Source filter - handle sources in a case-insensitive manner
   if (filters.source && filters.source !== 'all') {
-    // Apply exact source filter without any OR conditions
-    // This ensures we only get conversations from one specific source
-    filteredQuery = filteredQuery.eq('source', filters.source);
-    console.log(`Applied source filter: ${filters.source}`);
+    // For embedded sources, use an exact match
+    if (filters.source.toLowerCase() === 'embedded') {
+      filteredQuery = filteredQuery.eq('source', 'embedded');
+      console.log(`Applied exact source filter for: ${filters.source}`);
+    } 
+    // For Playground, also match any source containing "playground" (case insensitive)
+    else if (filters.source === 'Playground') {
+      filteredQuery = filteredQuery.eq('source', 'Playground');
+      console.log(`Applied exact source filter for: ${filters.source}`);
+    }
+    // For all other sources, use exact match
+    else {
+      filteredQuery = filteredQuery.eq('source', filters.source);
+      console.log(`Applied source filter: ${filters.source}`);
+    }
   }
 
   // Date range filter

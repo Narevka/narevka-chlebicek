@@ -16,27 +16,34 @@ export const fetchMessagesForConversation = async (conversationId: string): Prom
 
     if (error) throw error;
 
-    // Enhanced duplicate message detection - even more aggressive
+    if (!data || data.length === 0) {
+      console.log(`No messages found for conversation: ${conversationId}`);
+      return [];
+    }
+    
+    console.log(`Found ${data.length} messages for conversation: ${conversationId}`);
+
+    // Even more aggressive duplicate detection
     const uniqueMessages: Message[] = [];
     const contentMap = new Map<string, boolean>();
     
-    data?.forEach(msg => {
-      // Create an even more strict unique key from content + is_bot + a smaller time window
-      // This catches more duplicates that are sent within very close time frames
-      const timeKey = Math.floor(new Date(msg.created_at).getTime() / 1000); // 1 second window
-      const key = `${msg.content.trim().substring(0, 50)}-${msg.is_bot}-${timeKey}`;
+    data.forEach(msg => {
+      // Create a key based on message content hash and user/bot flag
+      const contentPreview = msg.content.trim().substring(0, 60);
+      const timeKey = Math.floor(new Date(msg.created_at).getTime() / 500); // 0.5 second window
+      const key = `${contentPreview}-${msg.is_bot}-${timeKey}`;
       
       if (!contentMap.has(key)) {
         contentMap.set(key, true);
         uniqueMessages.push(msg);
       } else {
-        console.log(`Filtered out duplicate message: ${msg.content.substring(0, 30)}...`);
+        console.log(`Filtered out duplicate message: "${contentPreview.substring(0, 30)}..."`);
       }
     });
 
-    console.log(`Filtered ${data?.length || 0} messages down to ${uniqueMessages.length} unique messages`);
+    console.log(`Filtered ${data.length} messages down to ${uniqueMessages.length} unique messages`);
     
-    return uniqueMessages || [];
+    return uniqueMessages;
   } catch (error) {
     console.error("Error fetching messages:", error);
     toast.error("Failed to load conversation messages");

@@ -21,15 +21,26 @@ export const useConversation = (userId: string | undefined, agentId: string | un
   const [conversationSource] = useState<string>(source); // Store source and never change it
   const [isInitializing, setIsInitializing] = useState(true);
 
-  console.log(`Initializing conversation with consistent source: ${conversationSource}`);
+  console.log(`Initializing conversation with source: ${conversationSource}`);
+
+  // Check for existing conversation in session storage
+  useEffect(() => {
+    // Try to get existing conversationId from sessionStorage to maintain continuity
+    const sessionConversationId = sessionStorage.getItem(`current_conversation_${conversationSource}`);
+    if (sessionConversationId) {
+      console.log(`Found existing conversation in session: ${sessionConversationId}`);
+      setConversationId(sessionConversationId);
+      setIsInitializing(false);
+    }
+  }, [conversationSource]);
 
   // Ensure we only create one conversation
   useEffect(() => {
     let isMounted = true;
     
-    // Create a new conversation when component mounts
+    // Create a new conversation when component mounts only if we don't have one already
     const initConversation = async () => {
-      if (!userId) return;
+      if (!userId || conversationId) return;
 
       setIsInitializing(true);
       
@@ -79,6 +90,8 @@ export const useConversation = (userId: string | undefined, agentId: string | un
         }
         
         if (isMounted && convId) {
+          // Store conversation ID in session storage to maintain it between page refreshes
+          sessionStorage.setItem(`current_conversation_${normalizedSource}`, convId);
           setConversationId(convId);
         }
       } catch (error) {
@@ -95,7 +108,7 @@ export const useConversation = (userId: string | undefined, agentId: string | un
     return () => {
       isMounted = false;
     };
-  }, [userId, conversationSource]);
+  }, [userId, conversationSource, conversationId]);
 
   const handleSendMessage = useCallback(async (message: string) => {
     if (!message.trim() || !conversationId || !agentId || isInitializing) return;
@@ -151,6 +164,9 @@ export const useConversation = (userId: string | undefined, agentId: string | un
     setSendingMessage(true);
     
     try {
+      // Remove the old conversation ID from session storage
+      sessionStorage.removeItem(`current_conversation_${conversationSource}`);
+      
       // Create a new conversation with the SAME source as original initialization
       // Also normalize the source
       let normalizedSource = conversationSource;
@@ -164,6 +180,9 @@ export const useConversation = (userId: string | undefined, agentId: string | un
       const newConversationId = await createConversation(userId, normalizedSource);
       
       if (newConversationId) {
+        // Store the new conversation ID in session storage
+        sessionStorage.setItem(`current_conversation_${normalizedSource}`, newConversationId);
+        
         setConversationId(newConversationId);
         setThreadId(null); // Reset OpenAI thread ID
         setMessages([{ content: "Hi! What can I help you with?", isUser: false }]);

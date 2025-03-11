@@ -1,5 +1,5 @@
 
-import React from "react";
+import React, { useEffect } from "react";
 import { RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import MessageList from "./MessageList";
@@ -21,8 +21,25 @@ const ChatInterface = ({ agentName, agentId, source = "Playground" }: ChatInterf
     setInputMessage,
     sendingMessage,
     handleSendMessage,
-    resetConversation
+    resetConversation,
+    isInitializing
   } = useConversation(user?.id, agentId, source);
+
+  // Persist conversation source identifier to ensure consistent source tracking
+  useEffect(() => {
+    // Normalize the source
+    let normalizedSource = source;
+    if (normalizedSource.toLowerCase().includes("playground")) {
+      normalizedSource = "Playground";
+    } else if (normalizedSource.toLowerCase().includes("embed")) {
+      normalizedSource = "embedded";
+    }
+    
+    // Store this normalized source in sessionStorage to ensure consistency
+    sessionStorage.setItem('current_chat_source', normalizedSource);
+    
+    console.log(`ChatInterface initialized with source: ${normalizedSource}`);
+  }, [source]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {

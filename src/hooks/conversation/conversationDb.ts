@@ -44,16 +44,38 @@ export const createConversation = async (userId: string, source: string = "Playg
     
     console.log("Creating new conversation for user:", userId, "source:", validSource);
     
+    // Check for existing conversation ID in session storage
+    const sessionConversationId = sessionStorage.getItem(`current_conversation_${validSource}`);
+    if (sessionConversationId) {
+      console.log(`Found existing conversation in session: ${sessionConversationId}`);
+      
+      // Verify this conversation actually exists in the database
+      const { data: existingConvo } = await supabase
+        .from('conversations')
+        .select('id')
+        .eq('id', sessionConversationId)
+        .single();
+        
+      if (existingConvo) {
+        console.log(`Verified existing conversation: ${sessionConversationId}`);
+        return sessionConversationId;
+      } else {
+        console.log(`Session conversation ID ${sessionConversationId} not found in database, will create new`);
+        // Remove invalid session storage value
+        sessionStorage.removeItem(`current_conversation_${validSource}`);
+      }
+    }
+    
     // Prevent duplicate conversations by checking for recent similar ones
-    const twoMinutesAgo = new Date();
-    twoMinutesAgo.setMinutes(twoMinutesAgo.getMinutes() - 2);
+    const fiveMinutesAgo = new Date();
+    fiveMinutesAgo.setMinutes(fiveMinutesAgo.getMinutes() - 5);
     
     const { data: existingConversations } = await supabase
       .from('conversations')
       .select('id')
       .eq('user_id', userId)
       .eq('source', validSource)
-      .gte('created_at', twoMinutesAgo.toISOString())
+      .gte('created_at', fiveMinutesAgo.toISOString())
       .order('created_at', { ascending: false })
       .limit(1);
     
@@ -61,6 +83,10 @@ export const createConversation = async (userId: string, source: string = "Playg
     if (existingConversations && existingConversations.length > 0) {
       const existingId = existingConversations[0].id;
       console.log(`Using existing recent conversation: ${existingId} instead of creating a new one`);
+      
+      // Store in session storage for future use
+      sessionStorage.setItem(`current_conversation_${validSource}`, existingId);
+      
       return existingId;
     }
     
@@ -77,8 +103,13 @@ export const createConversation = async (userId: string, source: string = "Playg
 
     if (error) throw error;
     
-    console.log("Created conversation with ID:", data.id, "source:", validSource);
-    return data.id;
+    const newId = data.id;
+    console.log("Created conversation with ID:", newId, "source:", validSource);
+    
+    // Store in session storage for future use
+    sessionStorage.setItem(`current_conversation_${validSource}`, newId);
+    
+    return newId;
   } catch (error) {
     console.error("Error creating conversation:", error);
     return null;
