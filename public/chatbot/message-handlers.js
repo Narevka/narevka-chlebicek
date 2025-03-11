@@ -44,18 +44,16 @@ export async function sendMessage(chatId) {
     messagesContainer.appendChild(loadingIndicator);
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
     
-    // Get saved thread and conversation IDs if any
+    // Get saved thread ID (for OpenAI)
     const savedThreadId = localStorage.getItem(`thread_${chatId}`);
-    let conversationId = localStorage.getItem(`conversation_${chatId}`);
+    // Check if we have a conversation in the database
+    let conversationId = localStorage.getItem(`conversation_id_${chatId}`);
     
     // If no conversation exists yet, create one
     if (!conversationId) {
       try {
         conversationId = await createConversation(chatId);
-        if (conversationId) {
-          localStorage.setItem(`conversation_${chatId}`, conversationId);
-          logDebug('Conversation ID saved', conversationId);
-        }
+        logDebug('Conversation created', conversationId);
       } catch (dbError) {
         // Log the error but continue - chat can still work without DB
         logToDebugPanel('Failed to create conversation in database', 'warning', dbError);
@@ -63,14 +61,12 @@ export async function sendMessage(chatId) {
       }
     }
     
-    // Save user message to database
-    if (conversationId) {
-      try {
-        await saveMessage(conversationId, messageText, false);
-      } catch (dbError) {
-        // Log the error but continue with chat
-        logToDebugPanel('Failed to save user message to database', 'warning', dbError);
-      }
+    // Save user message to database - passing agentId instead of conversationId
+    try {
+      await saveMessage(chatId, messageText, false);
+    } catch (dbError) {
+      // Log the error but continue with chat
+      logToDebugPanel('Failed to save user message to database', 'warning', dbError);
     }
     
     // Prepare request payload
@@ -114,21 +110,19 @@ export async function sendMessage(chatId) {
       logDebug('Thread ID saved', data.threadId);
     }
     
-    // Save bot response to database
-    if (conversationId) {
-      try {
-        await saveMessage(conversationId, data.response, true, data.confidence);
-        
-        // Update conversation title with first few words of first message (if this is the first message)
-        const botMessageCount = document.querySelectorAll('.bot-message').length;
-        if (botMessageCount === 1) {
-          const titleText = messageText.length > 30 ? messageText.substring(0, 30) + '...' : messageText;
-          await updateConversationTitle(conversationId, titleText);
-        }
-      } catch (dbError) {
-        // Log the error but continue
-        logToDebugPanel('Failed to save bot message to database', 'warning', dbError);
+    // Save bot response to database - passing agentId instead of conversationId
+    try {
+      await saveMessage(chatId, data.response, true, data.confidence);
+      
+      // Update conversation title with first few words of first message (if this is the first message)
+      const botMessageCount = document.querySelectorAll('.bot-message').length;
+      if (botMessageCount === 1) {
+        const titleText = messageText.length > 30 ? messageText.substring(0, 30) + '...' : messageText;
+        await updateConversationTitle(chatId, titleText);
       }
+    } catch (dbError) {
+      // Log the error but continue
+      logToDebugPanel('Failed to save bot message to database', 'warning', dbError);
     }
     
     // Add bot response

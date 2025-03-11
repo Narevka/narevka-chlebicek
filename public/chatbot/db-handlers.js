@@ -89,33 +89,41 @@ async function initSupabase() {
  */
 export async function createConversation(agentId) {
   try {
+    // Generate a proper UUID for the conversation
+    const conversationId = crypto.randomUUID();
+    
     // Initialize Supabase
     const supabase = await initSupabase();
     
-    // Get or create anonymous user ID (upewniamy się, że to prawidłowy UUID)
+    // Get or create anonymous user ID (ensure it's a valid UUID)
     let userId = localStorage.getItem('anonymous_user_id');
     if (!userId || userId.length !== 36) {
       userId = crypto.randomUUID();
       localStorage.setItem('anonymous_user_id', userId);
     }
     
-    logToDebugPanel('Creating conversation', 'info', { userId, agentId });
+    logToDebugPanel('Creating conversation', 'info', { userId, agentId, conversationId });
     
-    // Create conversation in database
-    const { data, error } = await supabase
+    // Create conversation in database with explicit ID
+    const { error } = await supabase
       .from('conversations')
       .insert({
+        id: conversationId, // Explicitly provide UUID
         user_id: userId,
         title: 'Embedded Chat',
         source: 'embedded',
-      })
-      .select('id')
-      .single();
+      });
     
-    if (error) throw error;
+    if (error) {
+      logToDebugPanel('Database error when creating conversation', 'error', error);
+      // Still store the ID locally so we can try again later
+      localStorage.setItem(`conversation_id_${agentId}`, conversationId);
+      return conversationId;
+    }
     
-    logToDebugPanel('Conversation created', 'info', { conversationId: data.id });
-    return data.id;
+    logToDebugPanel('Conversation created successfully', 'info', { conversationId });
+    localStorage.setItem(`conversation_id_${agentId}`, conversationId);
+    return conversationId;
   } catch (error) {
     logToDebugPanel('Error creating conversation', 'error', error);
     return null;
@@ -124,30 +132,34 @@ export async function createConversation(agentId) {
 
 /**
  * Save a message to the database
- * @param {string} conversationId - The conversation ID
+ * @param {string} agentId - The agent ID (used to retrieve the conversation ID)
  * @param {string} content - The message content
  * @param {boolean} isBot - Whether the message is from a bot
  * @param {number|null} confidence - The confidence score (for bot messages)
  * @returns {Promise<boolean>} - Whether the message was saved successfully
  */
-export async function saveMessage(conversationId, content, isBot, confidence = null) {
+export async function saveMessage(agentId, content, isBot, confidence = null) {
   try {
+    // Get the proper conversation ID (not thread ID)
+    const conversationId = localStorage.getItem(`conversation_id_${agentId}`);
+    
+    if (!conversationId) {
+      logToDebugPanel('Cannot save message: No conversation ID for this agent', 'error');
+      return false;
+    }
+    
     // Initialize Supabase
     const supabase = await initSupabase();
     if (!supabase) throw new Error('Supabase client not initialized');
     
-    if (!conversationId) {
-      logToDebugPanel('Cannot save message: No conversation ID', 'error');
-      return false;
-    }
-    
     logToDebugPanel('Saving message', 'info', { 
       conversationId, 
+      agentId,
       isBot, 
       contentPreview: content.substring(0, 50) + (content.length > 50 ? '...' : '')
     });
     
-    // Insert message
+    // Insert message with the proper conversation ID
     const { error } = await supabase
       .from('messages')
       .insert({
@@ -169,11 +181,13 @@ export async function saveMessage(conversationId, content, isBot, confidence = n
 
 /**
  * Update the title of a conversation
- * @param {string} conversationId - The conversation ID
+ * @param {string} agentId - The agent ID (used to retrieve the conversation ID)
  * @param {string} title - The new title
  * @returns {Promise<boolean>} - Whether the title was updated successfully
  */
-export async function updateConversationTitle(conversationId, title) {
+export async function updateConversationTitle(agentId, title) {
+  // Get the proper conversation ID
+  const conversationId = localStorage.getItem(`conversation_id_${agentId}`);
   try {
     // Initialize Supabase
     const supabase = await initSupabase();
