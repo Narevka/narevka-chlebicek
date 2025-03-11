@@ -13,6 +13,33 @@ import { handleError } from "./error-handler.ts";
 import { validateRequestBody } from "./validation.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
 
+// Dodajemy funkcję wykrywania języka na podstawie nagłówków żądania
+const detectLanguage = (request: Request): string => {
+  // Pobierz nagłówek Accept-Language
+  const acceptLanguage = request.headers.get('Accept-Language') || '';
+  
+  // Standardowy kod wykrywania preferencji językowych
+  const preferredLanguages = acceptLanguage
+    .split(',')
+    .map(lang => {
+      const [language, qValue] = lang.trim().split(';q=');
+      return {
+        language: language.split('-')[0], // Wyodrębnij główny kod języka (pl-PL -> pl)
+        quality: qValue ? parseFloat(qValue) : 1.0
+      };
+    })
+    .sort((a, b) => b.quality - a.quality);
+  
+  // Domyślny język to angielski, jeśli nie można wykryć preferencji
+  if (preferredLanguages.length === 0) return 'en';
+  
+  // Pobierz preferowany język
+  const detectedLanguage = preferredLanguages[0].language;
+  
+  // Obsługujemy obecnie polski i angielski
+  return ['pl', 'en'].includes(detectedLanguage) ? detectedLanguage : 'en';
+};
+
 serve(async (req) => {
   // Handle CORS preflight requests
   const corsResponse = handleCors(req);
@@ -41,8 +68,13 @@ serve(async (req) => {
       agentId, 
       conversationId: inputConversationId, 
       dbConversationId: inputDbConversationId, 
-      userId 
+      userId,
+      language // Dodajemy opcjonalny parametr języka
     } = await req.json();
+    
+    // Wykryj język z nagłówków lub użyj podanego
+    const userLanguage = language || detectLanguage(req);
+    console.log(`Detected/provided language: ${userLanguage}`);
     
     // Set conversation variables from input
     finalConversationId = inputConversationId || '';
@@ -54,7 +86,7 @@ serve(async (req) => {
     // Validate request body
     validateRequestBody({ message, agentId });
     
-    console.log(`Processing message for agent: ${agentId}, userId: ${userId}`);
+    console.log(`Processing message for agent: ${agentId}, userId: ${userId}, language: ${userLanguage}`);
 
     // Get agent data from Supabase
     const agentData = await getAgentData(agentId);
@@ -156,7 +188,8 @@ serve(async (req) => {
               anonymous_id: userIdentifier,
               timestamp: new Date().toISOString(),
               origin: origin || refererDomain || 'unknown',
-              referrer: referer || 'unknown'
+              referrer: referer || 'unknown',
+              language: userLanguage // Dodajemy wykryty język do metadanych
             } // Store additional information in metadata
           })
           .select('id')
@@ -164,7 +197,7 @@ serve(async (req) => {
         
         if (error) throw error;
         finalConversationDbId = data.id;
-        console.log(`Created new conversation in database with ID: ${finalConversationDbId}`);
+        console.log(`Created new conversation in database with ID: ${finalConversationDbId}, language: ${userLanguage}`);
       } catch (error) {
         console.error('Error creating conversation in database:', error);
         // Continue without database operations
@@ -179,7 +212,8 @@ serve(async (req) => {
           .insert({
             conversation_id: finalConversationDbId,
             content: message,
-            is_bot: false
+            is_bot: false,
+            metadata: { language: userLanguage } // Dodajemy informację o języku do wiadomości
           });
         console.log('Saved user message to database');
       } catch (error) {
@@ -191,8 +225,21 @@ serve(async (req) => {
     // Add user message to the thread
     await addMessageToThread(OPENAI_API_KEY, threadId, message);
     
+    // Dodawanie instrukcji dotyczącej języka do wiadomości OpenAI (możliwe tylko z nowym modelem)
+    let systemInstructions = '';
+    if (userLanguage === 'pl') {
+      systemInstructions = 'Proszę odpowiadać po polsku. Użytkownik oczekuje komunikacji w języku polskim.';
+    } else if (userLanguage === 'en') {
+      systemInstructions = 'Please respond in English. The user expects communication in English.';
+    }
+    
     // Create a run to process the conversation with the assistant
-    const { runId, status } = await createRun(OPENAI_API_KEY, threadId, assistantId);
+    const { runId, status } = await createRun(
+      OPENAI_API_KEY, 
+      threadId, 
+      assistantId,
+      systemInstructions ? { instructions: systemInstructions } : undefined
+    );
     
     // Poll for the run completion
     await pollForRunCompletion(OPENAI_API_KEY, threadId, runId, status);
@@ -212,7 +259,8 @@ serve(async (req) => {
             conversation_id: finalConversationDbId,
             content: assistantResponse,
             is_bot: true,
-            confidence: confidence
+            confidence: confidence,
+            metadata: { language: userLanguage } // Dodajemy informację o języku do odpowiedzi
           });
         console.log('Saved bot message to database');
       } catch (error) {
@@ -226,7 +274,8 @@ serve(async (req) => {
         threadId: threadId,
         dbConversationId: finalConversationDbId,
         response: assistantResponse,
-        confidence: confidence
+        confidence: confidence,
+        language: userLanguage // Dołączamy informację o wykrytym/użytym języku
       }),
       {
         headers: { 

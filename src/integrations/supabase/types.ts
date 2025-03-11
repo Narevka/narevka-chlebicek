@@ -137,26 +137,29 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          metadata: Json | null
           source: string
           title: string
           updated_at: string
-          user_id: string
+          user_id: string | null
         }
         Insert: {
           created_at?: string
           id?: string
+          metadata?: Json | null
           source: string
           title: string
           updated_at?: string
-          user_id: string
+          user_id?: string | null
         }
         Update: {
           created_at?: string
           id?: string
+          metadata?: Json | null
           source?: string
           title?: string
           updated_at?: string
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: []
       }

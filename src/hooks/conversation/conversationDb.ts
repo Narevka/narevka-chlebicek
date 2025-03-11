@@ -2,91 +2,123 @@
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-export const saveMessageToDb = async (messageData: {
+// Interfejs dla parametrów wiadomości
+interface MessageParams {
   conversation_id: string;
   content: string;
   is_bot: boolean;
   confidence?: number;
-  has_thumbs_up?: boolean;
-  has_thumbs_down?: boolean;
-}) => {
-  try {
-    const { error } = await supabase
-      .from('messages')
-      .insert(messageData);
+  metadata?: Record<string, any>;
+}
 
-    if (error) throw error;
-  } catch (error) {
-    console.error("Error saving message:", error);
-    toast.error("Failed to save message");
-  }
-};
+// Interfejs dla metadanych konwersacji
+interface ConversationMetadata {
+  language?: string;
+  [key: string]: any;
+}
 
-export const createConversation = async (userId: string, source: string = "Playground") => {
+// Funkcja do zapisywania wiadomości w bazie danych
+export const saveMessageToDb = async (params: MessageParams) => {
   try {
-    // Normalize source to prevent incorrect source values
-    // If source contains "embed" or "iframe" anywhere in the string, standardize to "Website"
-    // Otherwise use the provided source, with "Playground" as the default if empty
-    let normalizedSource = source;
+    const { conversation_id, content, is_bot, confidence, metadata } = params;
     
-    if (!normalizedSource || normalizedSource.trim() === "") {
-      normalizedSource = "Playground";
-    } else if (normalizedSource.toLowerCase().includes("embed") || 
-               normalizedSource.toLowerCase().includes("iframe")) {
-      // If it's any kind of embedded chat, standardize to Website
-      normalizedSource = "Website";
+    if (!conversation_id || !content) {
+      console.error("Missing conversation_id or content in saveMessageToDb");
+      return null;
     }
     
-    console.log("Creating new conversation for user:", userId, "normalized source:", normalizedSource);
-    
+    // Zapisz wiadomość w bazie danych
     const { data, error } = await supabase
-      .from('conversations')
+      .from('messages')
       .insert({
-        user_id: userId,
-        title: "New conversation",
-        source: normalizedSource
+        conversation_id,
+        content,
+        is_bot,
+        confidence,
+        metadata
       })
       .select('id')
       .single();
-
-    if (error) throw error;
     
-    console.log("Created conversation with ID:", data.id, "source:", normalizedSource);
+    if (error) {
+      throw error;
+    }
+    
     return data.id;
-  } catch (error) {
-    console.error("Error creating conversation:", error);
+  } catch (error: any) {
+    console.error("Error saving message to database:", error);
     return null;
   }
 };
 
-export const updateConversationTitle = async (conversationId: string, userId: string | undefined, newTitle: string) => {
-  if (!conversationId || !userId) return;
-
+// Funkcja do tworzenia nowej konwersacji
+export const createConversation = async (
+  userId: string, 
+  source: string = 'Playground',
+  metadata: ConversationMetadata = {}
+) => {
   try {
-    console.log("Updating conversation title:", conversationId, "new title:", newTitle);
-    const { error } = await supabase
+    const title = 'New Conversation';
+    
+    // Utwórz konwersację w bazie danych
+    const { data, error } = await supabase
       .from('conversations')
-      .update({ title: newTitle })
-      .eq('id', conversationId);
-
-    if (error) throw error;
-  } catch (error) {
-    console.error("Error updating conversation title:", error);
+      .insert({
+        user_id: userId,
+        title,
+        source,
+        metadata // Przekaż metadane zawierające język
+      })
+      .select('id')
+      .single();
+    
+    if (error) {
+      throw error;
+    }
+    
+    console.log(`Created new conversation with ID: ${data.id}, source: ${source}, metadata:`, metadata);
+    return data.id;
+  } catch (error: any) {
+    console.error("Error creating conversation:", error);
+    const errorMessage = error.message || "Failed to create conversation";
+    
+    // Sprawdź język z metadanych, aby wyświetlić odpowiedni komunikat
+    if (metadata.language === 'pl') {
+      toast.error("Nie udało się utworzyć nowej rozmowy");
+    } else {
+      toast.error("Failed to create new conversation");
+    }
+    
+    return null;
   }
 };
 
-export const updateConversationSource = async (conversationId: string, source: string) => {
-  if (!conversationId) return;
-
+// Funkcja do aktualizacji tytułu konwersacji
+export const updateConversationTitle = async (
+  conversationId: string, 
+  userId: string, 
+  firstMessage: string
+) => {
   try {
-    console.log("Updating conversation source:", conversationId, "new source:", source);
+    // Generate a title by truncating the first message
+    const title = firstMessage.length > 50
+      ? firstMessage.substring(0, 47) + '...'
+      : firstMessage;
+    
+    // Update the conversation title
     const { error } = await supabase
       .from('conversations')
-      .update({ source: source })
-      .eq('id', conversationId);
-
-    if (error) throw error;
-  } catch (error) {
-    console.error("Error updating conversation source:", error);
+      .update({ title })
+      .eq('id', conversationId)
+      .eq('user_id', userId);
+    
+    if (error) {
+      throw error;
+    }
+    
+    return true;
+  } catch (error: any) {
+    console.error("Error updating conversation title:", error);
+    return false;
   }
 };
