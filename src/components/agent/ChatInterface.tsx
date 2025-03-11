@@ -42,7 +42,14 @@ const ChatInterface = ({ agentName, agentId, source = "Playground" }: ChatInterf
   }, [source]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
+    if (e.key === "Enter" && !e.shiftKey && inputMessage.trim() !== '') {
+      e.preventDefault();
+      handleSendMessage(inputMessage);
+    }
+  };
+
+  const handleSendButtonClick = () => {
+    if (inputMessage.trim() !== '') {
       handleSendMessage(inputMessage);
     }
   };
@@ -75,7 +82,7 @@ const ChatInterface = ({ agentName, agentId, source = "Playground" }: ChatInterf
         <ChatInput
           inputMessage={inputMessage}
           setInputMessage={setInputMessage}
-          handleSendMessage={() => handleSendMessage(inputMessage)}
+          handleSendMessage={handleSendButtonClick}
           handleKeyDown={handleKeyDown}
           sendingMessage={sendingMessage}
         />

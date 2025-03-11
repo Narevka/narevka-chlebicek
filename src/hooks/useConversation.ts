@@ -121,6 +121,7 @@ export const useConversation = (userId: string | undefined, agentId: string | un
     
     setMessages(prev => [...prev, userMessage]);
     setSendingMessage(true);
+    setInputMessage(""); // Clear input immediately after sending
     
     // Save user message to database
     await saveMessageToDb({
@@ -151,11 +152,12 @@ export const useConversation = (userId: string | undefined, agentId: string | un
       if (messages.length === 1) {
         updateConversationTitle(conversationId, userId, message);
       }
+    } catch (error) {
+      console.error("Error getting response:", error);
+      toast.error("Failed to get response");
     } finally {
       setSendingMessage(false);
     }
-    
-    setInputMessage("");
   }, [conversationId, threadId, agentId, userId, messages.length, isInitializing]);
 
   const resetConversation = useCallback(async () => {
