@@ -29,13 +29,42 @@ export const saveMessageToDb = async (messageData: {
   }
 };
 
+// Enhanced conversation creation with strict source validation
 export const createConversation = async (userId: string, source: string = "Playground") => {
   try {
-    // Ensure source is valid and consistent
-    // This is crucial for preventing duplicates
-    const validSource = source || "Playground";
+    // Validate source to prevent inconsistencies
+    let validSource = source || "Playground";
+    
+    // Normalize source names to prevent duplicates from slight variations
+    if (validSource.toLowerCase().includes("playground")) {
+      validSource = "Playground";
+    } else if (validSource.toLowerCase().includes("embed")) {
+      validSource = "embedded";
+    }
+    
     console.log("Creating new conversation for user:", userId, "source:", validSource);
     
+    // Prevent duplicate conversations by checking for recent similar ones
+    const twoMinutesAgo = new Date();
+    twoMinutesAgo.setMinutes(twoMinutesAgo.getMinutes() - 2);
+    
+    const { data: existingConversations } = await supabase
+      .from('conversations')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('source', validSource)
+      .gte('created_at', twoMinutesAgo.toISOString())
+      .order('created_at', { ascending: false })
+      .limit(1);
+    
+    // If there's a recent conversation with the same source, use that instead
+    if (existingConversations && existingConversations.length > 0) {
+      const existingId = existingConversations[0].id;
+      console.log(`Using existing recent conversation: ${existingId} instead of creating a new one`);
+      return existingId;
+    }
+    
+    // Create a new conversation if no recent one exists
     const { data, error } = await supabase
       .from('conversations')
       .insert({
@@ -76,10 +105,18 @@ export const updateConversationSource = async (conversationId: string, source: s
   if (!conversationId) return;
 
   try {
-    console.log("Updating conversation source:", conversationId, "new source:", source);
+    // Normalize source name
+    let validSource = source;
+    if (validSource.toLowerCase().includes("playground")) {
+      validSource = "Playground";
+    } else if (validSource.toLowerCase().includes("embed")) {
+      validSource = "embedded";
+    }
+    
+    console.log("Updating conversation source:", conversationId, "new source:", validSource);
     const { error } = await supabase
       .from('conversations')
-      .update({ source: source })
+      .update({ source: validSource })
       .eq('id', conversationId);
 
     if (error) throw error;

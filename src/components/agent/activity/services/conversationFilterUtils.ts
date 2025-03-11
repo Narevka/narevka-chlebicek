@@ -7,7 +7,9 @@ export const applyFiltersToQuery = (query: any, filters: FilterState) => {
   // Source filter - prevent duplicates by handling source properly
   if (filters.source && filters.source !== 'all') {
     // Apply exact source filter without any OR conditions
+    // This ensures we only get conversations from one specific source
     filteredQuery = filteredQuery.eq('source', filters.source);
+    console.log(`Applied source filter: ${filters.source}`);
   }
 
   // Date range filter

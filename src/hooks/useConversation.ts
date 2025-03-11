@@ -18,35 +18,86 @@ export const useConversation = (userId: string | undefined, agentId: string | un
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [threadId, setThreadId] = useState<string | null>(null);
   const [conversationSource] = useState<string>(source); // Store source and never change it
+  const [isInitializing, setIsInitializing] = useState(true);
 
   console.log(`Initializing conversation with consistent source: ${conversationSource}`);
 
+  // Ensure we only create one conversation
   useEffect(() => {
+    let isMounted = true;
+    
     // Create a new conversation when component mounts
     const initConversation = async () => {
       if (!userId) return;
 
-      // Always use the source that was set at initialization
-      console.log("Creating conversation with source:", conversationSource);
-      const newConversationId = await createConversation(userId, conversationSource);
+      setIsInitializing(true);
       
-      if (newConversationId) {
-        setConversationId(newConversationId);
+      try {
+        // Always use the source that was set at initialization and normalize it
+        let normalizedSource = conversationSource;
+        if (normalizedSource.toLowerCase().includes("playground")) {
+          normalizedSource = "Playground";
+        } else if (normalizedSource.toLowerCase().includes("embed")) {
+          normalizedSource = "embedded";
+        }
         
-        // Save initial bot message
-        await saveMessageToDb({
-          conversation_id: newConversationId,
-          content: "Hi! What can I help you with?",
-          is_bot: true
-        });
+        console.log("Creating conversation with normalized source:", normalizedSource);
+        
+        // Check for recent conversations with same source to prevent duplicates
+        const twoMinutesAgo = new Date();
+        twoMinutesAgo.setMinutes(twoMinutesAgo.getMinutes() - 2);
+        
+        const { data: existingConversations } = await supabase
+          .from('conversations')
+          .select('id')
+          .eq('user_id', userId)
+          .eq('source', normalizedSource)
+          .gte('created_at', twoMinutesAgo.toISOString())
+          .order('created_at', { ascending: false })
+          .limit(1);
+        
+        let convId;
+        
+        // If there's a recent conversation with the same source, use that instead
+        if (existingConversations && existingConversations.length > 0) {
+          convId = existingConversations[0].id;
+          console.log(`Using existing conversation: ${convId} instead of creating a new one`);
+        } else {
+          // Create a new conversation
+          convId = await createConversation(userId, normalizedSource);
+          console.log(`Created new conversation: ${convId}`);
+          
+          if (convId) {
+            // Save initial bot message only for new conversations
+            await saveMessageToDb({
+              conversation_id: convId,
+              content: "Hi! What can I help you with?",
+              is_bot: true
+            });
+          }
+        }
+        
+        if (isMounted && convId) {
+          setConversationId(convId);
+        }
+      } catch (error) {
+        console.error("Error in conversation initialization:", error);
+      } finally {
+        if (isMounted) {
+          setIsInitializing(false);
+        }
       }
     };
 
     initConversation();
+    
+    return () => {
+      isMounted = false;
+    };
   }, [userId, conversationSource]);
 
   const handleSendMessage = useCallback(async (message: string) => {
-    if (!message.trim() || !conversationId || !agentId) return;
+    if (!message.trim() || !conversationId || !agentId || isInitializing) return;
     
     const userMessage = {
       id: uuidv4(),
@@ -91,30 +142,47 @@ export const useConversation = (userId: string | undefined, agentId: string | un
     }
     
     setInputMessage("");
-  }, [conversationId, threadId, agentId, userId, messages.length]);
+  }, [conversationId, threadId, agentId, userId, messages.length, isInitializing]);
 
   const resetConversation = useCallback(async () => {
     if (!userId) return;
 
-    // Create a new conversation with the SAME source as original initialization
-    console.log("Resetting conversation with source:", conversationSource);
-    const newConversationId = await createConversation(userId, conversationSource);
+    setSendingMessage(true);
     
-    if (newConversationId) {
-      setConversationId(newConversationId);
-      setThreadId(null); // Reset OpenAI thread ID
-      setMessages([{ content: "Hi! What can I help you with?", isUser: false }]);
+    try {
+      // Create a new conversation with the SAME source as original initialization
+      // Also normalize the source
+      let normalizedSource = conversationSource;
+      if (normalizedSource.toLowerCase().includes("playground")) {
+        normalizedSource = "Playground";
+      } else if (normalizedSource.toLowerCase().includes("embed")) {
+        normalizedSource = "embedded";
+      }
       
-      // Save initial bot message
-      await saveMessageToDb({
-        conversation_id: newConversationId,
-        content: "Hi! What can I help you with?",
-        is_bot: true
-      });
+      console.log("Resetting conversation with normalized source:", normalizedSource);
+      const newConversationId = await createConversation(userId, normalizedSource);
       
-      toast.success("Conversation reset");
-    } else {
+      if (newConversationId) {
+        setConversationId(newConversationId);
+        setThreadId(null); // Reset OpenAI thread ID
+        setMessages([{ content: "Hi! What can I help you with?", isUser: false }]);
+        
+        // Save initial bot message
+        await saveMessageToDb({
+          conversation_id: newConversationId,
+          content: "Hi! What can I help you with?",
+          is_bot: true
+        });
+        
+        toast.success("Conversation reset");
+      } else {
+        toast.error("Failed to reset conversation");
+      }
+    } catch (error) {
+      console.error("Error resetting conversation:", error);
       toast.error("Failed to reset conversation");
+    } finally {
+      setSendingMessage(false);
     }
   }, [userId, conversationSource]);
 
@@ -124,6 +192,7 @@ export const useConversation = (userId: string | undefined, agentId: string | un
     setInputMessage,
     sendingMessage,
     handleSendMessage,
-    resetConversation
+    resetConversation,
+    isInitializing
   };
 };

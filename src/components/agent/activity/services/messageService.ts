@@ -5,6 +5,8 @@ import { Message } from "../types";
 
 export const fetchMessagesForConversation = async (conversationId: string): Promise<Message[]> => {
   try {
+    console.log(`Fetching messages for conversation: ${conversationId}`);
+    
     // Get messages for the conversation
     const { data, error } = await supabase
       .from('messages')
@@ -14,16 +16,15 @@ export const fetchMessagesForConversation = async (conversationId: string): Prom
 
     if (error) throw error;
 
-    // Enhanced duplicate message detection
-    // This handles the case where the same message was saved multiple times
+    // Enhanced duplicate message detection - even more aggressive
     const uniqueMessages: Message[] = [];
     const contentMap = new Map<string, boolean>();
     
     data?.forEach(msg => {
-      // Create a unique key from content + is_bot + a timestamp within 5 seconds
-      // This accounts for messages with identical content that are sent within seconds of each other
-      const timeKey = Math.floor(new Date(msg.created_at).getTime() / 5000);
-      const key = `${msg.content}-${msg.is_bot}-${timeKey}`;
+      // Create an even more strict unique key from content + is_bot + a smaller time window
+      // This catches more duplicates that are sent within very close time frames
+      const timeKey = Math.floor(new Date(msg.created_at).getTime() / 1000); // 1 second window
+      const key = `${msg.content.trim().substring(0, 50)}-${msg.is_bot}-${timeKey}`;
       
       if (!contentMap.has(key)) {
         contentMap.set(key, true);

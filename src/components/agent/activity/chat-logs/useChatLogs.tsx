@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Conversation, Message, PaginationState, FilterState } from "../types";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 import { 
   fetchConversations, 
   fetchMessagesForConversation, 
@@ -33,7 +34,7 @@ export const useChatLogs = () => {
     totalItems: 0
   });
   const [showFilterPanel, setShowFilterPanel] = useState(false);
-  const [availableSources, setAvailableSources] = useState<string[]>(['Playground', 'Website', 'WordPress', 'Bubble', 'embedded']);
+  const [availableSources, setAvailableSources] = useState<string[]>(['all', 'Playground', 'Website', 'WordPress', 'Bubble', 'embedded']);
   const [deletedConversationIds, setDeletedConversationIds] = useState<Set<string>>(() => {
     try {
       const storedIds = localStorage.getItem(DELETED_CONVERSATIONS_STORAGE_KEY);
@@ -89,29 +90,35 @@ export const useChatLogs = () => {
         convo => !deletedConversationIds.has(convo.id)
       );
       
-      // Deduplicate conversations with the same message content
-      // This helps prevent duplicate playground/embedded conversations
+      // ENHANCED: Apply more aggressive deduplication for conversations
       const uniqueConversations: Conversation[] = [];
-      const seenMessages = new Map<string, boolean>();
+      const seenConversations = new Map<string, Set<string>>();
       
-      filteredResult.forEach(conv => {
-        // Create a key based on first user message and timestamp
-        // within a 10-second window to group similar conversations
-        const timeKey = Math.floor(new Date(conv.created_at).getTime() / 10000);
-        const firstUserMsg = conv.user_message ? conv.user_message.substring(0, 50) : '';
-        const key = `${firstUserMsg}-${timeKey}`;
+      // First pass: Group by source and then by first user message
+      for (const conv of filteredResult) {
+        const source = conv.source || 'unknown';
         
-        if (!seenMessages.has(key) || 
-            // Always keep Playground entries if there's a source filter applied
-            (filters.source === 'Playground' && conv.source === 'Playground') ||
-            // Always keep embedded entries if there's a source filter applied
-            (filters.source === 'embedded' && conv.source === 'embedded')) {
-          seenMessages.set(key, true);
-          uniqueConversations.push(conv);
-        } else {
-          console.log(`Filtered out duplicate conversation: ${conv.title} (${conv.source})`);
+        // Initialize source group if it doesn't exist
+        if (!seenConversations.has(source)) {
+          seenConversations.set(source, new Set<string>());
         }
-      });
+        
+        // Create a message key based on user message
+        const messageKey = conv.user_message 
+          ? conv.user_message.trim().substring(0, 50).toLowerCase() 
+          : 'empty_message';
+        
+        // If we've already seen this message in this source, skip it
+        const sourceMessages = seenConversations.get(source)!;
+        if (sourceMessages.has(messageKey) && uniqueConversations.length > 0) {
+          console.log(`Filtered duplicate conversation in ${source} with message: ${messageKey}`);
+          continue;
+        }
+        
+        // Otherwise, add it to our unique conversations
+        sourceMessages.add(messageKey);
+        uniqueConversations.push(conv);
+      }
       
       console.log("Loaded conversations:", {
         total: loadedConversations.length,
@@ -129,7 +136,10 @@ export const useChatLogs = () => {
       // Update available sources including all sources
       if (uniqueConversations.length > 0) {
         const sources = Array.from(new Set(uniqueConversations.map(convo => convo.source))).filter(Boolean);
-        setAvailableSources(['all', ...sources]);
+        if (!sources.includes('all')) {
+          sources.unshift('all');
+        }
+        setAvailableSources(sources);
       }
     } catch (error) {
       console.error("Error in loadConversations:", error);
