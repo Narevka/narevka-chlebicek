@@ -1,6 +1,12 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
-import { corsHeaders } from "./cors.ts";
+import { corsHeaders } from "./security-utils.ts";
+
+// Interface for run options
+interface RunOptions {
+  instructions?: string;
+  [key: string]: any;
+}
 
 /**
  * Creates a thread for the OpenAI assistant
@@ -61,9 +67,24 @@ export async function addMessageToThread(apiKey: string, threadId: string, messa
  * @param apiKey OpenAI API key
  * @param threadId The thread ID
  * @param assistantId The assistant ID
+ * @param options Optional run configuration including language instructions
  * @returns The run ID and initial status
  */
-export async function createRun(apiKey: string, threadId: string, assistantId: string): Promise<{ runId: string, status: string }> {
+export async function createRun(
+  apiKey: string, 
+  threadId: string, 
+  assistantId: string,
+  options?: RunOptions
+): Promise<{ runId: string, status: string }> {
+  const body: any = {
+    assistant_id: assistantId
+  };
+  
+  // Add instructions if provided
+  if (options?.instructions) {
+    body.instructions = options.instructions;
+  }
+  
   const runResponse = await fetch(`https://api.openai.com/v1/threads/${threadId}/runs`, {
     method: 'POST',
     headers: {
@@ -71,9 +92,7 @@ export async function createRun(apiKey: string, threadId: string, assistantId: s
       'Authorization': `Bearer ${apiKey}`,
       'OpenAI-Beta': 'assistants=v2'
     },
-    body: JSON.stringify({
-      assistant_id: assistantId
-    })
+    body: JSON.stringify(body)
   });
   
   if (!runResponse.ok) {
