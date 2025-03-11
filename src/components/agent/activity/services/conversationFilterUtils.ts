@@ -1,18 +1,25 @@
-
 import { FilterState } from "../types";
 
 export const applyFiltersToQuery = (query: any, filters: FilterState) => {
   let filteredQuery = query;
-  
+
   // Source filter
   if (filters.source && filters.source !== 'all') {
-    filteredQuery = filteredQuery.eq('source', filters.source);
+    // Modified to include 'embedded' source when 'Playground' is selected
+    // This ensures embedded conversations are shown in Activity
+    if (filters.source === 'Playground') {
+      filteredQuery = filteredQuery.or(
+        `source.eq.${filters.source},source.eq.embedded`
+      );
+    } else {
+      filteredQuery = filteredQuery.eq('source', filters.source);
+    }
   }
-  
+
   // Date range filter
   if (filters.dateRange) {
     const today = new Date();
-    
+
     if (filters.dateRange === "last_7_days") {
       const sevenDaysAgo = new Date();
       sevenDaysAgo.setDate(today.getDate() - 7);
@@ -23,7 +30,7 @@ export const applyFiltersToQuery = (query: any, filters: FilterState) => {
       filteredQuery = filteredQuery.gte('created_at', thirtyDaysAgo.toISOString());
     }
   }
-  
+
   // Confidence score filter
   if (filters.confidenceScore) {
     const threshold = parseFloat(filters.confidenceScore.replace('< ', ''));
@@ -31,7 +38,7 @@ export const applyFiltersToQuery = (query: any, filters: FilterState) => {
       filteredQuery = filteredQuery.lt('confidence', threshold);
     }
   }
-  
+
   // Feedback filter
   if (filters.feedback) {
     if (filters.feedback === 'thumbs_up') {
@@ -40,6 +47,6 @@ export const applyFiltersToQuery = (query: any, filters: FilterState) => {
       filteredQuery = filteredQuery.eq('has_thumbs_down', true);
     }
   }
-  
+
   return filteredQuery;
 };
