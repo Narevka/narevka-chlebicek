@@ -65,7 +65,13 @@ export const useConversation = (userId: string | undefined, agentId: string | un
     });
     
     try {
-      const { botResponse, threadId: newThreadId } = await getAssistantResponse(message, agentId, threadId);
+      // Pass the database conversation ID to the edge function
+      const { botResponse, threadId: newThreadId } = await getAssistantResponse(
+        message, 
+        agentId, 
+        threadId,
+        conversationId // Pass the database conversation ID
+      );
       
       // Update thread ID if it's a new conversation
       if (newThreadId && !threadId) {

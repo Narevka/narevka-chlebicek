@@ -132,6 +132,18 @@ serve(async (req) => {
         // This is more correct than using a dummy user
         const userIdForEmbeddedChat = null; // Use NULL for embedded chats
         
+        // Default source to 'embedded' but extract from referrer if available
+        // This helps identify the true source of the conversation
+        const sourceUrl = referer ? new URL(referer) : null;
+        let conversationSource = 'embedded';
+        
+        // Check if this is coming from a specific source
+        if (sourceUrl && sourceUrl.searchParams.has('source')) {
+          conversationSource = sourceUrl.searchParams.get('source') || 'embedded';
+        }
+        
+        console.log(`Creating conversation with source: ${conversationSource}`);
+        
         // Now insert the conversation with our special user ID
         const { data, error } = await supabaseClient
           .from('conversations')
@@ -139,11 +151,12 @@ serve(async (req) => {
             id: generatedConversationId,
             user_id: userIdForEmbeddedChat, // Use NULL as user_id
             title: 'Embedded Chat',
-            source: 'embedded',
+            source: conversationSource, // Use the detected source
             metadata: { 
               anonymous_id: userIdentifier,
               timestamp: new Date().toISOString(),
-              origin: origin || refererDomain || 'unknown'
+              origin: origin || refererDomain || 'unknown',
+              referrer: referer || 'unknown'
             } // Store additional information in metadata
           })
           .select('id')
