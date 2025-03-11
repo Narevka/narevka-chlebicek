@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from "react";
 import { Conversation, Message, PaginationState, FilterState } from "../types";
 import { useAuth } from "@/context/AuthContext";
@@ -103,7 +104,15 @@ export const useChatLogs = () => {
       
       // Update available sources including all sources
       if (filteredResult.length > 0) {
-        const sources = Array.from(new Set(filteredResult.map(convo => convo.source))).filter(Boolean);
+        // Fix: Make sure to filter out any null or undefined sources and properly cast to string array
+        const sources = Array.from(
+          new Set(
+            filteredResult
+              .map(convo => convo.source)
+              .filter((source): source is string => Boolean(source))
+          )
+        );
+        
         setAvailableSources(['all', ...sources]);
       }
     } catch (error) {
