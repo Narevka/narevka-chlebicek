@@ -62,11 +62,11 @@ const ConversationDetails = ({
             {conversationMessages.map((msg, index) => (
               <div 
                 key={msg.id || index} 
-                className={`flex ${msg.is_bot ? 'justify-start' : 'justify-end'}`}
+                className={`flex ${!msg.isUser ? 'justify-start' : 'justify-end'}`}
               >
                 <div 
                   className={`max-w-[70%] p-4 rounded-lg ${
-                    msg.is_bot 
+                    !msg.isUser 
                       ? 'bg-gray-50 text-gray-800' 
                       : 'bg-purple-600 text-white'
                   }`}
@@ -75,7 +75,7 @@ const ConversationDetails = ({
                   <div className="mt-2 text-xs text-gray-400">
                     {msg.created_at && format(new Date(msg.created_at), "d MMM yyyy, h:mm a")}
                   </div>
-                  {msg.confidence !== null && msg.confidence !== undefined && msg.is_bot && (
+                  {msg.confidence !== null && msg.confidence !== undefined && !msg.isUser && (
                     <div className="mt-3 flex items-center space-x-3">
                       <div className="bg-purple-500 text-xs text-white px-2 py-1 rounded-full flex items-center">
                         <BarChart className="h-3 w-3 mr-1" />
@@ -116,7 +116,7 @@ const ConversationDetails = ({
             <div>
               <label className="text-sm font-medium mb-1 block">User Question</label>
               <div className="p-3 bg-gray-50 rounded-md text-sm">
-                {conversationMessages.find(msg => !msg.is_bot && 
+                {conversationMessages.find(msg => msg.isUser && 
                   conversationMessages.indexOf(msg) < 
                   conversationMessages.indexOf(selectedMessage as Message))?.content || "No question found"}
               </div>

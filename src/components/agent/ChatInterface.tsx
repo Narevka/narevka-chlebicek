@@ -1,5 +1,5 @@
 
-import React, { useEffect } from "react";
+import React from "react";
 import { RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import MessageList from "./MessageList";
@@ -22,7 +22,8 @@ const ChatInterface = ({ agentName, agentId, source = "Playground" }: ChatInterf
     sendingMessage,
     handleSendMessage,
     resetConversation,
-    isInitializing
+    isInitializing,
+    source: normalizedSource
   } = useConversation(user?.id, agentId, source);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -53,6 +54,7 @@ const ChatInterface = ({ agentName, agentId, source = "Playground" }: ChatInterf
           </div>
           <div>
             <h3 className="text-md font-medium">{agentName}</h3>
+            <div className="text-xs text-gray-500 text-center">Source: {normalizedSource}</div>
           </div>
           <div>
             <Button variant="ghost" size="icon" onClick={resetConversation}>

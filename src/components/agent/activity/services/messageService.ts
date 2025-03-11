@@ -1,7 +1,7 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Message } from "../types";
+import { Message, MessageFromDB } from "@/hooks/conversation/types";
 
 export const fetchMessagesForConversation = async (conversationId: string): Promise<Message[]> => {
   try {
@@ -23,47 +23,18 @@ export const fetchMessagesForConversation = async (conversationId: string): Prom
     
     console.log(`Found ${data.length} messages for conversation: ${conversationId}`);
 
-    // Even more aggressive duplicate detection
-    const uniqueMessages: Message[] = [];
-    const contentMap = new Map<string, boolean>();
-    const timeWindowMs = 8000; // 8 second window for deduplication (increased from 5 seconds)
-    
-    data.forEach(msg => {
-      // Create a key based on message content hash and user/bot flag
-      const contentPreview = msg.content.trim().substring(0, 200); // Increased from 150 to 200 chars
-      const msgTime = new Date(msg.created_at).getTime();
-      const key = `${contentPreview.substring(0, 100)}-${msg.is_bot}`; // Increased from 80 to 100 chars
-      
-      // Check if a very similar message exists within a small time window
-      const isDuplicate = uniqueMessages.some(existingMsg => {
-        const existingKey = `${existingMsg.content.trim().substring(0, 100)}-${existingMsg.is_bot}`;
-        const existingTime = new Date(existingMsg.created_at).getTime();
-        return (
-          key === existingKey && 
-          Math.abs(msgTime - existingTime) < timeWindowMs
-        );
-      });
-      
-      if (!isDuplicate && !contentMap.has(key)) {
-        contentMap.set(key, true);
-        uniqueMessages.push({
-          id: msg.id,
-          conversation_id: msg.conversation_id,
-          content: msg.content,
-          is_bot: msg.is_bot,
-          created_at: msg.created_at,
-          confidence: msg.confidence,
-          has_thumbs_up: msg.has_thumbs_up,
-          has_thumbs_down: msg.has_thumbs_down
-        });
-      } else {
-        console.log(`Filtered out duplicate message: "${contentPreview.substring(0, 30)}..."`);
-      }
-    });
+    // Convert database message format to UI message format
+    const messages: Message[] = data.map((msg: MessageFromDB) => ({
+      id: msg.id,
+      content: msg.content,
+      isUser: !msg.is_bot, // Important: Convert is_bot to isUser
+      created_at: msg.created_at,
+      confidence: msg.confidence,
+      has_thumbs_up: msg.has_thumbs_up,
+      has_thumbs_down: msg.has_thumbs_down
+    }));
 
-    console.log(`Filtered ${data.length} messages down to ${uniqueMessages.length} unique messages`);
-    
-    return uniqueMessages;
+    return messages;
   } catch (error) {
     console.error("Error fetching messages:", error);
     toast.error("Failed to load conversation messages");

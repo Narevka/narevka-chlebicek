@@ -3,14 +3,18 @@ import { useState, useEffect, useCallback } from "react";
 import { v4 as uuidv4 } from 'uuid';
 import { toast } from "sonner";
 import { Message } from "./conversation/types";
-import { saveMessageToDb, createConversation } from "./conversation/conversationDb";
+import { saveMessageToDb } from "./conversation/conversationDb";
 import { getAssistantResponse } from "./conversation/assistantApi";
 import { useConversationSource } from "./conversation/useConversationSource";
 import { useMessages } from "./conversation/useMessages";
 
 export const useConversation = (userId: string | undefined, agentId: string | undefined, source: string = "Playground") => {
-  const { conversationId, resetConversation } = useConversationSource(userId, source);
-  const { messages, addMessage, setMessages } = useMessages(conversationId);
+  // Get conversation ID and normalized source
+  const { conversationId, source: normalizedSource, resetConversation: resetConversationSource } = useConversationSource(userId, source);
+  
+  // Get messages specific to this conversation and source
+  const { messages, addMessage, setMessages, resetMessages } = useMessages(conversationId, normalizedSource);
+  
   const [inputMessage, setInputMessage] = useState("");
   const [sendingMessage, setSendingMessage] = useState(false);
   const [threadId, setThreadId] = useState<string | null>(null);
@@ -22,7 +26,7 @@ export const useConversation = (userId: string | undefined, agentId: string | un
     setSendingMessage(true);
     
     try {
-      // Add user message
+      // Add user message to UI immediately
       const userMessage = {
         id: uuidv4(),
         content: message,
@@ -46,12 +50,13 @@ export const useConversation = (userId: string | undefined, agentId: string | un
         setThreadId(newThreadId);
       }
       
+      // Add bot response to UI
       addMessage({
         ...botResponse,
         isUser: false
       });
       
-      // Save bot response
+      // Save bot response to database
       await saveMessageToDb({
         conversation_id: conversationId,
         content: botResponse.content,
@@ -67,6 +72,19 @@ export const useConversation = (userId: string | undefined, agentId: string | un
     }
   }, [conversationId, threadId, agentId, isInitializing, addMessage]);
 
+  // Combined reset function that handles both conversation source and messages
+  const resetConversation = useCallback(async () => {
+    // First reset the messages UI
+    resetMessages();
+    
+    // Then reset the conversation in the database and storage
+    await resetConversationSource();
+    
+    // Clear thread ID
+    setThreadId(null);
+    
+  }, [resetMessages, resetConversationSource]);
+
   return {
     messages,
     inputMessage,
@@ -74,6 +92,8 @@ export const useConversation = (userId: string | undefined, agentId: string | un
     sendingMessage,
     handleSendMessage,
     resetConversation,
-    isInitializing
+    isInitializing,
+    conversationId,
+    source: normalizedSource
   };
 };
