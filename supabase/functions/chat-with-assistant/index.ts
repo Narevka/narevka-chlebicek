@@ -94,7 +94,13 @@ serve(async (req) => {
       if (!supabaseUrl || !supabaseKey) {
         console.warn('Missing Supabase credentials, database operations will be skipped');
       } else {
-        supabaseClient = createClient(supabaseUrl, supabaseKey);
+        // Important: When using service role key, disable auth auto refresh and session persistence
+        supabaseClient = createClient(supabaseUrl, supabaseKey, {
+          auth: {
+            autoRefreshToken: false,
+            persistSession: false
+          }
+        });
         console.log('Supabase admin client initialized successfully');
       }
     } catch (error) {
@@ -123,28 +129,24 @@ serve(async (req) => {
         // You can replace this with a special user account created for this purpose
         const EMBEDDED_CHATS_USER_ID = '00000000-0000-0000-0000-000000000000';
         
-        // First check if this special user exists
-        const { data: existingUser } = await supabaseClient
-          .from('users')
-          .select('id')
-          .eq('id', EMBEDDED_CHATS_USER_ID)
-          .single();
-        
-        // If the special user doesn't exist, create it
-        if (!existingUser) {
-          try {
-            await supabaseClient
-              .from('users')
-              .insert({
-                id: EMBEDDED_CHATS_USER_ID,
-                email: 'embedded-chats@system.local',
-                created_at: new Date().toISOString()
-              });
-            console.log('Created special user for embedded chats');
-          } catch (userError) {
-            // If we can't create the user, log but continue
-            console.error('Error creating special user:', userError);
+        // First, try to find the special user in auth.users
+        // Note: Direct access to auth.users may require higher privileges than available in edge functions,
+        // so we'll handle errors gracefully
+        try {
+          // Try a simplified approach - check if we can use the user in conversations table
+          const { data: existingUser } = await supabaseClient
+            .from('users')
+            .select('id')
+            .eq('id', EMBEDDED_CHATS_USER_ID)
+            .maybeSingle();
+          
+          if (!existingUser) {
+            console.log('Special user not found, but continuing with operation');
+          } else {
+            console.log('Found special user for embedded chats');
           }
+        } catch (userError) {
+          console.warn('Could not check for special user, but continuing:', userError.message);
         }
         
         // Now insert the conversation with our special user ID
@@ -155,7 +157,11 @@ serve(async (req) => {
             user_id: EMBEDDED_CHATS_USER_ID, // Use the special user ID
             title: 'Embedded Chat',
             source: 'embedded',
-            metadata: { anonymous_id: userIdentifier } // Store the real anonymous ID as metadata
+            metadata: { 
+              anonymous_id: userIdentifier,
+              timestamp: new Date().toISOString(),
+              origin: origin || refererDomain || 'unknown'
+            } // Store additional information in metadata
           })
           .select('id')
           .single();
