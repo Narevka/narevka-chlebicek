@@ -13,16 +13,15 @@ export const fetchMessagesForConversation = async (conversationId: string): Prom
 
     if (error) throw error;
 
-    // Identify and filter out duplicate messages
-    // This handles the case where the same message was saved multiple times
+    // More aggressive deduplication for messages
     const uniqueMessages: Message[] = [];
     const contentMap = new Map<string, boolean>();
     
     data?.forEach(msg => {
-      // Create a unique key from content + is_bot + a timestamp within 5 seconds
-      // This accounts for messages with identical content that are sent within seconds of each other
-      const timeKey = Math.floor(new Date(msg.created_at).getTime() / 5000);
-      const key = `${msg.content}-${msg.is_bot}-${timeKey}`;
+      // Create a unique key from content + is_bot
+      // This will deduplicate messages with the same content and same sender
+      // regardless of timestamp - handles the case where the same message appears multiple times
+      const key = `${msg.content}-${msg.is_bot}`;
       
       if (!contentMap.has(key)) {
         contentMap.set(key, true);

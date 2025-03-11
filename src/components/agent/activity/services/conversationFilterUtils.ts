@@ -3,11 +3,11 @@ import { FilterState } from "../types";
 export const applyFiltersToQuery = (query: any, filters: FilterState) => {
   let filteredQuery = query;
 
-  // Source filter
-  if (filters.source && filters.source !== 'all') {
-    // Always use exact match for any source
-    filteredQuery = filteredQuery.eq('source', filters.source);
-  }
+// Source filter
+if (filters.source && filters.source !== 'all') {
+  // Apply exact matching for filtering by source
+  filteredQuery = filteredQuery.eq('source', filters.source);
+}
 
   // Date range filter
   if (filters.dateRange) {
@@ -32,7 +32,7 @@ export const applyFiltersToQuery = (query: any, filters: FilterState) => {
     }
   }
 
-  // Feedback filter
+  // Feedback filterr
   if (filters.feedback) {
     if (filters.feedback === 'thumbs_up') {
       filteredQuery = filteredQuery.eq('has_thumbs_up', true);
