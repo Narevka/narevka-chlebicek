@@ -74,7 +74,7 @@ export const TypewriterEffectSmooth = ({
             repeat: Infinity,
             repeatType: "reverse",
           }}
-          className={cn("animate-pulse h-10 ml-1", cursorClassName)}
+          className={cn("animate-pulse h-12 ml-1 text-2xl sm:text-3xl md:text-4xl lg:text-5xl", cursorClassName)}
         >
           |
         </motion.span>
