@@ -135,31 +135,35 @@ export async function createConversation(agentId) {
     // Initialize Supabase
     const supabase = await initSupabase();
     
-    // Get anonymous user ID for metadata only (not for user_id column)
-    let anonymousId = localStorage.getItem('anonymous_user_id');
-    if (!anonymousId || anonymousId.length !== 36) {
-      anonymousId = crypto.randomUUID();
-      localStorage.setItem('anonymous_user_id', anonymousId);
+    // Get or create anonymous user ID (ensure it's a valid UUID)
+    let userId = localStorage.getItem('anonymous_user_id');
+    if (!userId || userId.length !== 36) {
+      userId = crypto.randomUUID();
+      localStorage.setItem('anonymous_user_id', userId);
     }
     
-    // Get origin for tracking
+    // Get origin for metadata
     const origin = window.location.origin || 'unknown';
     
-    logToDebugPanel('Creating conversation', 'info', { anonymousId, agentId, conversationId });
+    // Generate a title for embedded chat
+    const title = `Chat from ${origin}`.substring(0, 50);
     
-    // Create conversation in database with explicit ID and NULL user_id
-    // This is consistent with the edge function
+    logToDebugPanel('Creating conversation', 'info', { userId, agentId, conversationId });
+    
+    // Create conversation in database with explicit ID
+    // IMPORTANT CHANGE: Using 'Playground' source instead of 'embedded'
+    // This ensures conversations are visible in Activity Tab
     const { error } = await supabase
       .from('conversations')
       .insert({
-        id: conversationId,           // Explicitly provide UUID
-        user_id: null,                // Use NULL for user_id in embedded chats
-        title: 'Embedded Chat',
-        source: 'embedded',
-        metadata: {                   // Store anonymous ID in metadata
-          anonymous_id: anonymousId,
-          timestamp: new Date().toISOString(),
-          origin: origin
+        id: conversationId, // Explicitly provide UUID
+        user_id: null,      // Use NULL for user_id in embedded chats
+        title: title,       // Use better title with origin
+        source: 'Playground', // CHANGED FROM 'embedded' to 'Playground'
+        metadata: {
+          origin: origin,
+          embedded: true,   // Mark as embedded in metadata
+          timestamp: new Date().toISOString()
         }
       });
     

@@ -3,14 +3,12 @@ import { FilterState } from "../types";
 export const applyFiltersToQuery = (query: any, filters: FilterState) => {
   let filteredQuery = query;
 
-  // Source filter
+  // Source filter - now properly handling embedded source
   if (filters.source && filters.source !== 'all') {
-    // Modified to include 'embedded' source when 'Playground' is selected
-    // This ensures embedded conversations are shown in Activity
     if (filters.source === 'Playground') {
-      filteredQuery = filteredQuery.or(
-        `source.eq.${filters.source},source.eq.embedded`
-      );
+      // Show only Playground conversations, without the OR condition
+      // This prevents duplication in Activity Tab
+      filteredQuery = filteredQuery.eq('source', filters.source);
     } else {
       filteredQuery = filteredQuery.eq('source', filters.source);
     }
