@@ -1,4 +1,3 @@
-
 "use client";
 
 import { cn } from "@/lib/utils";
@@ -18,60 +17,75 @@ export const TypewriterEffectSmooth = ({
   className,
   cursorClassName,
 }: TypewriterEffectSmoothProps) => {
-  const [currentWord, setCurrentWord] = useState(0);
+  // Track the current step of animation and text content
+  const [currentStep, setCurrentStep] = useState(0);
   const [currentText, setCurrentText] = useState("");
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [typingSpeed, setTypingSpeed] = useState(150);
 
-  useEffect(() => {
-    const word = words[currentWord]?.text || "";
-    const typeSpeed = isDeleting ? 80 : 150;
+  // Function to determine what to render based on the current step
+  const getTextForStep = (step: number) => {
+    if (step === 0) return "Buil";
+    if (step === 1) return "Build awesome apps with Ace";
+    if (step === 2) return "Build awesome apps with Aceternity.";
+    return "";
+  };
 
-    const timer = setTimeout(() => {
-      if (!isDeleting && currentText.length < word.length) {
-        // Still typing the current word
-        setCurrentText(word.substring(0, currentText.length + 1));
-        setTypingSpeed(150 - Math.random() * 50);
-      } else if (isDeleting && currentText.length > 0) {
-        // Deleting the current word
-        setCurrentText(word.substring(0, currentText.length - 1));
-        setTypingSpeed(80);
-      } else if (currentText.length === word.length) {
-        // Finished typing, wait before deleting
-        setIsDeleting(true);
-        setTypingSpeed(2000);
-      } else {
-        // Move to the next word
-        setIsDeleting(false);
-        setCurrentWord((prev) => (prev + 1) % words.length);
+  // Determine which words to show based on the step
+  const getWordsToShow = (step: number) => {
+    const parts = getTextForStep(step).split(" ");
+    return parts.map((part, index) => {
+      let className = "";
+      
+      // Make "Ace" or "Aceternity" blue in steps 1 and 2
+      if (step >= 1 && index === parts.length - 1) {
+        className = "text-blue-500";
       }
-    }, typingSpeed);
+      
+      return {
+        text: part,
+        className
+      };
+    });
+  };
+
+  // Advance to next step every 2 seconds
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setCurrentStep((prev) => (prev + 1) % 3); // Cycle through 3 states
+    }, 2000);
 
     return () => clearTimeout(timer);
-  }, [currentText, currentWord, isDeleting, typingSpeed, words]);
+  }, [currentStep]);
 
+  // Update displayed text when step changes
+  useEffect(() => {
+    setCurrentText(getTextForStep(currentStep));
+  }, [currentStep]);
+
+  // Render the current state of the typewriter
   return (
     <div className={cn("flex flex-col items-center justify-center", className)}>
       <div className="text-center">
-        <h1 className="text-3xl font-bold sm:text-4xl md:text-5xl">
-          {words.map((word, index) => {
-            if (index < currentWord) {
-              return (
-                <span key={index} className={word.className}>
-                  {index === 0 ? word.text : ` ${word.text}`}{" "}
+        <h1 className="text-4xl font-bold leading-tight sm:text-5xl md:text-6xl lg:text-7xl">
+          {currentStep === 0 ? (
+            // First frame - just "Buil" with a cursor
+            <>
+              <span>{currentText}</span>
+              <span className={cn("animate-pulse", cursorClassName)}>|</span>
+            </>
+          ) : (
+            // Other frames - full text with words
+            <>
+              {getWordsToShow(currentStep).map((word, idx) => (
+                <span 
+                  key={idx} 
+                  className={word.className}
+                >
+                  {idx > 0 ? " " : ""}{word.text}
                 </span>
-              );
-            }
-            if (index === currentWord) {
-              return (
-                <span key={index} className={word.className}>
-                  {index === 0 ? currentText : ` ${currentText}`}
-                </span>
-              );
-            }
-            return null;
-          })}
-          <span className={cn("animate-pulse", cursorClassName)}>|</span>
+              ))}
+              <span className={cn("animate-pulse", cursorClassName)}>|</span>
+            </>
+          )}
         </h1>
       </div>
     </div>

@@ -1,271 +1,175 @@
-
 import { useState, useEffect, useCallback } from "react";
 import { Conversation, Message, PaginationState, FilterState } from "../types";
 import { useAuth } from "@/context/AuthContext";
-import { toast } from "sonner";
 import { 
   fetchConversations, 
-  fetchMessagesForConversation, 
-  deleteConversation,
-  fetchFilteredConversations,
-  getUniqueSourcesFromConversations
+  fetchFilteredConversations, 
+  getUniqueSourcesFromConversations 
 } from "../services";
-
-// Export DELETED_CONVERSATIONS_STORAGE_KEY as a constant
-export const DELETED_CONVERSATIONS_STORAGE_KEY = "deletedConversationIds";
+import { deleteConversation } from "../services/conversationDeleteService";
+import { fetchMessagesForConversation } from "../services/messageService";
 
 export const useChatLogs = () => {
-  const { user } = useAuth();
   const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
-  const [conversationMessages, setConversationMessages] = useState<Message[]>([]);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [filters, setFilters] = useState<FilterState>({
-    source: null,
-    confidenceScore: null,
-    feedback: null,
-    dateRange: null
-  });
-  const [isLoading, setIsLoading] = useState(true);
-  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [totalItems, setTotalItems] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [availableSources, setAvailableSources] = useState<string[]>(['all']);
   const [pagination, setPagination] = useState<PaginationState>({
     currentPage: 1,
     pageSize: 10,
-    totalItems: 0
   });
-  const [showFilterPanel, setShowFilterPanel] = useState(false);
-  const [availableSources, setAvailableSources] = useState<string[]>(['Playground', 'Website', 'WordPress', 'Bubble']);
-  const [deletedConversationIds, setDeletedConversationIds] = useState<Set<string>>(() => {
-    try {
-      const storedIds = localStorage.getItem(DELETED_CONVERSATIONS_STORAGE_KEY);
-      if (storedIds) {
-        const parsedIds = JSON.parse(storedIds) as string[];
-        console.log("Retrieved deleted IDs from localStorage:", parsedIds);
-        return new Set<string>(parsedIds);
-      }
-    } catch (error) {
-      console.error("Error loading deleted IDs from localStorage:", error);
-    }
-    return new Set<string>();
+  const [filterOptions, setFilterOptions] = useState<FilterState>({
+    source: 'all',
+    dateRange: null,
+    confidenceScore: null,
+    feedback: null,
+    searchTerm: '',
   });
 
-  // Persist deletedConversationIds to localStorage whenever it changes
-  useEffect(() => {
-    try {
-      const idsArray = Array.from(deletedConversationIds);
-      console.log("Saving deleted IDs to localStorage:", idsArray);
-      localStorage.setItem(
-        DELETED_CONVERSATIONS_STORAGE_KEY, 
-        JSON.stringify(idsArray)
-      );
-    } catch (error) {
-      console.error("Error saving deleted IDs to localStorage:", error);
-    }
-  }, [deletedConversationIds]);
+  const { user } = useAuth();
+  const userId = user?.id;
 
-  // Memoize loadConversations to avoid recreation on every render
-  const loadConversations = useCallback(async () => {
-    if (!user) return;
+  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [isMessagesLoading, setIsMessagesLoading] = useState(false);
+  const [messagesError, setMessagesError] = useState<string | null>(null);
+
+  // Function to fetch conversations with pagination and filtering
+  const fetchConversationsData = useCallback(async () => {
+    if (!userId) return;
     
-    console.log("Loading conversations for user:", user.id);
     setIsLoading(true);
+    setError(null);
     
     try {
-      let result;
+      // Fetch conversations with the current pagination and filters
+      const result = await fetchFilteredConversations(userId, pagination, filterOptions);
       
-      if (Object.values(filters).some(value => value !== null)) {
-        result = await fetchFilteredConversations(
-          user.id,
-          pagination,
-          filters
-        );
-      } else {
-        result = await fetchConversations(pagination, filters);
+      setConversations(result.conversations);
+      setTotalItems(result.totalItems);
+      
+      // Calculate total pages
+      const totalPages = Math.ceil(result.totalItems / pagination.pageSize);
+      setTotalPages(totalPages);
+      
+      // Reset if we're on a page that no longer exists
+      if (pagination.currentPage > totalPages && totalPages > 0) {
+        setPagination(prev => ({
+          ...prev,
+          currentPage: totalPages
+        }));
       }
       
-      const { conversations: loadedConversations, totalItems } = result;
-      
-      // Filter out deleted conversations
-      const filteredResult = loadedConversations.filter(
-        convo => !deletedConversationIds.has(convo.id)
-      );
-      
-      console.log("Loaded conversations:", {
-        total: loadedConversations.length,
-        filtered: filteredResult.length,
-        sources: filteredResult.map(c => c.source)
-      });
-      
-      setConversations(filteredResult);
-      setPagination(prev => ({
-        ...prev,
-        totalItems: Math.max(0, totalItems - deletedConversationIds.size)
-      }));
-      
-      // Update available sources including all sources
-      if (filteredResult.length > 0) {
-        // Fix: Make sure to filter out any null or undefined sources and properly cast to string array
-        const sources = Array.from(
-          new Set(
-            filteredResult
-              .map(convo => convo.source)
-              .filter((source): source is string => Boolean(source))
-          )
-        );
-        
-        setAvailableSources(['all', ...sources]);
-      }
-    } catch (error) {
-      console.error("Error in loadConversations:", error);
-      toast.error("Failed to load conversations");
+      // Update available sources including 'all'
+      const sources = getUniqueSourcesFromConversations(result.conversations);
+      setAvailableSources(['all', ...sources]);
+    } catch (error: any) {
+      console.error("Error fetching conversations:", error);
+      setError(error.message || "Failed to load conversations");
     } finally {
       setIsLoading(false);
     }
-  }, [user, pagination.currentPage, filters, deletedConversationIds]);
+  }, [userId, pagination, filterOptions]);
 
-  // Load conversations when these dependencies change
-  useEffect(() => {
-    if (user) {
-      loadConversations();
-    }
-  }, [user, pagination.currentPage, filters, loadConversations]);
-  
-  // Force reload data when user navigates back to page or refreshes
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && user) {
-        console.log("Page became visible, reloading conversations");
-        loadConversations();
-      }
-    };
-
-    const handleFocus = () => {
-      if (user) {
-        console.log("Window gained focus, reloading conversations");
-        loadConversations();
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('focus', handleFocus);
-
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('focus', handleFocus);
-    };
-  }, [user, loadConversations]);
-
-  const handleSelectConversation = async (conversation: Conversation) => {
-    console.log("Selecting conversation:", conversation.id);
-    setSelectedConversation(conversation);
-    setIsLoadingMessages(true);
+  // Function to fetch messages for a specific conversation
+  const loadMessages = useCallback(async (conversationId: string) => {
+    setSelectedConversationId(conversationId);
+    setIsMessagesLoading(true);
+    setMessagesError(null);
+    
     try {
-      const messages = await fetchMessagesForConversation(conversation.id);
-      setConversationMessages(messages);
-    } catch (error) {
+      const fetchedMessages = await fetchMessagesForConversation(conversationId);
+      setMessages(fetchedMessages);
+    } catch (error: any) {
       console.error("Error fetching messages:", error);
-      toast.error("Failed to load conversation messages");
+      setMessagesError(error.message || "Failed to load messages");
     } finally {
-      setIsLoadingMessages(false);
+      setIsMessagesLoading(false);
     }
-  };
+  }, []);
 
-  const handleDeleteConversation = async (conversationId: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    console.log("Deleting conversation:", conversationId);
-    
-    // Immediately update UI to remove the conversation
-    setConversations(prevConversations => 
-      prevConversations.filter(convo => convo.id !== conversationId)
-    );
-    
-    // Add to local deleted IDs set
-    setDeletedConversationIds(prev => {
-      const updated = new Set(prev);
-      updated.add(conversationId);
-      return updated;
-    });
-    
-    // Also update pagination
-    setPagination(prev => ({
-      ...prev,
-      totalItems: Math.max(0, prev.totalItems - 1)
-    }));
-    
-    // If the deleted conversation was selected, clear the selection
-    if (selectedConversation?.id === conversationId) {
-      setSelectedConversation(null);
-      setConversationMessages([]);
-    }
-    
-    // Perform the actual deletion in the background
+  // Function to delete a conversation
+  const removeConversation = async (conversationId: string) => {
     try {
-      const success = await deleteConversation(conversationId);
-      
-      if (!success) {
-        console.error("Server-side deletion failed for conversation:", conversationId);
-        toast.error("Failed to delete conversation from the server");
-        // Keep the local deletion even if server delete fails
-      } else {
-        console.log("Successfully deleted conversation from server:", conversationId);
-      }
-    } catch (error) {
+      await deleteConversation(conversationId);
+      // Refresh conversations after deletion
+      fetchConversationsData();
+    } catch (error: any) {
       console.error("Error deleting conversation:", error);
-      toast.error("Failed to delete conversation");
-      // Still keep the local deletion even if there was an error
+      setError(error.message || "Failed to delete conversation");
     }
   };
 
-  const filteredConversations = conversations.filter(convo => {
-    const matchesSearch = 
-      (convo.title && convo.title.toLowerCase().includes(searchTerm.toLowerCase())) || 
-      (convo.user_message && convo.user_message.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (convo.last_message && convo.last_message.toLowerCase().includes(searchTerm.toLowerCase()));
-    return matchesSearch;
-  });
-
-  const totalPages = Math.ceil(pagination.totalItems / pagination.pageSize);
-
-  const handlePageChange = (page: number) => {
-    if (page < 1 || page > totalPages) return;
-    setPagination(prev => ({ ...prev, currentPage: page }));
-  };
-
-  const handleFilterChange = (filterType: keyof FilterState, value: string | null) => {
-    setFilters(prev => ({ ...prev, [filterType]: value }));
-    setPagination(prev => ({ ...prev, currentPage: 1 }));
-  };
-
-  const handleToggleFilterPanel = () => {
-    setShowFilterPanel(!showFilterPanel);
-  };
-
-  const handleExport = (format: string) => {
-    toast.success(`Exporting conversations as ${format}...`);
-    // Implementation for export functionality would go here
-  };
+  // Effect to fetch filtered conversations when filter or pagination changes
+  useEffect(() => {
+    const fetchFilteredData = async () => {
+      if (!userId) return;
+      
+      setIsLoading(true);
+      
+      try {
+        // Fetch conversations with the current pagination and filters
+        const result = await fetchConversations(pagination, filterOptions);
+        
+        const filteredResult = result.conversations || [];
+        
+        setConversations(filteredResult);
+        setTotalItems(result.totalItems);
+        
+        // Calculate total pages
+        const totalPages = Math.ceil(result.totalItems / pagination.pageSize);
+        setTotalPages(totalPages);
+        
+        // Reset if we're on a page that no longer exists
+        if (pagination.currentPage > totalPages && totalPages > 0) {
+          setPagination(prev => ({
+            ...prev,
+            currentPage: totalPages
+          }));
+        }
+        
+        // Update available sources including all sources
+        if (filteredResult.length > 0) {
+          // Fix: Make sure to filter out any null or undefined sources and properly cast to string array
+          const sources = Array.from(
+            new Set(
+              filteredResult
+                .map(convo => convo.source)
+                .filter(Boolean)
+                .filter((source): source is string => typeof source === 'string')
+            )
+          );
+          
+          setAvailableSources(['all', ...sources]);
+        }
+      } catch (error) {
+        console.error("Error in fetchFilteredData:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    fetchFilteredData();
+  }, [userId, pagination, filterOptions]);
 
   return {
     conversations,
-    filteredConversations,
-    selectedConversation,
-    conversationMessages,
-    searchTerm,
-    setSearchTerm,
-    filters,
     isLoading,
-    isLoadingMessages,
-    pagination,
+    error,
+    totalItems,
     totalPages,
-    showFilterPanel,
+    pagination,
+    setPagination,
+    filterOptions,
+    setFilterOptions,
     availableSources,
-    handleSelectConversation,
-    handleDeleteConversation,
-    handlePageChange,
-    handleFilterChange,
-    handleToggleFilterPanel,
-    handleExport,
-    loadConversations,
-    setSelectedConversation
+    loadMessages,
+    messages,
+    isMessagesLoading,
+    messagesError,
+    selectedConversationId,
+    removeConversation
   };
 };

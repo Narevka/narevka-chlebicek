@@ -1,4 +1,3 @@
-
 import { Link } from "react-router-dom";
 import { TypewriterEffectSmooth } from "@/components/ui/typewriter-effect.tsx";
 import { useAuth } from "@/context/AuthContext.tsx";
@@ -38,7 +37,7 @@ const Index = () => {
   // Content localization data
   const content = {
     en: {
-      heroTitle: "Create your AI assistant in minutes",
+      heroTitle: "The road to freedom starts from here",
       heroSubtitle: "Create, train and deploy custom chatbots without coding",
       typewriter: [
         { text: "Create" },
@@ -47,8 +46,8 @@ const Index = () => {
         { text: "with" },
         { text: "Chatbase.", className: "text-blue-500 dark:text-blue-500" }
       ],
-      startNow: "Start now",
-      createAccount: "Create free account",
+      startNow: "Join now",
+      createAccount: "Signup",
       features: {
         title: "Key Features",
         subtitle: "Everything you need to create a powerful AI assistant for your business",
@@ -103,7 +102,7 @@ const Index = () => {
       }
     },
     pl: {
-      heroTitle: "Stwórz swojego asystenta AI w kilka minut",
+      heroTitle: "The road to freedom starts from here",
       heroSubtitle: "Twórz, trenuj i wdrażaj niestandardowe chatboty bez kodowania",
       typewriter: [
         { text: "Twórz" },
@@ -112,8 +111,8 @@ const Index = () => {
         { text: "z" },
         { text: "Chatbase.", className: "text-blue-500 dark:text-blue-500" }
       ],
-      startNow: "Zacznij teraz",
-      createAccount: "Załóż darmowe konto",
+      startNow: "Join now",
+      createAccount: "Signup",
       features: {
         title: "Kluczowe funkcje",
         subtitle: "Wszystko czego potrzebujesz, aby stworzyć potężnego asystenta AI dla swojej firmy",
@@ -245,26 +244,32 @@ const Index = () => {
       <SplashCursor />
       <TopNav />
       
-      {/* Hero Section */}
-      <section className="pt-24 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-pink-50 to-white">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex flex-col items-center justify-center py-16 text-center">
-            <h1 className="text-4xl md:text-5xl font-bold mb-4">{t.heroTitle}</h1>
-            <p className="text-neutral-600 dark:text-neutral-200 text-lg mb-6 max-w-2xl mx-auto">
-              {t.heroSubtitle}
+      {/* Hero Section - Updated to match the screenshots */}
+      <section className="pt-24 px-4 sm:px-6 lg:px-8 flex items-center justify-center min-h-[70vh]">
+        <div className="max-w-5xl mx-auto">
+          <div className="flex flex-col items-center justify-center text-center">
+            <p className="text-neutral-600 dark:text-neutral-200 text-lg mb-4">
+              {t.heroTitle}
             </p>
-            <TypewriterEffectSmooth words={words} className="mb-8" />
+            
+            {/* Custom typewriter effect that matches the screenshots */}
+            <TypewriterEffectSmooth 
+              words={[]} 
+              className="mb-8" 
+              cursorClassName="text-blue-500" 
+            />
+            
             <div className="flex flex-col sm:flex-row gap-4">
-              <GradientButton asChild className="w-full sm:w-auto h-12">
-                <Link to="/auth">
+              <Link to="/auth">
+                <button className="px-8 py-3 bg-black text-white font-medium rounded-md">
                   {t.startNow}
-                </Link>
-              </GradientButton>
-              <GradientButton asChild variant="variant" className="w-full sm:w-auto h-12">
-                <Link to="/auth" state={{ isSignUp: true }}>
+                </button>
+              </Link>
+              <Link to="/auth" state={{ isSignUp: true }}>
+                <button className="px-8 py-3 bg-white text-black font-medium rounded-md border border-gray-300">
                   {t.createAccount}
-                </Link>
-              </GradientButton>
+                </button>
+              </Link>
             </div>
           </div>
         </div>
