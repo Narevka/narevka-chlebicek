@@ -27,6 +27,8 @@ export const fetchMessagesForConversation = async (conversationId: string): Prom
       if (!contentMap.has(key)) {
         contentMap.set(key, true);
         uniqueMessages.push(msg);
+      } else {
+        console.log(`Filtered out duplicate message: ${msg.content.substring(0, 30)}...`);
       }
     });
 

@@ -17,11 +17,13 @@ export const useConversation = (userId: string | undefined, agentId: string | un
   const [sendingMessage, setSendingMessage] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [threadId, setThreadId] = useState<string | null>(null);
+  // Add flag to prevent duplicate initialization
+  const [initialized, setInitialized] = useState(false);
 
   useEffect(() => {
     // Create a new conversation when component mounts
     const initConversation = async () => {
-      if (!userId) return;
+      if (!userId || initialized) return;
 
       // Use the source parameter passed to the hook
       console.log("Initializing conversation with source:", source);
@@ -29,6 +31,7 @@ export const useConversation = (userId: string | undefined, agentId: string | un
       
       if (newConversationId) {
         setConversationId(newConversationId);
+        setInitialized(true);
         
         // Save initial bot message
         await saveMessageToDb({
@@ -40,7 +43,7 @@ export const useConversation = (userId: string | undefined, agentId: string | un
     };
 
     initConversation();
-  }, [userId, source]);
+  }, [userId, source, initialized]);
 
   const handleSendMessage = useCallback(async (message: string) => {
     if (!message.trim() || !conversationId || !agentId) return;
@@ -93,6 +96,9 @@ export const useConversation = (userId: string | undefined, agentId: string | un
   const resetConversation = useCallback(async () => {
     if (!userId) return;
 
+    // Reset initialized state to allow creating a new conversation
+    setInitialized(false);
+
     // Create a new conversation with the same source
     console.log("Resetting conversation with source:", source);
     const newConversationId = await createConversation(userId, source);
@@ -101,6 +107,7 @@ export const useConversation = (userId: string | undefined, agentId: string | un
       setConversationId(newConversationId);
       setThreadId(null); // Reset OpenAI thread ID
       setMessages([{ content: "Hi! What can I help you with?", isUser: false }]);
+      setInitialized(true); // Mark as initialized with the new conversation
       
       // Save initial bot message
       await saveMessageToDb({
