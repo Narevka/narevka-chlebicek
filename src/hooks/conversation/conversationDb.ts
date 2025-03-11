@@ -11,11 +11,18 @@ export const saveMessageToDb = async (messageData: {
   has_thumbs_down?: boolean;
 }) => {
   try {
+    console.log(`Saving message to conversation ${messageData.conversation_id}`, {
+      is_bot: messageData.is_bot,
+      preview: messageData.content.substring(0, 30) + (messageData.content.length > 30 ? '...' : '')
+    });
+    
     const { error } = await supabase
       .from('messages')
       .insert(messageData);
 
     if (error) throw error;
+    
+    console.log("Message saved successfully");
   } catch (error) {
     console.error("Error saving message:", error);
     toast.error("Failed to save message");
@@ -24,8 +31,9 @@ export const saveMessageToDb = async (messageData: {
 
 export const createConversation = async (userId: string, source: string = "Playground") => {
   try {
-    // Sanitize source to ensure it's a valid value
-    const validSource = source || "Website";
+    // Ensure source is valid and consistent
+    // This is crucial for preventing duplicates
+    const validSource = source || "Playground";
     console.log("Creating new conversation for user:", userId, "source:", validSource);
     
     const { data, error } = await supabase

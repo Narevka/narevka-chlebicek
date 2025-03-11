@@ -150,16 +150,18 @@ export async function createConversation(agentId) {
     
     logToDebugPanel('Creating conversation', 'info', { userId, agentId, conversationId });
     
+    // ALWAYS use "embedded" as the source for embedded chats
+    // This ensures proper filtering and no duplication with playground
+    const source = 'embedded';
+    
     // Create conversation in database with explicit ID
-    // IMPORTANT CHANGE: Using 'Playground' source instead of 'embedded'
-    // This ensures conversations are visible in Activity Tab
     const { error } = await supabase
       .from('conversations')
       .insert({
         id: conversationId, // Explicitly provide UUID
         user_id: null,      // Use NULL for user_id in embedded chats
         title: title,       // Use better title with origin
-        source: 'Playground', // CHANGED FROM 'embedded' to 'Playground'
+        source: source,     // CONSISTENT source for embedded chats
         metadata: {
           origin: origin,
           embedded: true,   // Mark as embedded in metadata
@@ -178,6 +180,7 @@ export async function createConversation(agentId) {
     
     logToDebugPanel('Conversation created with 30-minute session', 'info', { 
       conversationId, 
+      source: source,
       expiresAt: new Date(expiryTime).toLocaleTimeString() 
     });
     

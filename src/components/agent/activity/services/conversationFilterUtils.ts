@@ -1,17 +1,13 @@
+
 import { FilterState } from "../types";
 
 export const applyFiltersToQuery = (query: any, filters: FilterState) => {
   let filteredQuery = query;
 
-  // Source filter - now properly handling embedded source
+  // Source filter - prevent duplicates by handling source properly
   if (filters.source && filters.source !== 'all') {
-    if (filters.source === 'Playground') {
-      // Show only Playground conversations, without the OR condition
-      // This prevents duplication in Activity Tab
-      filteredQuery = filteredQuery.eq('source', filters.source);
-    } else {
-      filteredQuery = filteredQuery.eq('source', filters.source);
-    }
+    // Apply exact source filter without any OR conditions
+    filteredQuery = filteredQuery.eq('source', filters.source);
   }
 
   // Date range filter

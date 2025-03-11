@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Message } from "../types";
@@ -13,7 +14,7 @@ export const fetchMessagesForConversation = async (conversationId: string): Prom
 
     if (error) throw error;
 
-    // Identify and filter out duplicate messages
+    // Enhanced duplicate message detection
     // This handles the case where the same message was saved multiple times
     const uniqueMessages: Message[] = [];
     const contentMap = new Map<string, boolean>();
@@ -27,6 +28,8 @@ export const fetchMessagesForConversation = async (conversationId: string): Prom
       if (!contentMap.has(key)) {
         contentMap.set(key, true);
         uniqueMessages.push(msg);
+      } else {
+        console.log(`Filtered out duplicate message: ${msg.content.substring(0, 30)}...`);
       }
     });
 

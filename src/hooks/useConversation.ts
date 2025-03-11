@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from "react";
 import { v4 as uuidv4 } from 'uuid';
 import { toast } from "sonner";
 import { Message, ConversationState } from "./conversation/types";
-import { saveMessageToDb, createConversation, updateConversationTitle } from "./conversation/conversationDb";
+import { saveMessageToDb, createConversation, updateConversationTitle, updateConversationSource } from "./conversation/conversationDb";
 import { getAssistantResponse } from "./conversation/assistantApi";
 
 // Export the Message type with the correct syntax for isolatedModules
@@ -17,15 +17,18 @@ export const useConversation = (userId: string | undefined, agentId: string | un
   const [sendingMessage, setSendingMessage] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [threadId, setThreadId] = useState<string | null>(null);
+  const [conversationSource] = useState<string>(source); // Store source and never change it
+
+  console.log(`Initializing conversation with consistent source: ${conversationSource}`);
 
   useEffect(() => {
     // Create a new conversation when component mounts
     const initConversation = async () => {
       if (!userId) return;
 
-      // Use the source parameter passed to the hook
-      console.log("Initializing conversation with source:", source);
-      const newConversationId = await createConversation(userId, source);
+      // Always use the source that was set at initialization
+      console.log("Creating conversation with source:", conversationSource);
+      const newConversationId = await createConversation(userId, conversationSource);
       
       if (newConversationId) {
         setConversationId(newConversationId);
@@ -40,7 +43,7 @@ export const useConversation = (userId: string | undefined, agentId: string | un
     };
 
     initConversation();
-  }, [userId, source]);
+  }, [userId, conversationSource]);
 
   const handleSendMessage = useCallback(async (message: string) => {
     if (!message.trim() || !conversationId || !agentId) return;
@@ -93,9 +96,9 @@ export const useConversation = (userId: string | undefined, agentId: string | un
   const resetConversation = useCallback(async () => {
     if (!userId) return;
 
-    // Create a new conversation with the same source
-    console.log("Resetting conversation with source:", source);
-    const newConversationId = await createConversation(userId, source);
+    // Create a new conversation with the SAME source as original initialization
+    console.log("Resetting conversation with source:", conversationSource);
+    const newConversationId = await createConversation(userId, conversationSource);
     
     if (newConversationId) {
       setConversationId(newConversationId);
@@ -113,7 +116,7 @@ export const useConversation = (userId: string | undefined, agentId: string | un
     } else {
       toast.error("Failed to reset conversation");
     }
-  }, [userId, source]);
+  }, [userId, conversationSource]);
 
   return {
     messages,

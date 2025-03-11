@@ -33,7 +33,7 @@ export const useChatLogs = () => {
     totalItems: 0
   });
   const [showFilterPanel, setShowFilterPanel] = useState(false);
-  const [availableSources, setAvailableSources] = useState<string[]>(['Playground', 'Website', 'WordPress', 'Bubble']);
+  const [availableSources, setAvailableSources] = useState<string[]>(['Playground', 'Website', 'WordPress', 'Bubble', 'embedded']);
   const [deletedConversationIds, setDeletedConversationIds] = useState<Set<string>>(() => {
     try {
       const storedIds = localStorage.getItem(DELETED_CONVERSATIONS_STORAGE_KEY);
@@ -89,21 +89,46 @@ export const useChatLogs = () => {
         convo => !deletedConversationIds.has(convo.id)
       );
       
+      // Deduplicate conversations with the same message content
+      // This helps prevent duplicate playground/embedded conversations
+      const uniqueConversations: Conversation[] = [];
+      const seenMessages = new Map<string, boolean>();
+      
+      filteredResult.forEach(conv => {
+        // Create a key based on first user message and timestamp
+        // within a 10-second window to group similar conversations
+        const timeKey = Math.floor(new Date(conv.created_at).getTime() / 10000);
+        const firstUserMsg = conv.user_message ? conv.user_message.substring(0, 50) : '';
+        const key = `${firstUserMsg}-${timeKey}`;
+        
+        if (!seenMessages.has(key) || 
+            // Always keep Playground entries if there's a source filter applied
+            (filters.source === 'Playground' && conv.source === 'Playground') ||
+            // Always keep embedded entries if there's a source filter applied
+            (filters.source === 'embedded' && conv.source === 'embedded')) {
+          seenMessages.set(key, true);
+          uniqueConversations.push(conv);
+        } else {
+          console.log(`Filtered out duplicate conversation: ${conv.title} (${conv.source})`);
+        }
+      });
+      
       console.log("Loaded conversations:", {
         total: loadedConversations.length,
         filtered: filteredResult.length,
-        sources: filteredResult.map(c => c.source)
+        deduplicated: uniqueConversations.length,
+        sources: uniqueConversations.map(c => c.source)
       });
       
-      setConversations(filteredResult);
+      setConversations(uniqueConversations);
       setPagination(prev => ({
         ...prev,
         totalItems: Math.max(0, totalItems - deletedConversationIds.size)
       }));
       
       // Update available sources including all sources
-      if (filteredResult.length > 0) {
-        const sources = Array.from(new Set(filteredResult.map(convo => convo.source))).filter(Boolean);
+      if (uniqueConversations.length > 0) {
+        const sources = Array.from(new Set(uniqueConversations.map(convo => convo.source))).filter(Boolean);
         setAvailableSources(['all', ...sources]);
       }
     } catch (error) {
