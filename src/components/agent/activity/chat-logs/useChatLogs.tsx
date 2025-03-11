@@ -10,7 +10,7 @@ import {
 import { deleteConversation } from "../services/conversationDeleteService";
 import { fetchMessagesForConversation } from "../services/messageService";
 
-// Define the PaginationState type with the missing totalItems property
+// Define our own PaginationState interface to avoid conflicts with the one in types.ts
 export interface PaginationState {
   currentPage: number;
   pageSize: number;
@@ -27,6 +27,7 @@ export const useChatLogs = () => {
   const [pagination, setPagination] = useState<PaginationState>({
     currentPage: 1,
     pageSize: 10,
+    totalItems: 0, // Initialize with 0
   });
   const [filterOptions, setFilterOptions] = useState<FilterState>({
     source: 'all',
@@ -34,8 +35,9 @@ export const useChatLogs = () => {
     confidenceScore: null,
     feedback: null,
   });
-  // Add searchTerm state separately since it's not in FilterState
   const [searchTerm, setSearchTerm] = useState('');
+  const [showFilterPanel, setShowFilterPanel] = useState(false);
+  const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
 
   const { user } = useAuth();
   const userId = user?.id;
@@ -67,7 +69,8 @@ export const useChatLogs = () => {
       if (pagination.currentPage > totalPages && totalPages > 0) {
         setPagination(prev => ({
           ...prev,
-          currentPage: totalPages
+          currentPage: totalPages,
+          totalItems: result.totalItems
         }));
       }
       
@@ -120,9 +123,12 @@ export const useChatLogs = () => {
       
       try {
         // Fetch conversations with the current pagination and filters
-        const result = await fetchConversations(pagination, {
+        const result = await fetchConversations({
+          ...pagination,
+          totalItems: totalItems // Ensure totalItems is passed
+        }, {
           ...filterOptions,
-          searchTerm: searchTerm // Pass searchTerm separately
+          searchTerm // Pass searchTerm
         });
         
         const filteredResult = result.conversations || [];
@@ -138,7 +144,8 @@ export const useChatLogs = () => {
         if (pagination.currentPage > totalPages && totalPages > 0) {
           setPagination(prev => ({
             ...prev,
-            currentPage: totalPages
+            currentPage: totalPages,
+            totalItems: result.totalItems
           }));
         }
         
@@ -163,26 +170,84 @@ export const useChatLogs = () => {
     };
     
     fetchFilteredData();
-  }, [userId, pagination, filterOptions, searchTerm]);
+  }, [userId, pagination, filterOptions, searchTerm, totalItems]);
+
+  // Handler functions for the ChatLogsSection component
+  const handleSelectConversation = useCallback((conversation: Conversation) => {
+    setSelectedConversation(conversation);
+    loadMessages(conversation.id);
+  }, [loadMessages]);
+
+  const handleDeleteConversation = useCallback((conversationId: string, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent triggering selection when clicking delete
+    removeConversation(conversationId);
+  }, []);
+
+  const handlePageChange = useCallback((page: number) => {
+    setPagination(prev => ({
+      ...prev,
+      currentPage: page,
+      totalItems: totalItems // Ensure totalItems is passed
+    }));
+  }, [totalItems]);
+
+  const handleFilterChange = useCallback((name: string, value: any) => {
+    setFilterOptions(prev => ({
+      ...prev,
+      [name]: value
+    }));
+    // Reset to first page when filter changes
+    setPagination(prev => ({
+      ...prev,
+      currentPage: 1,
+      totalItems: totalItems // Ensure totalItems is passed
+    }));
+  }, [totalItems]);
+
+  const handleToggleFilterPanel = useCallback(() => {
+    setShowFilterPanel(prev => !prev);
+  }, []);
+
+  const handleExport = useCallback(() => {
+    // Placeholder for export functionality
+    console.log("Export functionality would go here");
+  }, []);
+
+  const loadConversations = useCallback(() => {
+    fetchConversationsData();
+  }, [fetchConversationsData]);
 
   return {
     conversations,
+    filteredConversations: conversations, // Alias for ChatLogsSection
+    selectedConversation,
+    conversationMessages: messages, // Alias for ChatLogsSection
     isLoading,
+    isLoadingMessages,
     error,
+    messagesError,
     totalItems,
     totalPages,
     pagination,
     setPagination,
     filterOptions,
+    filters: filterOptions, // Alias for ChatLogsSection
     setFilterOptions,
     availableSources,
-    loadMessages,
-    messages,
-    isMessagesLoading: isMessagesLoading,
-    messagesError,
+    searchTerm,
+    setSearchTerm,
+    showFilterPanel,
     selectedConversationId,
     removeConversation,
-    searchTerm,
-    setSearchTerm
+    // Add the handler functions needed by ChatLogsSection
+    handleSelectConversation,
+    handleDeleteConversation,
+    handlePageChange,
+    handleFilterChange,
+    handleToggleFilterPanel,
+    handleExport,
+    loadConversations,
+    setSelectedConversation
   };
 };
+

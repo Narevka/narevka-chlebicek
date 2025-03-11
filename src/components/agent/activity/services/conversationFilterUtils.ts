@@ -49,3 +49,4 @@ export const applyFiltersToQuery = (query: any, filters: FilterState, searchTerm
 
   return filteredQuery;
 };
+

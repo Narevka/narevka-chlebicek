@@ -6,7 +6,7 @@ import ConversationDetailPanel from "./chat-logs/ConversationDetailPanel";
 
 const ChatLogsSection = () => {
   const {
-    filteredConversations,
+    conversations,
     selectedConversation,
     conversationMessages,
     searchTerm,
@@ -31,8 +31,7 @@ const ChatLogsSection = () => {
   return (
     <div className="flex h-full">
       <ConversationListPanel
-        conversations={[]} // Not needed, using filteredConversations instead
-        filteredConversations={filteredConversations}
+        conversations={conversations}
         searchTerm={searchTerm}
         setSearchTerm={setSearchTerm}
         isLoading={isLoading}
