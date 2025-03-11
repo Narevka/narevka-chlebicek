@@ -1,15 +1,31 @@
 
 import { useAuth } from "@/context/AuthContext";
 import { cn } from "@/lib/utils";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ChevronLeft, ChevronRight, Home, List, Settings, MessageSquare, HelpCircle, Search } from "lucide-react";
+import LanguageSelector from "@/components/LanguageSelector";
 
 const SidebarMenu = () => {
   const { user, signOut } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
+  const [language, setLanguage] = useState<string>("pl");
+
+  // Load language preference
+  useEffect(() => {
+    const savedLanguage = localStorage.getItem('preferredLanguage');
+    if (savedLanguage && ['en', 'pl'].includes(savedLanguage)) {
+      setLanguage(savedLanguage);
+    }
+  }, []);
+
+  // Handle language change
+  const handleLanguageChange = (newLanguage: string) => {
+    setLanguage(newLanguage);
+    localStorage.setItem('preferredLanguage', newLanguage);
+  };
 
   const getUserInitial = () => {
     return user?.email?.charAt(0).toUpperCase() || "U";
@@ -44,7 +60,7 @@ const SidebarMenu = () => {
           <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
           <input
             type="text"
-            placeholder={collapsed ? "" : "Search for anything..."}
+            placeholder={collapsed ? "" : (language === "pl" ? "Szukaj..." : "Search for anything...")}
             className={cn(
               "pl-9 pr-4 py-2 w-full rounded-md border border-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent",
               collapsed ? "pl-8 pr-2" : ""
@@ -56,7 +72,7 @@ const SidebarMenu = () => {
       {/* Menu section title */}
       {!collapsed && (
         <div className="px-4 py-3">
-          <p className="text-xs font-medium text-gray-500 uppercase">Main</p>
+          <p className="text-xs font-medium text-gray-500 uppercase">{language === "pl" ? "Główne" : "Main"}</p>
         </div>
       )}
 
@@ -69,7 +85,7 @@ const SidebarMenu = () => {
               className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-gray-100 text-gray-700 font-medium"
             >
               <Home size={collapsed ? 20 : 16} />
-              {!collapsed && <span>Home</span>}
+              {!collapsed && <span>{language === "pl" ? "Strona główna" : "Home"}</span>}
             </Link>
           </li>
           <li>
@@ -78,7 +94,7 @@ const SidebarMenu = () => {
               className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-gray-100 text-gray-700 font-medium"
             >
               <List size={collapsed ? 20 : 16} />
-              {!collapsed && <span>Agents</span>}
+              {!collapsed && <span>{language === "pl" ? "Agenty" : "Agents"}</span>}
             </Link>
           </li>
           <li>
@@ -87,7 +103,7 @@ const SidebarMenu = () => {
               className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-gray-100 text-gray-700 font-medium"
             >
               <MessageSquare size={collapsed ? 20 : 16} />
-              {!collapsed && <span>Documentation</span>}
+              {!collapsed && <span>{language === "pl" ? "Dokumentacja" : "Documentation"}</span>}
             </Link>
           </li>
         </ul>
@@ -122,12 +138,16 @@ const SidebarMenu = () => {
         
         {!collapsed && (
           <>
-            <p className="text-sm font-medium text-center mb-1">Used capacity</p>
+            <p className="text-sm font-medium text-center mb-1">
+              {language === "pl" ? "Wykorzystana pojemność" : "Used capacity"}
+            </p>
             <p className="text-xs text-gray-600 text-center mb-3">
-              You are already using 60% of your capacity.
+              {language === "pl" 
+                ? "Wykorzystujesz już 60% swojej pojemności."
+                : "You are already using 60% of your capacity."}
             </p>
             <button className="w-full py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md text-sm font-medium">
-              Upgrade plan
+              {language === "pl" ? "Ulepsz plan" : "Upgrade plan"}
             </button>
           </>
         )}
@@ -142,7 +162,7 @@ const SidebarMenu = () => {
               className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-gray-100 text-gray-700 font-medium"
             >
               <Settings size={collapsed ? 20 : 16} />
-              {!collapsed && <span>Settings</span>}
+              {!collapsed && <span>{language === "pl" ? "Ustawienia" : "Settings"}</span>}
             </Link>
           </li>
           <li>
@@ -151,9 +171,19 @@ const SidebarMenu = () => {
               className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-gray-100 text-gray-700 font-medium"
             >
               <HelpCircle size={collapsed ? 20 : 16} />
-              {!collapsed && <span>Help</span>}
+              {!collapsed && <span>{language === "pl" ? "Pomoc" : "Help"}</span>}
             </Link>
           </li>
+          {!collapsed && (
+            <li className="mt-2">
+              <div className="px-3 py-2">
+                <LanguageSelector
+                  currentLanguage={language}
+                  onLanguageChange={handleLanguageChange}
+                />
+              </div>
+            </li>
+          )}
         </ul>
       </div>
 

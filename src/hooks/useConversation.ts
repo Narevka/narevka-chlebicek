@@ -6,14 +6,21 @@ import { Message, ConversationState } from "./conversation/types";
 import { saveMessageToDb, createConversation, updateConversationTitle } from "./conversation/conversationDb";
 import { getAssistantResponse } from "./conversation/assistantApi";
 
-// Funkcja wykrywająca język przeglądarki
+// Function to detect browser language
 const detectBrowserLanguage = (): string => {
+  // First check for stored preference
+  const savedLanguage = localStorage.getItem('preferredLanguage');
+  if (savedLanguage && ['pl', 'en'].includes(savedLanguage)) {
+    return savedLanguage;
+  }
+  
+  // Fall back to browser language
   const userLanguage = navigator.language || navigator.languages?.[0] || 'en';
   const primaryLanguage = userLanguage.split('-')[0];
   return ['pl', 'en'].includes(primaryLanguage) ? primaryLanguage : 'en';
 };
 
-// Funkcja zwracająca początkowe powitanie w odpowiednim języku
+// Function to return initial greeting in the appropriate language
 const getInitialGreeting = (language: string): string => {
   if (language === 'pl') {
     return "Cześć! W czym mogę pomóc?";
@@ -25,7 +32,7 @@ const getInitialGreeting = (language: string): string => {
 export type { Message };
 
 export const useConversation = (userId: string | undefined, agentId: string | undefined, source: string = "Playground") => {
-  // Wykryj język przeglądarki na początku
+  // Detect browser language at the beginning
   const detectedLanguage = detectBrowserLanguage();
   
   const [language, setLanguage] = useState<string>(detectedLanguage);
@@ -38,6 +45,23 @@ export const useConversation = (userId: string | undefined, agentId: string | un
   const [threadId, setThreadId] = useState<string | null>(null);
   // Add flag to prevent duplicate initialization
   const [initialized, setInitialized] = useState(false);
+
+  // Listen for language changes from localStorage
+  useEffect(() => {
+    const handleLanguageChange = () => {
+      const savedLanguage = localStorage.getItem('preferredLanguage');
+      if (savedLanguage && ['pl', 'en'].includes(savedLanguage) && savedLanguage !== language) {
+        setLanguage(savedLanguage);
+      }
+    };
+
+    // Set up event listener for storage changes
+    window.addEventListener('storage', handleLanguageChange);
+
+    return () => {
+      window.removeEventListener('storage', handleLanguageChange);
+    };
+  }, [language]);
 
   useEffect(() => {
     // Create a new conversation when component mounts
@@ -152,14 +176,14 @@ export const useConversation = (userId: string | undefined, agentId: string | un
         metadata: { language }
       });
       
-      // Dostosuj komunikat do języka
+      // Adjust message to language
       if (language === 'pl') {
         toast.success("Rozmowa zresetowana");
       } else {
         toast.success("Conversation reset");
       }
     } else {
-      // Dostosuj komunikat błędu do języka
+      // Adjust error message to language
       if (language === 'pl') {
         toast.error("Nie udało się zresetować rozmowy");
       } else {
@@ -168,13 +192,14 @@ export const useConversation = (userId: string | undefined, agentId: string | un
     }
   }, [userId, source, language]);
 
-  // Dodajemy funkcję zmiany języka
+  // Add function to change language
   const changeLanguage = useCallback((newLanguage: 'pl' | 'en') => {
     if (newLanguage === language) return;
     
     setLanguage(newLanguage);
+    localStorage.setItem('preferredLanguage', newLanguage);
     
-    // Możesz dodać komunikat o zmianie języka
+    // Add message about language change
     if (newLanguage === 'pl') {
       setMessages(prev => [...prev, { 
         id: uuidv4(),

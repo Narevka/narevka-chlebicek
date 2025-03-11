@@ -3,8 +3,16 @@
  * Utility functions for language detection and handling
  */
 
-// Detect language based on request headers
+// Detect language based on request headers or explicit parameter
 export const detectLanguage = (request: Request): string => {
+  // Check for language parameter in the request query
+  const url = new URL(request.url);
+  const paramLanguage = url.searchParams.get('language');
+  
+  if (paramLanguage && ['pl', 'en'].includes(paramLanguage)) {
+    return paramLanguage;
+  }
+  
   // Get Accept-Language header
   const acceptLanguage = request.headers.get('Accept-Language') || '';
   
