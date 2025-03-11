@@ -192,4 +192,5 @@ export async function sendMessage(chatId) {
     // Focus input field
     messageInput.focus();
   }
+  
 }
