@@ -46,19 +46,19 @@ export async function sendMessage(chatId) {
     
     // Get saved thread ID (for OpenAI)
     const savedThreadId = localStorage.getItem(`thread_${chatId}`);
-    // Check if we have a conversation in the database
-    let conversationId = localStorage.getItem(`conversation_id_${chatId}`);
     
-    // If no conversation exists yet, create one
-    if (!conversationId) {
-      try {
-        conversationId = await createConversation(chatId);
-        logDebug('Conversation created', conversationId);
-      } catch (dbError) {
-        // Log the error but continue - chat can still work without DB
-        logToDebugPanel('Failed to create conversation in database', 'warning', dbError);
-        // Continue with chat functionality even if DB operations fail
+    // Get active conversation or create a new one
+    // This will automatically handle the 30-minute session logic
+    let conversationId;
+    try {
+      conversationId = await createConversation(chatId);
+      if (conversationId) {
+        logDebug('Using conversation', conversationId);
       }
+    } catch (dbError) {
+      // Log the error but continue - chat can still work without DB
+      logToDebugPanel('Failed to create/get conversation', 'warning', dbError);
+      // Continue with chat functionality even if DB operations fail
     }
     
     // Save user message to database - passing agentId instead of conversationId
@@ -108,6 +108,16 @@ export async function sendMessage(chatId) {
     if (data.threadId) {
       localStorage.setItem(`thread_${chatId}`, data.threadId);
       logDebug('Thread ID saved', data.threadId);
+      
+      // Return dbConversationId from server if available (fallback to our local one)
+      if (data.dbConversationId) {
+        // This is important for cases where frontend couldn't create the conversation
+        // but the edge function could. In that case, update our local reference.
+        const expiryTime = Date.now() + (30 * 60 * 1000); // 30 minutes
+        localStorage.setItem(`conversation_id_${chatId}`, data.dbConversationId);
+        localStorage.setItem(`conversation_expiry_${chatId}`, expiryTime.toString());
+        logDebug('Conversation ID updated from server', data.dbConversationId);
+      }
     }
     
     // Save bot response to database - passing agentId instead of conversationId
