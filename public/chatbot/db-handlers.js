@@ -135,23 +135,32 @@ export async function createConversation(agentId) {
     // Initialize Supabase
     const supabase = await initSupabase();
     
-    // Get or create anonymous user ID (ensure it's a valid UUID)
-    let userId = localStorage.getItem('anonymous_user_id');
-    if (!userId || userId.length !== 36) {
-      userId = crypto.randomUUID();
-      localStorage.setItem('anonymous_user_id', userId);
+    // Get anonymous user ID for metadata only (not for user_id column)
+    let anonymousId = localStorage.getItem('anonymous_user_id');
+    if (!anonymousId || anonymousId.length !== 36) {
+      anonymousId = crypto.randomUUID();
+      localStorage.setItem('anonymous_user_id', anonymousId);
     }
     
-    logToDebugPanel('Creating conversation', 'info', { userId, agentId, conversationId });
+    // Get origin for tracking
+    const origin = window.location.origin || 'unknown';
     
-    // Create conversation in database with explicit ID
+    logToDebugPanel('Creating conversation', 'info', { anonymousId, agentId, conversationId });
+    
+    // Create conversation in database with explicit ID and NULL user_id
+    // This is consistent with the edge function
     const { error } = await supabase
       .from('conversations')
       .insert({
-        id: conversationId, // Explicitly provide UUID
-        user_id: userId,
+        id: conversationId,           // Explicitly provide UUID
+        user_id: null,                // Use NULL for user_id in embedded chats
         title: 'Embedded Chat',
         source: 'embedded',
+        metadata: {                   // Store anonymous ID in metadata
+          anonymous_id: anonymousId,
+          timestamp: new Date().toISOString(),
+          origin: origin
+        }
       });
     
     if (error) {
