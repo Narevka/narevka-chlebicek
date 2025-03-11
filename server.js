@@ -53,12 +53,12 @@ app.get('/chatbot/:id', (req, res) => {
 // Proxy route for chat messages
 app.post('/functions/chat-with-assistant', async (req, res) => {
   try {
-    const { message, agentId, conversationId } = req.body;
+    const { message, agentId, conversationId, dbConversationId, userId } = req.body;
     
     const supabaseUrl = process.env.SUPABASE_URL;
     const functionUrl = `${supabaseUrl}/functions/v1/chat-with-assistant`;
     
-    console.log(`Proxying request to ${functionUrl}`, { message, agentId, conversationId });
+    console.log(`Proxying request to ${functionUrl}`, { message, agentId, conversationId, dbConversationId, userId });
     
     const response = await fetch(functionUrl, {
       method: 'POST',
@@ -69,7 +69,9 @@ app.post('/functions/chat-with-assistant', async (req, res) => {
       body: JSON.stringify({
         message,
         agentId,
-        conversationId
+        conversationId,
+        dbConversationId,
+        userId
       }),
     });
     

@@ -73,7 +73,8 @@ export async function sendMessage(chatId) {
     const payload = {
       message: messageText,
       agentId: chatId,
-      conversationId: savedThreadId
+      conversationId: savedThreadId,
+      dbConversationId: conversationId // Add the database conversation ID
     };
     
     logToDebugPanel('Sending message', 'info', { text: messageText, agentId: chatId });
@@ -192,5 +193,4 @@ export async function sendMessage(chatId) {
     // Focus input field
     messageInput.focus();
   }
-  
 }
