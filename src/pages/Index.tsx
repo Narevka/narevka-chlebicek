@@ -1,3 +1,4 @@
+
 import { Link } from "react-router-dom";
 import { TypewriterEffectSmooth } from "@/components/ui/typewriter-effect.tsx";
 import { useAuth } from "@/context/AuthContext.tsx";
@@ -278,6 +279,22 @@ const Index = () => {
         </div>
       </section>
 
+      {/* Guarantee Section - Moved to be the second section */}
+      <section className="py-12 px-4 sm:px-6 lg:px-8 bg-white border-t border-gray-100">
+        <div className="max-w-3xl mx-auto text-center">
+          <div className="flex justify-center mb-6">
+            <div className="bg-green-100 p-3 rounded-full">
+              <ShieldCheck className="w-8 h-8 text-green-600" />
+            </div>
+          </div>
+          <p className="text-xl mb-2 font-semibold">{t.guarantee.text}</p>
+          <p className="text-gray-700 italic mb-2">{t.guarantee.signature}</p>
+          <p className="text-sm text-gray-500">
+            {t.guarantee.note} <Link to="/terms" className="text-blue-500 hover:underline">{t.guarantee.termsLink}</Link>{t.guarantee.noteEnd ? `, ${t.guarantee.noteEnd}` : ''}
+          </p>
+        </div>
+      </section>
+
       <section className="py-16 px-4 sm:px-6 lg:px-8 bg-white">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-12">
@@ -460,22 +477,6 @@ const Index = () => {
               highlighted={false}
             />
           </div>
-        </div>
-      </section>
-
-      {/* Guarantee Section - Added as requested */}
-      <section className="py-12 px-4 sm:px-6 lg:px-8 bg-white border-t border-gray-100">
-        <div className="max-w-3xl mx-auto text-center">
-          <div className="flex justify-center mb-6">
-            <div className="bg-green-100 p-3 rounded-full">
-              <ShieldCheck className="w-8 h-8 text-green-600" />
-            </div>
-          </div>
-          <p className="text-xl mb-2 font-semibold">{t.guarantee.text}</p>
-          <p className="text-gray-700 italic mb-2">{t.guarantee.signature}</p>
-          <p className="text-sm text-gray-500">
-            {t.guarantee.note} <Link to="/terms" className="text-blue-500 hover:underline">{t.guarantee.termsLink}</Link>{t.guarantee.noteEnd ? `, ${t.guarantee.noteEnd}` : ''}
-          </p>
         </div>
       </section>
 
