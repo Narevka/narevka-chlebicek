@@ -54,9 +54,10 @@ serve(async (req) => {
     let supabaseClient;
     
     try {
-      // Get origin to verify request comes from authorized domain
-      const origin = req.headers.get('Origin') || '';
-      const referer = req.headers.get('Referer') || '';
+      // Extract request origins for security and tracking
+      let origin = req.headers.get('Origin') || '';
+      let referer = req.headers.get('Referer') || '';
+      let refererDomain = '';
       
       // You can add more allowed domains as needed
       const allowedOrigins = [
@@ -67,7 +68,6 @@ serve(async (req) => {
       ];
       
       // Extract domain from referer as fallback for origin check
-      let refererDomain = '';
       try {
         if (referer) {
           const url = new URL(referer);
@@ -125,36 +125,16 @@ serve(async (req) => {
         // Generate a conversation ID if not provided
         const generatedConversationId = crypto.randomUUID();
         
-        // Set a fixed user ID for embedded chats to avoid foreign key constraint
-        // This is the ID of an existing user account that will be the "owner" of all embedded chats
-        const EMBEDDED_CHATS_USER_ID = '3a12afa2-80e8-4eb5-9aa7-6bcbc8e8d846';
-        
-        // First, try to find the special user in auth.users
-        // Note: Direct access to auth.users may require higher privileges than available in edge functions,
-        // so we'll handle errors gracefully
-        try {
-          // Try a simplified approach - check if we can use the user in conversations table
-          const { data: existingUser } = await supabaseClient
-            .from('users')
-            .select('id')
-            .eq('id', EMBEDDED_CHATS_USER_ID)
-            .maybeSingle();
-          
-          if (!existingUser) {
-            console.log('Special user not found, but continuing with operation');
-          } else {
-            console.log('Found special user for embedded chats');
-          }
-        } catch (userError) {
-          console.warn('Could not check for special user, but continuing:', userError.message);
-        }
+        // After schema modification, we can use NULL for user_id in embedded chats
+        // This is more correct than using a dummy user
+        const userIdForEmbeddedChat = null; // Use NULL for embedded chats
         
         // Now insert the conversation with our special user ID
         const { data, error } = await supabaseClient
           .from('conversations')
           .insert({
             id: generatedConversationId,
-            user_id: EMBEDDED_CHATS_USER_ID, // Use the special user ID
+            user_id: userIdForEmbeddedChat, // Use NULL as user_id
             title: 'Embedded Chat',
             source: 'embedded',
             metadata: { 
