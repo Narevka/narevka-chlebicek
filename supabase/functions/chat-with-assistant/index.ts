@@ -20,6 +20,15 @@ serve(async (req) => {
     return corsResponse;
   }
 
+  // Declare variables at the function scope so they're available everywhere
+  let origin = '';
+  let referer = '';
+  let refererDomain = '';
+  let supabaseClient = null;
+  let threadId = '';
+  let finalConversationId = '';
+  let finalConversationDbId = '';
+  
   try {
     const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
     
@@ -30,10 +39,14 @@ serve(async (req) => {
     const { 
       message, 
       agentId, 
-      conversationId, 
-      dbConversationId, 
+      conversationId: inputConversationId, 
+      dbConversationId: inputDbConversationId, 
       userId 
     } = await req.json();
+    
+    // Set conversation variables from input
+    finalConversationId = inputConversationId || '';
+    finalConversationDbId = inputDbConversationId || '';
     
     // Generate valid UUID for anonymous users if none provided
     const userIdentifier = userId || crypto.randomUUID();
@@ -51,76 +64,66 @@ serve(async (req) => {
     
     // Get auth token from request (if it exists)
     const authHeader = req.headers.get('Authorization');
-    let supabaseClient;
     
+    // Extract request origins for security and tracking
+    origin = req.headers.get('Origin') || '';
+    referer = req.headers.get('Referer') || '';
+    
+    // You can add more allowed domains as needed
+    const allowedOrigins = [
+      'https://www.narevka.com', 
+      'https://narevka.com',
+      'http://localhost:3000',
+      'http://localhost:4000'
+    ];
+    
+    // Extract domain from referer as fallback for origin check
     try {
-      // Extract request origins for security and tracking
-      let origin = req.headers.get('Origin') || '';
-      let referer = req.headers.get('Referer') || '';
-      let refererDomain = '';
-      
-      // You can add more allowed domains as needed
-      const allowedOrigins = [
-        'https://www.narevka.com', 
-        'https://narevka.com',
-        'http://localhost:3000',
-        'http://localhost:4000'
-      ];
-      
-      // Extract domain from referer as fallback for origin check
-      try {
-        if (referer) {
-          const url = new URL(referer);
-          refererDomain = url.origin;
+      if (referer) {
+        const url = new URL(referer);
+        refererDomain = url.origin;
+      }
+    } catch (e) {
+      console.warn('Could not parse referer URL');
+    }
+    
+    // Verify request origin for extra security
+    const isAllowedOrigin = allowedOrigins.some(allowed => 
+      origin.includes(allowed) || refererDomain.includes(allowed)
+    );
+    
+    if (!isAllowedOrigin && origin && origin !== 'null') {
+      console.warn(`Request from unauthorized origin: ${origin}, referer: ${referer}`);
+    }
+    
+    // Initialize Supabase client using SERVICE ROLE KEY for database operations
+    // This bypasses RLS policies and allows full database access
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+    
+    if (!supabaseUrl || !supabaseKey) {
+      console.warn('Missing Supabase credentials, database operations will be skipped');
+    } else {
+      // Important: When using service role key, disable auth auto refresh and session persistence
+      supabaseClient = createClient(supabaseUrl, supabaseKey, {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
         }
-      } catch (e) {
-        console.warn('Could not parse referer URL');
-      }
-      
-      // Verify request origin for extra security
-      const isAllowedOrigin = allowedOrigins.some(allowed => 
-        origin.includes(allowed) || refererDomain.includes(allowed)
-      );
-      
-      if (!isAllowedOrigin && origin && origin !== 'null') {
-        console.warn(`Request from unauthorized origin: ${origin}, referer: ${referer}`);
-      }
-      
-      // Initialize Supabase client using SERVICE ROLE KEY for database operations
-      // This bypasses RLS policies and allows full database access
-      const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
-      const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
-      
-      if (!supabaseUrl || !supabaseKey) {
-        console.warn('Missing Supabase credentials, database operations will be skipped');
-      } else {
-        // Important: When using service role key, disable auth auto refresh and session persistence
-        supabaseClient = createClient(supabaseUrl, supabaseKey, {
-          auth: {
-            autoRefreshToken: false,
-            persistSession: false
-          }
-        });
-        console.log('Supabase admin client initialized successfully');
-      }
-    } catch (error) {
-      console.error('Failed to initialize Supabase client:', error);
-      // Continue without database operations
+      });
+      console.log('Supabase admin client initialized successfully');
     }
     
     // Handle thread management
-    let threadId = conversationId;
+    threadId = finalConversationId;
     
     // If no thread exists, create a new one
     if (!threadId) {
       threadId = await createThread(OPENAI_API_KEY);
     }
     
-    // Handle conversation tracking in database
-    let conversationDbId = dbConversationId;
-    
     // Create new database conversation if none exists and Supabase is initialized
-    if (!conversationDbId && supabaseClient) {
+    if (!finalConversationDbId && supabaseClient) {
       try {
         // Generate a conversation ID if not provided
         const generatedConversationId = crypto.randomUUID();
@@ -147,8 +150,8 @@ serve(async (req) => {
           .single();
         
         if (error) throw error;
-        conversationDbId = data.id;
-        console.log(`Created new conversation in database with ID: ${conversationDbId}`);
+        finalConversationDbId = data.id;
+        console.log(`Created new conversation in database with ID: ${finalConversationDbId}`);
       } catch (error) {
         console.error('Error creating conversation in database:', error);
         // Continue without database operations
@@ -156,12 +159,12 @@ serve(async (req) => {
     }
     
     // Save user message to database if we have a conversation ID and Supabase
-    if (conversationDbId && supabaseClient) {
+    if (finalConversationDbId && supabaseClient) {
       try {
         await supabaseClient
           .from('messages')
           .insert({
-            conversation_id: conversationDbId,
+            conversation_id: finalConversationDbId,
             content: message,
             is_bot: false
           });
@@ -188,12 +191,12 @@ serve(async (req) => {
     const confidence = 0.85 + (Math.random() * 0.1); // Random value between 0.85 and 0.95
     
     // Save bot message to database if we have a conversation ID and Supabase
-    if (conversationDbId && supabaseClient) {
+    if (finalConversationDbId && supabaseClient) {
       try {
         await supabaseClient
           .from('messages')
           .insert({
-            conversation_id: conversationDbId,
+            conversation_id: finalConversationDbId,
             content: assistantResponse,
             is_bot: true,
             confidence: confidence
@@ -208,7 +211,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         threadId: threadId,
-        dbConversationId: conversationDbId,
+        dbConversationId: finalConversationDbId,
         response: assistantResponse,
         confidence: confidence
       }),
@@ -222,5 +225,4 @@ serve(async (req) => {
   } catch (error) {
     return handleError(error);
   }
-  
 });
