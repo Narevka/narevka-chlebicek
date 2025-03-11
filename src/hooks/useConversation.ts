@@ -158,7 +158,7 @@ export const useConversation = (userId: string | undefined, agentId: string | un
     } finally {
       setSendingMessage(false);
     }
-  }, [conversationId, threadId, agentId, userId, messages.length, isInitializing]);
+  }, [conversationId, threadId, agentId, userId, messages.length, isInitializing, inputMessage, setInputMessage]);
 
   const resetConversation = useCallback(async () => {
     if (!userId) return;
