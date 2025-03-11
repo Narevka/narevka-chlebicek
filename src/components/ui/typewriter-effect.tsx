@@ -2,7 +2,8 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { useEffect, useState } from "react";
+import { motion, useAnimate, useInView } from "framer-motion";
+import { useEffect } from "react";
 
 export interface TypewriterEffectSmoothProps {
   words: {
@@ -18,38 +19,30 @@ export const TypewriterEffectSmooth = ({
   className,
   cursorClassName,
 }: TypewriterEffectSmoothProps) => {
-  // Track the current text being displayed
-  const [displayText, setDisplayText] = useState("");
+  // Use default text if no words are provided
+  const defaultText = "Build awesome apps with Aceternity.";
+  const textToUse = words.length > 0 
+    ? words.map(word => word.text).join(" ") 
+    : defaultText;
   
-  // Define the full text to be typed
-  const fullText = "Build awesome apps with Aceternity.";
+  // Create animation controls
+  const [scope, animate] = useAnimate();
+  const isInView = useInView(scope);
   
-  // Typing speed in milliseconds
-  const typingSpeed = 100;
-
   useEffect(() => {
-    let timeout: NodeJS.Timeout;
-    
-    // If we haven't completed typing the full text
-    if (displayText.length < fullText.length) {
-      // Add next character
-      timeout = setTimeout(() => {
-        setDisplayText(fullText.slice(0, displayText.length + 1));
-      }, typingSpeed);
+    if (isInView) {
+      animate(
+        scope.current,
+        { width: "fit-content" },
+        { duration: 2, ease: "linear" }
+      );
     }
-    
-    return () => clearTimeout(timeout);
-  }, [displayText, fullText]);
+  }, [isInView, animate, scope]);
 
-  // Function to render the text with proper styling
-  const renderText = () => {
-    // Split the text into parts to style differently
-    const parts = displayText.split("with ");
-    
-    if (parts.length === 1) {
-      // If "with" is not in the text yet
-      return <span>{displayText}</span>;
-    } else {
+  // Split the text to style "Aceternity" differently
+  const renderStyledText = () => {
+    if (textToUse.includes("with ")) {
+      const parts = textToUse.split("with ");
       return (
         <>
           <span>{parts[0]}with </span>
@@ -57,15 +50,34 @@ export const TypewriterEffectSmooth = ({
         </>
       );
     }
+    return <span>{textToUse}</span>;
   };
 
   return (
     <div className={cn("flex flex-col items-center justify-center", className)}>
-      <div className="text-center">
-        <h1 className="text-4xl font-bold leading-tight sm:text-5xl md:text-6xl lg:text-7xl whitespace-nowrap">
-          {renderText()}
-          <span className={cn("animate-pulse", cursorClassName)}>|</span>
-        </h1>
+      <div className="text-center flex items-center">
+        <motion.div
+          ref={scope}
+          className="overflow-hidden whitespace-nowrap"
+          initial={{ width: "0%" }}
+          style={{ width: "0%" }}
+        >
+          <h1 className="text-4xl font-bold leading-tight sm:text-5xl md:text-6xl lg:text-7xl whitespace-nowrap">
+            {renderStyledText()}
+          </h1>
+        </motion.div>
+        <motion.span
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{
+            duration: 0.8,
+            repeat: Infinity,
+            repeatType: "reverse",
+          }}
+          className={cn("animate-pulse h-12 ml-1", cursorClassName)}
+        >
+          |
+        </motion.span>
       </div>
     </div>
   );
