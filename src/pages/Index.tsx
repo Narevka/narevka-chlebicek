@@ -101,7 +101,7 @@ const Index = () => {
         signature: "- Karol Sapiołko, Owner",
         note: "Seriously, check our",
         termsLink: "terms and conditions",
-        noteEnd: "I'm not joking."
+        noteEnd: ""
       }
     },
     pl: {
@@ -173,7 +173,7 @@ const Index = () => {
         signature: "- Karol Sapiołko, Właściciel",
         note: "Serio, sprawdź w",
         termsLink: "regulaminie",
-        noteEnd: "nie żartuję."
+        noteEnd: ""
       }
     }
   };
@@ -474,7 +474,7 @@ const Index = () => {
           <p className="text-xl mb-2 font-semibold">{t.guarantee.text}</p>
           <p className="text-gray-700 italic mb-2">{t.guarantee.signature}</p>
           <p className="text-sm text-gray-500">
-            {t.guarantee.note} <Link to="/terms" className="text-blue-500 hover:underline">{t.guarantee.termsLink}</Link>, {t.guarantee.noteEnd}
+            {t.guarantee.note} <Link to="/terms" className="text-blue-500 hover:underline">{t.guarantee.termsLink}</Link>{t.guarantee.noteEnd ? `, ${t.guarantee.noteEnd}` : ''}
           </p>
         </div>
       </section>
