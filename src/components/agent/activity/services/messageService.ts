@@ -26,17 +26,17 @@ export const fetchMessagesForConversation = async (conversationId: string): Prom
     // Even more aggressive duplicate detection
     const uniqueMessages: Message[] = [];
     const contentMap = new Map<string, boolean>();
-    const timeWindowMs = 2000; // 2 second window for deduplication
+    const timeWindowMs = 5000; // 5 second window for deduplication (increased from 2 seconds)
     
     data.forEach(msg => {
       // Create a key based on message content hash and user/bot flag
-      const contentPreview = msg.content.trim().substring(0, 100);
+      const contentPreview = msg.content.trim().substring(0, 150); // Increased from 100 to 150 chars
       const msgTime = new Date(msg.created_at).getTime();
-      const key = `${contentPreview.substring(0, 50)}-${msg.is_bot}`;
+      const key = `${contentPreview.substring(0, 80)}-${msg.is_bot}`; // Increased from 50 to 80 chars
       
       // Check if a very similar message exists within a small time window
       const isDuplicate = uniqueMessages.some(existingMsg => {
-        const existingKey = `${existingMsg.content.trim().substring(0, 50)}-${!existingMsg.isUser}`;
+        const existingKey = `${existingMsg.content.trim().substring(0, 80)}-${!existingMsg.isUser}`;
         const existingTime = new Date(existingMsg.created_at).getTime();
         return (
           key === existingKey && 

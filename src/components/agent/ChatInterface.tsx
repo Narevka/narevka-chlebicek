@@ -25,20 +25,32 @@ const ChatInterface = ({ agentName, agentId, source = "Playground" }: ChatInterf
     isInitializing
   } = useConversation(user?.id, agentId, source);
 
-  // Persist conversation source identifier to ensure consistent source tracking
+  // Persist conversation source identifier and ensure accurate source labeling
   useEffect(() => {
-    // Normalize the source
+    // Force certain source strings to standard values to prevent inconsistencies
     let normalizedSource = source;
-    if (normalizedSource.toLowerCase().includes("playground")) {
+    
+    // Standardize source names to prevent multiple variants
+    if (source.toLowerCase().includes("playground")) {
       normalizedSource = "Playground";
-    } else if (normalizedSource.toLowerCase().includes("embed")) {
+    } else if (source.toLowerCase().includes("embed")) {
       normalizedSource = "embedded";
     }
     
-    // Store this normalized source in sessionStorage to ensure consistency
+    // Store this normalized source in sessionStorage for consistency
     sessionStorage.setItem('current_chat_source', normalizedSource);
     
-    console.log(`ChatInterface initialized with source: ${normalizedSource}`);
+    console.log(`ChatInterface initialized with normalized source: ${normalizedSource}`);
+    
+    // Force update any existing conversation's source if it's wrong
+    const existingConvoId = sessionStorage.getItem(`current_conversation_${normalizedSource}`);
+    if (existingConvoId) {
+      const currentSourceLabel = sessionStorage.getItem('source_label_for_' + existingConvoId);
+      if (currentSourceLabel !== normalizedSource) {
+        console.log(`Correcting source label for conversation ${existingConvoId} from ${currentSourceLabel} to ${normalizedSource}`);
+        sessionStorage.setItem('source_label_for_' + existingConvoId, normalizedSource);
+      }
+    }
   }, [source]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
