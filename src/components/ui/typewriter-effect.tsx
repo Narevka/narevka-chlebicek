@@ -62,7 +62,7 @@ export const TypewriterEffectSmooth = ({
           initial={{ width: "0%" }}
           style={{ width: "0%" }}
         >
-          <h1 className="text-4xl font-bold leading-tight sm:text-5xl md:text-6xl lg:text-7xl whitespace-nowrap">
+          <h1 className="text-2xl font-bold leading-tight sm:text-3xl md:text-4xl lg:text-5xl whitespace-nowrap">
             {renderStyledText()}
           </h1>
         </motion.div>
@@ -74,7 +74,7 @@ export const TypewriterEffectSmooth = ({
             repeat: Infinity,
             repeatType: "reverse",
           }}
-          className={cn("animate-pulse h-12 ml-1", cursorClassName)}
+          className={cn("animate-pulse h-10 ml-1", cursorClassName)}
         >
           |
         </motion.span>
