@@ -126,8 +126,8 @@ serve(async (req) => {
         const generatedConversationId = crypto.randomUUID();
         
         // Set a fixed user ID for embedded chats to avoid foreign key constraint
-        // You can replace this with a special user account created for this purpose
-        const EMBEDDED_CHATS_USER_ID = '00000000-0000-0000-0000-000000000000';
+        // This is the ID of an existing user account that will be the "owner" of all embedded chats
+        const EMBEDDED_CHATS_USER_ID = '3a12afa2-80e8-4eb5-9aa7-6bcbc8e8d846';
         
         // First, try to find the special user in auth.users
         // Note: Direct access to auth.users may require higher privileges than available in edge functions,
