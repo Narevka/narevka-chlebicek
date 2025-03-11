@@ -83,12 +83,52 @@ async function initSupabase() {
 }
 
 /**
+ * Session duration in milliseconds (30 minutes)
+ */
+const SESSION_DURATION = 30 * 60 * 1000;
+
+/**
+ * Get active conversation ID for an agent, or null if no active conversation
+ * @param {string} agentId - The ID of the agent
+ * @returns {string|null} - The conversation ID or null if no active conversation
+ */
+export function getActiveConversation(agentId) {
+  const conversationId = localStorage.getItem(`conversation_id_${agentId}`);
+  const expiryTime = localStorage.getItem(`conversation_expiry_${agentId}`);
+  
+  // Check if there's an active conversation that hasn't expired
+  if (conversationId && expiryTime && Date.now() < parseInt(expiryTime, 10)) {
+    // Refresh expiry time since the conversation is being used
+    const newExpiryTime = Date.now() + SESSION_DURATION;
+    localStorage.setItem(`conversation_expiry_${agentId}`, newExpiryTime);
+    
+    logDebug('Using existing conversation', { conversationId, expiresIn: 'refreshed to 30 minutes' });
+    return conversationId;
+  }
+  
+  // Clear expired data if it exists
+  if (conversationId || expiryTime) {
+    logDebug('Conversation expired', { conversationId });
+    localStorage.removeItem(`conversation_id_${agentId}`);
+    localStorage.removeItem(`conversation_expiry_${agentId}`);
+  }
+  
+  return null;
+}
+
+/**
  * Create a new conversation in the database
  * @param {string} agentId - The ID of the agent
  * @returns {Promise<string|null>} - The conversation ID or null if creation failed
  */
 export async function createConversation(agentId) {
   try {
+    // Check if we have an active conversation
+    const existingConversation = getActiveConversation(agentId);
+    if (existingConversation) {
+      return existingConversation;
+    }
+    
     // Generate a proper UUID for the conversation
     const conversationId = crypto.randomUUID();
     
@@ -116,13 +156,18 @@ export async function createConversation(agentId) {
     
     if (error) {
       logToDebugPanel('Database error when creating conversation', 'error', error);
-      // Still store the ID locally so we can try again later
-      localStorage.setItem(`conversation_id_${agentId}`, conversationId);
-      return conversationId;
     }
     
-    logToDebugPanel('Conversation created successfully', 'info', { conversationId });
+    // Store conversation ID and set expiry time (30 minutes from now)
+    const expiryTime = Date.now() + SESSION_DURATION;
     localStorage.setItem(`conversation_id_${agentId}`, conversationId);
+    localStorage.setItem(`conversation_expiry_${agentId}`, expiryTime.toString());
+    
+    logToDebugPanel('Conversation created with 30-minute session', 'info', { 
+      conversationId, 
+      expiresAt: new Date(expiryTime).toLocaleTimeString() 
+    });
+    
     return conversationId;
   } catch (error) {
     logToDebugPanel('Error creating conversation', 'error', error);
@@ -140,8 +185,8 @@ export async function createConversation(agentId) {
  */
 export async function saveMessage(agentId, content, isBot, confidence = null) {
   try {
-    // Get the proper conversation ID (not thread ID)
-    const conversationId = localStorage.getItem(`conversation_id_${agentId}`);
+    // Get the proper conversation ID (not thread ID) and refresh its expiry
+    const conversationId = getActiveConversation(agentId);
     
     if (!conversationId) {
       logToDebugPanel('Cannot save message: No conversation ID for this agent', 'error');
@@ -186,8 +231,8 @@ export async function saveMessage(agentId, content, isBot, confidence = null) {
  * @returns {Promise<boolean>} - Whether the title was updated successfully
  */
 export async function updateConversationTitle(agentId, title) {
-  // Get the proper conversation ID
-  const conversationId = localStorage.getItem(`conversation_id_${agentId}`);
+  // Get the proper conversation ID (and refresh its expiry)
+  const conversationId = getActiveConversation(agentId);
   try {
     // Initialize Supabase
     const supabase = await initSupabase();

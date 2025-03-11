@@ -54,17 +54,48 @@ serve(async (req) => {
     let supabaseClient;
     
     try {
-      // Initialize Supabase client for database operations
+      // Get origin to verify request comes from authorized domain
+      const origin = req.headers.get('Origin') || '';
+      const referer = req.headers.get('Referer') || '';
+      
+      // You can add more allowed domains as needed
+      const allowedOrigins = [
+        'https://www.narevka.com', 
+        'https://narevka.com',
+        'http://localhost:3000',
+        'http://localhost:4000'
+      ];
+      
+      // Extract domain from referer as fallback for origin check
+      let refererDomain = '';
+      try {
+        if (referer) {
+          const url = new URL(referer);
+          refererDomain = url.origin;
+        }
+      } catch (e) {
+        console.warn('Could not parse referer URL');
+      }
+      
+      // Verify request origin for extra security
+      const isAllowedOrigin = allowedOrigins.some(allowed => 
+        origin.includes(allowed) || refererDomain.includes(allowed)
+      );
+      
+      if (!isAllowedOrigin && origin && origin !== 'null') {
+        console.warn(`Request from unauthorized origin: ${origin}, referer: ${referer}`);
+      }
+      
+      // Initialize Supabase client using SERVICE ROLE KEY for database operations
+      // This bypasses RLS policies and allows full database access
       const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
-      const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
+      const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
       
       if (!supabaseUrl || !supabaseKey) {
         console.warn('Missing Supabase credentials, database operations will be skipped');
       } else {
-        // Create client with auth header if it exists
-        const options = authHeader ? { global: { headers: { Authorization: authHeader } } } : undefined;
-        supabaseClient = createClient(supabaseUrl, supabaseKey, options);
-        console.log('Supabase client initialized successfully');
+        supabaseClient = createClient(supabaseUrl, supabaseKey);
+        console.log('Supabase admin client initialized successfully');
       }
     } catch (error) {
       console.error('Failed to initialize Supabase client:', error);
@@ -82,15 +113,49 @@ serve(async (req) => {
     // Handle conversation tracking in database
     let conversationDbId = dbConversationId;
     
-    // Create new database conversation if none exists and we have a user ID and Supabase
+    // Create new database conversation if none exists and Supabase is initialized
     if (!conversationDbId && supabaseClient) {
       try {
+        // Generate a conversation ID if not provided
+        const generatedConversationId = crypto.randomUUID();
+        
+        // Set a fixed user ID for embedded chats to avoid foreign key constraint
+        // You can replace this with a special user account created for this purpose
+        const EMBEDDED_CHATS_USER_ID = '00000000-0000-0000-0000-000000000000';
+        
+        // First check if this special user exists
+        const { data: existingUser } = await supabaseClient
+          .from('users')
+          .select('id')
+          .eq('id', EMBEDDED_CHATS_USER_ID)
+          .single();
+        
+        // If the special user doesn't exist, create it
+        if (!existingUser) {
+          try {
+            await supabaseClient
+              .from('users')
+              .insert({
+                id: EMBEDDED_CHATS_USER_ID,
+                email: 'embedded-chats@system.local',
+                created_at: new Date().toISOString()
+              });
+            console.log('Created special user for embedded chats');
+          } catch (userError) {
+            // If we can't create the user, log but continue
+            console.error('Error creating special user:', userError);
+          }
+        }
+        
+        // Now insert the conversation with our special user ID
         const { data, error } = await supabaseClient
           .from('conversations')
           .insert({
-            user_id: userIdentifier,
+            id: generatedConversationId,
+            user_id: EMBEDDED_CHATS_USER_ID, // Use the special user ID
             title: 'Embedded Chat',
-            source: 'embedded'
+            source: 'embedded',
+            metadata: { anonymous_id: userIdentifier } // Store the real anonymous ID as metadata
           })
           .select('id')
           .single();
