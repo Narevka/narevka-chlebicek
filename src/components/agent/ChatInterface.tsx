@@ -25,15 +25,19 @@ const ChatInterface = ({ agentName, agentId, source = "Playground" }: ChatInterf
     isInitializing
   } = useConversation(user?.id, agentId, source);
 
-  // Persist conversation source identifier and ensure accurate source labeling
+  // Store a permanent record of the original source for this component instance
+  // to prevent source confusion during the component lifecycle
+  const originalSource = React.useRef(source);
+
+  // Guarantee consistent source labeling throughout the application lifecycle
   useEffect(() => {
     // Force certain source strings to standard values to prevent inconsistencies
-    let normalizedSource = source;
+    let normalizedSource = originalSource.current;
     
-    // Standardize source names to prevent multiple variants
-    if (source.toLowerCase().includes("playground")) {
+    // Standardize source names
+    if (normalizedSource.toLowerCase().includes("playground")) {
       normalizedSource = "Playground";
-    } else if (source.toLowerCase().includes("embed")) {
+    } else if (normalizedSource.toLowerCase().includes("embed")) {
       normalizedSource = "embedded";
     }
     
@@ -42,7 +46,7 @@ const ChatInterface = ({ agentName, agentId, source = "Playground" }: ChatInterf
     
     console.log(`ChatInterface initialized with normalized source: ${normalizedSource}`);
     
-    // Force update any existing conversation's source if it's wrong
+    // Ensure all conversations with this source have the correct label
     const existingConvoId = sessionStorage.getItem(`current_conversation_${normalizedSource}`);
     if (existingConvoId) {
       const currentSourceLabel = sessionStorage.getItem('source_label_for_' + existingConvoId);
@@ -51,7 +55,7 @@ const ChatInterface = ({ agentName, agentId, source = "Playground" }: ChatInterf
         sessionStorage.setItem('source_label_for_' + existingConvoId, normalizedSource);
       }
     }
-  }, [source]);
+  }, []);  // Empty dependency array to run only once when component mounts
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey && inputMessage.trim() !== '') {
@@ -64,6 +68,23 @@ const ChatInterface = ({ agentName, agentId, source = "Playground" }: ChatInterf
     if (inputMessage.trim() !== '') {
       handleSendMessage(inputMessage);
     }
+  };
+
+  // Hard reset that clears all session storage related to this conversation
+  const handleHardReset = () => {
+    // Get source from ref to ensure consistent source through component lifecycle
+    let normalizedSource = originalSource.current;
+    if (normalizedSource.toLowerCase().includes("playground")) {
+      normalizedSource = "Playground";
+    } else if (normalizedSource.toLowerCase().includes("embed")) {
+      normalizedSource = "embedded";
+    }
+    
+    // Clear any existing conversation IDs for this source
+    sessionStorage.removeItem(`current_conversation_${normalizedSource}`);
+    
+    // Execute normal reset
+    resetConversation();
   };
 
   return (
@@ -83,7 +104,7 @@ const ChatInterface = ({ agentName, agentId, source = "Playground" }: ChatInterf
             <h3 className="text-md font-medium">{agentName}</h3>
           </div>
           <div>
-            <Button variant="ghost" size="icon" onClick={resetConversation}>
+            <Button variant="ghost" size="icon" onClick={handleHardReset}>
               <RefreshCw className="h-4 w-4" />
             </Button>
           </div>

@@ -18,9 +18,16 @@ export const useConversation = (userId: string | undefined, agentId: string | un
   const [sendingMessage, setSendingMessage] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [threadId, setThreadId] = useState<string | null>(null);
-  const [conversationSource] = useState<string>(source); // Store source and never change it
+  // Store original source string to prevent confusion during rendering cycles
+  const [conversationSource] = useState<string>(
+    // Normalize immediately on initialization 
+    source?.toLowerCase().includes("playground") ? "Playground" : 
+    source?.toLowerCase().includes("embed") ? "embedded" : 
+    source
+  );
   const [isInitializing, setIsInitializing] = useState(true);
   const [hasLoadedConversation, setHasLoadedConversation] = useState(false);
+  const [lastPageRefresh] = useState(new Date().getTime());
 
   console.log(`Initializing conversation with source: ${conversationSource}`);
 
@@ -33,6 +40,8 @@ export const useConversation = (userId: string | undefined, agentId: string | un
       setIsInitializing(true);
       
       try {
+        console.log(`Normalized source for loading: ${conversationSource}`);
+        
         // First check session storage for an active conversation
         const sessionConversationId = sessionStorage.getItem(`current_conversation_${conversationSource}`);
         
@@ -42,14 +51,23 @@ export const useConversation = (userId: string | undefined, agentId: string | un
           // Verify this conversation exists and belongs to the user
           const { data: existingConvo } = await supabase
             .from('conversations')
-            .select('id')
+            .select('id, source')
             .eq('id', sessionConversationId)
             .eq('user_id', userId)
             .single();
             
           if (existingConvo) {
-            console.log(`Verified existing conversation: ${sessionConversationId}`);
+            console.log(`Verified existing conversation: ${sessionConversationId} with source: ${existingConvo.source}`);
             setConversationId(sessionConversationId);
+            
+            // If the source doesn't match our expected source, update it in the database
+            if (existingConvo.source !== conversationSource) {
+              console.log(`Correcting source from ${existingConvo.source} to ${conversationSource}`);
+              await updateConversationSource(sessionConversationId, conversationSource);
+            }
+            
+            // Store a verified source label
+            sessionStorage.setItem('source_label_for_' + sessionConversationId, conversationSource);
             
             // Load the existing messages for this conversation
             const { data: messageData } = await supabase
@@ -61,15 +79,20 @@ export const useConversation = (userId: string | undefined, agentId: string | un
             if (messageData && messageData.length > 0) {
               console.log(`Loaded ${messageData.length} messages from existing conversation`);
               
-              // Transform database messages to our Message format
+              // Transform database messages to our Message format with proper isUser flag
               const formattedMessages = messageData.map(msg => ({
                 id: msg.id,
                 content: msg.content,
                 isUser: !msg.is_bot,
-                confidence: msg.confidence
+                is_bot: msg.is_bot,
+                confidence: msg.confidence,
+                created_at: msg.created_at
               }));
               
-              setMessages(formattedMessages);
+              // Only set messages if we actually have some
+              if (formattedMessages.length > 0) {
+                setMessages(formattedMessages);
+              }
             }
             
             setHasLoadedConversation(true);
@@ -82,33 +105,25 @@ export const useConversation = (userId: string | undefined, agentId: string | un
           }
         }
         
-        // If no valid conversation in session, look for recent conversation from same source
-        const fiveMinutesAgo = new Date();
-        fiveMinutesAgo.setMinutes(fiveMinutesAgo.getMinutes() - 30); // Extend to 30 minutes to reduce duplicates
-        
-        // Normalize source for consistency
-        let normalizedSource = conversationSource;
-        if (normalizedSource.toLowerCase().includes("playground")) {
-          normalizedSource = "Playground";
-        } else if (normalizedSource.toLowerCase().includes("embed")) {
-          normalizedSource = "embedded";
-        }
+        // Create a longer timeframe to reduce duplicate conversations
+        const thirtyMinutesAgo = new Date();
+        thirtyMinutesAgo.setMinutes(thirtyMinutesAgo.getMinutes() - 30);
         
         const { data: recentConversations } = await supabase
           .from('conversations')
           .select('id')
           .eq('user_id', userId)
-          .eq('source', normalizedSource)
-          .gte('updated_at', fiveMinutesAgo.toISOString())
+          .eq('source', conversationSource)
+          .gte('updated_at', thirtyMinutesAgo.toISOString())
           .order('updated_at', { ascending: false })
           .limit(1);
           
         if (recentConversations && recentConversations.length > 0) {
           const recentId = recentConversations[0].id;
-          console.log(`Found recent conversation: ${recentId} - will use this instead of creating new`);
+          console.log(`Found recent conversation: ${recentId} with source ${conversationSource} - will use this instead of creating new`);
           
           // Store in session storage for future use
-          sessionStorage.setItem(`current_conversation_${normalizedSource}`, recentId);
+          sessionStorage.setItem(`current_conversation_${conversationSource}`, recentId);
           setConversationId(recentId);
           
           // Load the existing messages for this conversation
@@ -126,10 +141,15 @@ export const useConversation = (userId: string | undefined, agentId: string | un
               id: msg.id,
               content: msg.content,
               isUser: !msg.is_bot,
-              confidence: msg.confidence
+              is_bot: msg.is_bot,
+              confidence: msg.confidence,
+              created_at: msg.created_at
             }));
             
-            setMessages(formattedMessages);
+            // Only set messages if we actually have some
+            if (formattedMessages.length > 0) {
+              setMessages(formattedMessages);
+            }
           }
           
           setHasLoadedConversation(true);
@@ -139,12 +159,12 @@ export const useConversation = (userId: string | undefined, agentId: string | un
         
         // If we reach here, we need to create a new conversation
         console.log("No existing conversation found, creating new one");
-        const newId = await createConversation(userId, normalizedSource);
+        const newId = await createConversation(userId, conversationSource);
         
         if (newId) {
           console.log(`Created new conversation: ${newId}`);
           // Store in session storage for future use
-          sessionStorage.setItem(`current_conversation_${normalizedSource}`, newId);
+          sessionStorage.setItem(`current_conversation_${conversationSource}`, newId);
           setConversationId(newId);
           
           // Save initial bot message
@@ -167,7 +187,7 @@ export const useConversation = (userId: string | undefined, agentId: string | un
     };
 
     loadExistingConversation();
-  }, [userId, conversationSource, hasLoadedConversation]);
+  }, [userId, conversationSource, hasLoadedConversation, lastPageRefresh]);
 
   const handleSendMessage = useCallback(async (message: string) => {
     if (!message.trim() || !conversationId || !agentId || isInitializing) return;
@@ -197,7 +217,13 @@ export const useConversation = (userId: string | undefined, agentId: string | un
         setThreadId(newThreadId);
       }
       
-      setMessages(prev => [...prev, botResponse]);
+      // Add isUser property for UI rendering
+      const formattedBotResponse = {
+        ...botResponse,
+        isUser: false
+      };
+      
+      setMessages(prev => [...prev, formattedBotResponse]);
       
       // Save bot response to database
       await saveMessageToDb({
@@ -217,7 +243,7 @@ export const useConversation = (userId: string | undefined, agentId: string | un
     } finally {
       setSendingMessage(false);
     }
-  }, [conversationId, threadId, agentId, userId, messages.length, isInitializing, inputMessage, setInputMessage]);
+  }, [conversationId, threadId, agentId, userId, messages.length, isInitializing]);
 
   const resetConversation = useCallback(async () => {
     if (!userId) return;
@@ -225,24 +251,16 @@ export const useConversation = (userId: string | undefined, agentId: string | un
     setSendingMessage(true);
     
     try {
-      // Remove the old conversation ID from session storage
+      // Remove the old conversation ID from session storage to prevent linking
       sessionStorage.removeItem(`current_conversation_${conversationSource}`);
       
-      // Create a new conversation with the SAME source as original initialization
-      // Also normalize the source
-      let normalizedSource = conversationSource;
-      if (normalizedSource.toLowerCase().includes("playground")) {
-        normalizedSource = "Playground";
-      } else if (normalizedSource.toLowerCase().includes("embed")) {
-        normalizedSource = "embedded";
-      }
-      
-      console.log("Resetting conversation with normalized source:", normalizedSource);
-      const newConversationId = await createConversation(userId, normalizedSource);
+      // Create a new conversation
+      console.log("Resetting conversation with source:", conversationSource);
+      const newConversationId = await createConversation(userId, conversationSource);
       
       if (newConversationId) {
         // Store the new conversation ID in session storage
-        sessionStorage.setItem(`current_conversation_${normalizedSource}`, newConversationId);
+        sessionStorage.setItem(`current_conversation_${conversationSource}`, newConversationId);
         
         setConversationId(newConversationId);
         setThreadId(null); // Reset OpenAI thread ID
