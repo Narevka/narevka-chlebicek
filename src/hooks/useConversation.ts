@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Message, ConversationState } from "./conversation/types";
 import { saveMessageToDb, createConversation, updateConversationTitle, updateConversationSource } from "./conversation/conversationDb";
 import { getAssistantResponse } from "./conversation/assistantApi";
+import { supabase } from "@/integrations/supabase/client";
 
 // Export the Message type with the correct syntax for isolatedModules
 export type { Message };
