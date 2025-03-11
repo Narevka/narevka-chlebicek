@@ -20,32 +20,73 @@ export const useConversation = (userId: string | undefined, agentId: string | un
   const [threadId, setThreadId] = useState<string | null>(null);
   const [conversationSource] = useState<string>(source); // Store source and never change it
   const [isInitializing, setIsInitializing] = useState(true);
+  const [hasLoadedConversation, setHasLoadedConversation] = useState(false);
 
   console.log(`Initializing conversation with source: ${conversationSource}`);
 
-  // Check for existing conversation in session storage
+  // Load existing conversation from both session storage and database
   useEffect(() => {
-    // Try to get existing conversationId from sessionStorage to maintain continuity
-    const sessionConversationId = sessionStorage.getItem(`current_conversation_${conversationSource}`);
-    if (sessionConversationId) {
-      console.log(`Found existing conversation in session: ${sessionConversationId}`);
-      setConversationId(sessionConversationId);
-      setIsInitializing(false);
-    }
-  }, [conversationSource]);
-
-  // Ensure we only create one conversation
-  useEffect(() => {
-    let isMounted = true;
+    if (!userId || hasLoadedConversation) return;
     
-    // Create a new conversation when component mounts only if we don't have one already
-    const initConversation = async () => {
-      if (!userId || conversationId) return;
-
+    // Try to get existing conversationId from sessionStorage to maintain continuity
+    const loadExistingConversation = async () => {
       setIsInitializing(true);
       
       try {
-        // Always use the source that was set at initialization and normalize it
+        // First check session storage for an active conversation
+        const sessionConversationId = sessionStorage.getItem(`current_conversation_${conversationSource}`);
+        
+        if (sessionConversationId) {
+          console.log(`Found existing conversation in session: ${sessionConversationId}`);
+          
+          // Verify this conversation exists and belongs to the user
+          const { data: existingConvo } = await supabase
+            .from('conversations')
+            .select('id')
+            .eq('id', sessionConversationId)
+            .eq('user_id', userId)
+            .single();
+            
+          if (existingConvo) {
+            console.log(`Verified existing conversation: ${sessionConversationId}`);
+            setConversationId(sessionConversationId);
+            
+            // Load the existing messages for this conversation
+            const { data: messageData } = await supabase
+              .from('messages')
+              .select('*')
+              .eq('conversation_id', sessionConversationId)
+              .order('created_at', { ascending: true });
+              
+            if (messageData && messageData.length > 0) {
+              console.log(`Loaded ${messageData.length} messages from existing conversation`);
+              
+              // Transform database messages to our Message format
+              const formattedMessages = messageData.map(msg => ({
+                id: msg.id,
+                content: msg.content,
+                isUser: !msg.is_bot,
+                confidence: msg.confidence
+              }));
+              
+              setMessages(formattedMessages);
+            }
+            
+            setHasLoadedConversation(true);
+            setIsInitializing(false);
+            return true;
+          } else {
+            // Invalid session storage value - will create new conversation below
+            console.log(`Session conversation ID ${sessionConversationId} not found in database, will create new`);
+            sessionStorage.removeItem(`current_conversation_${conversationSource}`);
+          }
+        }
+        
+        // If no valid conversation in session, look for recent conversation from same source
+        const fiveMinutesAgo = new Date();
+        fiveMinutesAgo.setMinutes(fiveMinutesAgo.getMinutes() - 30); // Extend to 30 minutes to reduce duplicates
+        
+        // Normalize source for consistency
         let normalizedSource = conversationSource;
         if (normalizedSource.toLowerCase().includes("playground")) {
           normalizedSource = "Playground";
@@ -53,62 +94,80 @@ export const useConversation = (userId: string | undefined, agentId: string | un
           normalizedSource = "embedded";
         }
         
-        console.log("Creating conversation with normalized source:", normalizedSource);
-        
-        // Check for recent conversations with same source to prevent duplicates
-        const twoMinutesAgo = new Date();
-        twoMinutesAgo.setMinutes(twoMinutesAgo.getMinutes() - 2);
-        
-        const { data: existingConversations } = await supabase
+        const { data: recentConversations } = await supabase
           .from('conversations')
           .select('id')
           .eq('user_id', userId)
           .eq('source', normalizedSource)
-          .gte('created_at', twoMinutesAgo.toISOString())
-          .order('created_at', { ascending: false })
+          .gte('updated_at', fiveMinutesAgo.toISOString())
+          .order('updated_at', { ascending: false })
           .limit(1);
-        
-        let convId;
-        
-        // If there's a recent conversation with the same source, use that instead
-        if (existingConversations && existingConversations.length > 0) {
-          convId = existingConversations[0].id;
-          console.log(`Using existing conversation: ${convId} instead of creating a new one`);
-        } else {
-          // Create a new conversation
-          convId = await createConversation(userId, normalizedSource);
-          console.log(`Created new conversation: ${convId}`);
           
-          if (convId) {
-            // Save initial bot message only for new conversations
-            await saveMessageToDb({
-              conversation_id: convId,
-              content: "Hi! What can I help you with?",
-              is_bot: true
-            });
+        if (recentConversations && recentConversations.length > 0) {
+          const recentId = recentConversations[0].id;
+          console.log(`Found recent conversation: ${recentId} - will use this instead of creating new`);
+          
+          // Store in session storage for future use
+          sessionStorage.setItem(`current_conversation_${normalizedSource}`, recentId);
+          setConversationId(recentId);
+          
+          // Load the existing messages for this conversation
+          const { data: messageData } = await supabase
+            .from('messages')
+            .select('*')
+            .eq('conversation_id', recentId)
+            .order('created_at', { ascending: true });
+            
+          if (messageData && messageData.length > 0) {
+            console.log(`Loaded ${messageData.length} messages from recent conversation`);
+            
+            // Transform database messages to our Message format
+            const formattedMessages = messageData.map(msg => ({
+              id: msg.id,
+              content: msg.content,
+              isUser: !msg.is_bot,
+              confidence: msg.confidence
+            }));
+            
+            setMessages(formattedMessages);
           }
+          
+          setHasLoadedConversation(true);
+          setIsInitializing(false);
+          return true;
         }
         
-        if (isMounted && convId) {
-          // Store conversation ID in session storage to maintain it between page refreshes
-          sessionStorage.setItem(`current_conversation_${normalizedSource}`, convId);
-          setConversationId(convId);
+        // If we reach here, we need to create a new conversation
+        console.log("No existing conversation found, creating new one");
+        const newId = await createConversation(userId, normalizedSource);
+        
+        if (newId) {
+          console.log(`Created new conversation: ${newId}`);
+          // Store in session storage for future use
+          sessionStorage.setItem(`current_conversation_${normalizedSource}`, newId);
+          setConversationId(newId);
+          
+          // Save initial bot message
+          await saveMessageToDb({
+            conversation_id: newId,
+            content: "Hi! What can I help you with?",
+            is_bot: true
+          });
         }
+        
+        setHasLoadedConversation(true);
+        setIsInitializing(false);
+        return true;
       } catch (error) {
-        console.error("Error in conversation initialization:", error);
-      } finally {
-        if (isMounted) {
-          setIsInitializing(false);
-        }
+        console.error("Error loading or creating conversation:", error);
+        setIsInitializing(false);
+        setHasLoadedConversation(true);
+        return false;
       }
     };
 
-    initConversation();
-    
-    return () => {
-      isMounted = false;
-    };
-  }, [userId, conversationSource, conversationId]);
+    loadExistingConversation();
+  }, [userId, conversationSource, hasLoadedConversation]);
 
   const handleSendMessage = useCallback(async (message: string) => {
     if (!message.trim() || !conversationId || !agentId || isInitializing) return;

@@ -26,16 +26,37 @@ export const fetchMessagesForConversation = async (conversationId: string): Prom
     // Even more aggressive duplicate detection
     const uniqueMessages: Message[] = [];
     const contentMap = new Map<string, boolean>();
+    const timeWindowMs = 2000; // 2 second window for deduplication
     
     data.forEach(msg => {
       // Create a key based on message content hash and user/bot flag
-      const contentPreview = msg.content.trim().substring(0, 60);
-      const timeKey = Math.floor(new Date(msg.created_at).getTime() / 500); // 0.5 second window
-      const key = `${contentPreview}-${msg.is_bot}-${timeKey}`;
+      const contentPreview = msg.content.trim().substring(0, 100);
+      const msgTime = new Date(msg.created_at).getTime();
+      const key = `${contentPreview.substring(0, 50)}-${msg.is_bot}`;
       
-      if (!contentMap.has(key)) {
+      // Check if a very similar message exists within a small time window
+      const isDuplicate = uniqueMessages.some(existingMsg => {
+        const existingKey = `${existingMsg.content.trim().substring(0, 50)}-${!existingMsg.isUser}`;
+        const existingTime = new Date(existingMsg.created_at).getTime();
+        return (
+          key === existingKey && 
+          Math.abs(msgTime - existingTime) < timeWindowMs
+        );
+      });
+      
+      if (!isDuplicate && !contentMap.has(key)) {
         contentMap.set(key, true);
-        uniqueMessages.push(msg);
+        uniqueMessages.push({
+          id: msg.id,
+          conversation_id: msg.conversation_id,
+          content: msg.content,
+          is_bot: msg.is_bot,
+          created_at: msg.created_at,
+          confidence: msg.confidence,
+          has_thumbs_up: msg.has_thumbs_up,
+          has_thumbs_down: msg.has_thumbs_down,
+          isUser: !msg.is_bot
+        });
       } else {
         console.log(`Filtered out duplicate message: "${contentPreview.substring(0, 30)}..."`);
       }
