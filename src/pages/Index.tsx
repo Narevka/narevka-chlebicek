@@ -1,11 +1,10 @@
-
 import { Link } from "react-router-dom";
 import { TypewriterEffectSmooth } from "@/components/ui/typewriter-effect.tsx";
 import { useAuth } from "@/context/AuthContext.tsx";
 import { useIsMobile } from "@/hooks/use-mobile.tsx";
 import { SplashCursor } from "@/components/ui/fluid-cursor";
 import { GradientButton } from "@/components/gradient-button";
-import { ChevronDown, ArrowRight, Check, Star, CreditCard, DollarSign, HandHeart, ShieldCheck } from "lucide-react";
+import { ChevronDown, ArrowRight, Check, Star, CreditCard, DollarSign } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { useState, useEffect } from "react";
 import LanguageSelector from "@/components/LanguageSelector";
@@ -96,13 +95,6 @@ const Index = () => {
         title: "Ready to transform your customer experience?",
         subtitle: "Join thousands of businesses already using Chatbase to provide exceptional service",
         button: "Start your free trial"
-      },
-      guarantee: {
-        text: "If your revenue doesn't increase by 10% within 3 months, I'll give you a full refund.",
-        signature: "- Karol Sapiołko, Owner",
-        note: "Seriously, check our",
-        termsLink: "terms and conditions",
-        noteEnd: ""
       }
     },
     pl: {
@@ -168,13 +160,6 @@ const Index = () => {
         title: "Gotowy na transformację doświadczeń Twoich klientów?",
         subtitle: "Dołącz do tysięcy firm już korzystających z Chatbase, aby zapewnić wyjątkową obsługę",
         button: "Rozpocznij darmowy okres próbny"
-      },
-      guarantee: {
-        text: "Jak twoje przychody nie wzrosną o 10% przez 3 miesiące to zwrócę ci hajs.",
-        signature: "- Karol Sapiołko, Właściciel",
-        note: "Serio, sprawdź w",
-        termsLink: "regulaminie",
-        noteEnd: ""
       }
     }
   };
@@ -276,22 +261,6 @@ const Index = () => {
               </Link>
             </div>
           </div>
-        </div>
-      </section>
-
-      {/* Guarantee Section - Moved to be the second section */}
-      <section className="py-12 px-4 sm:px-6 lg:px-8 bg-white border-t border-gray-100">
-        <div className="max-w-3xl mx-auto text-center">
-          <div className="flex justify-center mb-6">
-            <div className="bg-green-100 p-3 rounded-full">
-              <ShieldCheck className="w-8 h-8 text-green-600" />
-            </div>
-          </div>
-          <p className="text-xl mb-2 font-semibold">{t.guarantee.text}</p>
-          <p className="text-gray-700 italic mb-2">{t.guarantee.signature}</p>
-          <p className="text-sm text-gray-500">
-            {t.guarantee.note} <Link to="/terms" className="text-blue-500 hover:underline">{t.guarantee.termsLink}</Link>{t.guarantee.noteEnd ? `, ${t.guarantee.noteEnd}` : ''}
-          </p>
         </div>
       </section>
 
