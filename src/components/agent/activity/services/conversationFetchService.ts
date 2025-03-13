@@ -58,14 +58,12 @@ export const fetchConversations = async (
     
     // Enrich conversations with messages
     const conversationsWithMessages = await enrichConversationsWithMessages(
-      conversationsData || [], 
-      filters
+      conversationsData || []
     );
     
     // Add feedback information
     const conversationsWithFeedback = await fetchMessageFeedback(
-      conversationsWithMessages,
-      filters
+      conversationsWithMessages
     );
     
     // Apply post-fetch filters

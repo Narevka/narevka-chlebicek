@@ -12,7 +12,8 @@ export async function createDatabaseConversation(
   conversationSource: string,
   origin: string,
   referer: string,
-  userLanguage: string
+  userLanguage: string,
+  agentId?: string
 ): Promise<string | null> {
   try {
     // Generate a conversation ID
@@ -21,7 +22,7 @@ export async function createDatabaseConversation(
     // Use NULL for user_id in embedded chats
     const userIdForEmbeddedChat = null;
     
-    console.log(`Creating conversation with source: ${conversationSource}, language: ${userLanguage}`);
+    console.log(`Creating conversation with source: ${conversationSource}, language: ${userLanguage}, agentId: ${agentId || 'none'}`);
     
     // Insert the conversation
     const { data, error } = await supabaseClient
@@ -31,6 +32,7 @@ export async function createDatabaseConversation(
         user_id: userIdForEmbeddedChat,
         title: 'Embedded Chat',
         source: conversationSource,
+        agent_id: agentId, // Add agent_id field
         metadata: { 
           anonymous_id: userIdentifier,
           timestamp: new Date().toISOString(),
@@ -44,7 +46,7 @@ export async function createDatabaseConversation(
     
     if (error) throw error;
     
-    console.log(`Created new conversation in database with ID: ${data.id}, language: ${userLanguage}`);
+    console.log(`Created new conversation in database with ID: ${data.id}, language: ${userLanguage}, agentId: ${agentId || 'none'}`);
     return data.id;
   } catch (error) {
     console.error('Error creating conversation in database:', error);

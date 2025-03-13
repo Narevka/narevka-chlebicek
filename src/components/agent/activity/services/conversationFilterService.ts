@@ -6,7 +6,8 @@ import { applyFiltersToQuery } from "./conversationFilterUtils";
 export const fetchFilteredConversations = async (
   userId: string,
   pagination: { currentPage: number, pageSize: number },
-  filters: FilterState
+  filters: FilterState,
+  agentId?: string
 ) => {
   try {
     // Base query
@@ -14,6 +15,11 @@ export const fetchFilteredConversations = async (
       .from('conversations')
       .select('*', { count: 'exact' })
       .eq('user_id', userId);
+    
+    // Apply agent ID filter if provided
+    if (agentId) {
+      query = query.eq('agent_id', agentId);
+    }
     
     // Apply filters
     query = applyFiltersToQuery(query, filters);

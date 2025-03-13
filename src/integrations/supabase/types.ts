@@ -135,6 +135,7 @@ export type Database = {
       }
       conversations: {
         Row: {
+          agent_id: string | null
           created_at: string
           id: string
           metadata: Json | null
@@ -144,6 +145,7 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          agent_id?: string | null
           created_at?: string
           id?: string
           metadata?: Json | null
@@ -153,6 +155,7 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          agent_id?: string | null
           created_at?: string
           id?: string
           metadata?: Json | null
@@ -161,7 +164,15 @@ export type Database = {
           updated_at?: string
           user_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "conversations_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       messages: {
         Row: {

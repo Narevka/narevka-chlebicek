@@ -118,14 +118,15 @@ serve(async (req) => {
       // Extract source from referrer
       const conversationSource = extractSourceFromReferer(referer);
       
-      // Create conversation in database
+      // Create conversation in database - pass the agentId to the function
       finalConversationDbId = await createDatabaseConversation(
         supabaseClient,
         userIdentifier,
         conversationSource,
         origin,
         referer,
-        userLanguage
+        userLanguage,
+        agentId
       );
     }
     

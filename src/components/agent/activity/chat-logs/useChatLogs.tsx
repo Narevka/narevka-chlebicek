@@ -1,9 +1,9 @@
+
 import { useState, useEffect, useCallback } from "react";
 import { Conversation, Message, FilterState, PaginationState } from "../types";
 import { useAuth } from "@/context/AuthContext";
 import { 
   fetchConversations, 
-  fetchFilteredConversations, 
   getUniqueSourcesFromConversations 
 } from "../services";
 import { deleteConversation } from "../services/conversationDeleteService";
@@ -48,8 +48,7 @@ export const useChatLogs = (agentId?: string) => {
     
     try {
       // Fetch conversations with the current pagination and filters
-      // Add agentId to the filter parameters
-      const result = await fetchFilteredConversations(userId, pagination, filterOptions, agentId);
+      const result = await fetchConversations(pagination, filterOptions, agentId);
       
       setConversations(result.conversations);
       setTotalItems(result.totalItems);

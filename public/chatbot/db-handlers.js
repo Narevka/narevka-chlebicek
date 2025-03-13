@@ -150,17 +150,18 @@ export async function createConversation(agentId) {
     
     logToDebugPanel('Creating conversation', 'info', { userId, agentId, conversationId });
     
-    // Create conversation in database with explicit ID
+    // Create conversation in database with explicit ID and agent_id
     const { error } = await supabase
       .from('conversations')
       .insert({
-        id: conversationId, // Explicitly provide UUID
-        user_id: null,      // Use NULL for user_id in embedded chats
-        title: title,       // Use better title with origin
-        source: 'embedded', // Use correct source for proper filtering
+        id: conversationId,        // Explicitly provide UUID
+        user_id: null,             // Use NULL for user_id in embedded chats
+        title: title,              // Use better title with origin
+        source: 'embedded',        // Use correct source for proper filtering
+        agent_id: agentId,         // Store the agent ID to relate conversation to specific agent
         metadata: {
           origin: origin,
-          embedded: true,   // Mark as embedded in metadata
+          embedded: true,          // Mark as embedded in metadata
           timestamp: new Date().toISOString()
         }
       });
