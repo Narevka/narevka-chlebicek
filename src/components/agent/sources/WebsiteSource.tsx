@@ -22,7 +22,7 @@ const WebsiteSource = () => {
     handleCrawlWebsite,
     handleDeleteLink,
     handleDeleteAllLinks,
-    handleDownloadContent: originalHandleDownloadContent,
+    handleDownloadContent,
     handleProcessSource,
     handleCheckStatus,
     clearDeletedSources
@@ -42,9 +42,9 @@ const WebsiteSource = () => {
   } = useWebsiteLogs(includedLinks);
 
   // Create adapter functions to handle type mismatches
-  const handleDownloadContent = (link: WebsiteSourceItem) => {
+  const handleDownloadContentAdapter = (link: WebsiteSourceItem) => {
     if (link.sourceId) {
-      originalHandleDownloadContent(link.sourceId, link.url);
+      handleDownloadContent(link.sourceId, link.url);
     }
   };
 
@@ -78,7 +78,7 @@ const WebsiteSource = () => {
         onDeleteAllLinks={handleDeleteAllLinks}
         onCheckStatus={handleCheckStatus}
         onProcessSource={handleProcessSource}
-        onDownloadContent={handleDownloadContent}
+        onDownloadContent={handleDownloadContentAdapter}
         onShowDebug={showWebsiteDebugInfo}
         onDownloadLogs={handleDownloadLogsAdapter}
       />
