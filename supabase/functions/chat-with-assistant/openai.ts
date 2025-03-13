@@ -197,10 +197,38 @@ export async function getAgentData(agentId: string): Promise<{ openai_assistant_
 
     console.log(`Looking for agent with ID: ${agentId}`);
 
-    // Get agent data without requiring any authentication
+    // Debug: Get the agent directly to check if it exists at all, regardless of public status
+    const { data: debugAgentData, error: debugAgentError } = await supabaseClient
+      .from('agents')
+      .select('*')
+      .eq('id', agentId)
+      .maybeSingle();
+    
+    if (debugAgentError) {
+      console.error("Database error when debugging agent lookup:", debugAgentError);
+    } else if (!debugAgentData) {
+      console.error(`Debug: No agent found with ID: ${agentId} in the database at all`);
+    } else {
+      console.log(`Debug: Found agent in database:`, debugAgentData);
+      
+      // Check the specific conditions that might cause the agent to be considered invalid
+      if (!debugAgentData.is_public) {
+        console.error(`Agent exists but is not public. Agent ID: ${agentId}, is_public: ${debugAgentData.is_public}`);
+      }
+      
+      if (!debugAgentData.openai_assistant_id) {
+        console.error(`Agent exists but has no OpenAI assistant ID. Agent ID: ${agentId}`);
+      }
+      
+      if (!debugAgentData.is_active) {
+        console.error(`Agent exists but is not active. Agent ID: ${agentId}, is_active: ${debugAgentData.is_active}`);
+      }
+    }
+
+    // Get agent data from the database
     const { data: agentData, error: agentError } = await supabaseClient
       .from('agents')
-      .select('openai_assistant_id, name, is_public')
+      .select('openai_assistant_id, name, is_public, is_active')
       .eq('id', agentId)
       .maybeSingle();
     
@@ -214,7 +242,13 @@ export async function getAgentData(agentId: string): Promise<{ openai_assistant_
       throw new Error(`No agent found with ID: ${agentId}. The agent may have been deleted or not properly configured.`);
     }
 
-    // Check if agent is public
+    // Check if agent is active
+    if (!agentData.is_active) {
+      console.error(`Agent exists but is not active. Agent ID: ${agentId}`);
+      throw new Error(`Agent with ID: ${agentId} exists but is not active. Please activate the agent in your dashboard.`);
+    }
+
+    // Check if agent is public for public access
     if (!agentData.is_public) {
       console.error(`Agent exists but is not public. Agent ID: ${agentId}`);
       throw new Error(`Agent with ID: ${agentId} exists but is not public. Make sure the agent is set to public in your dashboard.`);

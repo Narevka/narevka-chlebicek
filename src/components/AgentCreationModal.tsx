@@ -62,7 +62,8 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({
             name: name.trim(),
             description: description.trim() || null,
             instructions: instructions.trim() || null,
-            is_public: isPublic
+            is_public: isPublic,
+            is_active: true
           }
         ])
         .select();
@@ -88,6 +89,8 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({
         console.error("Error creating OpenAI assistant:", createAssistantResponse.error);
         toast.warning("Agent created but OpenAI Assistant creation failed. It will be retried later.");
       } else {
+        const assistantData = createAssistantResponse.data.assistant;
+        console.log("OpenAI Assistant created successfully:", assistantData);
         toast.success("Agent created successfully with OpenAI Assistant");
       }
 
@@ -196,6 +199,16 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({
                 onCheckedChange={setIsPublic}
               />
             </div>
+            
+            {!isPublic && (
+              <div className="flex p-3 bg-yellow-50 border border-yellow-100 rounded-md">
+                <Info className="h-4 w-4 text-yellow-600 mt-0.5 mr-2 flex-shrink-0" />
+                <p className="text-sm text-yellow-800">
+                  <strong>Warning:</strong> If you plan to use this agent in a public chatbot, you should set it to public.
+                  Private agents can only be accessed by authenticated users.
+                </p>
+              </div>
+            )}
             
             {isPublic && (
               <div className="flex p-3 bg-blue-50 border border-blue-100 rounded-md">
