@@ -97,7 +97,13 @@ const WebsiteSource = () => {
         setShowDebugDialog={setShowDebugDialog}
         currentDebugSite={currentDebugSite}
         formatSourceLogs={formatSourceLogs}
-        onDownloadLogs={handleDownloadWebsiteLogs}
+        onDownloadLogs={(sourceId, url) => {
+          // Find the matching link and pass it to handleDownloadWebsiteLogs
+          const link = includedLinks.find(l => l.sourceId === sourceId && l.url === url);
+          if (link) {
+            handleDownloadWebsiteLogs(link);
+          }
+        }}
       />
     </div>
   );
