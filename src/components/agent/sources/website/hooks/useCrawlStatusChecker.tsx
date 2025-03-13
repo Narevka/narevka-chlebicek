@@ -1,8 +1,8 @@
 
 import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { WebsiteSourceItem } from "../WebsiteItem";
 import { toast } from "sonner";
+import { checkSourceStatus } from "./utils/crawlStatusService";
 
 interface UseCrawlStatusCheckerProps {
   includedLinks: WebsiteSourceItem[];
@@ -12,38 +12,6 @@ interface UseCrawlStatusCheckerProps {
   setLastCheckTime: (time: number) => void;
   localStorageKey: string;
 }
-
-// Utility function for fetch retry with exponential backoff
-const fetchWithRetry = async (
-  sourceId: string,
-  retries = 3,
-  backoff = 300
-) => {
-  try {
-    const { data, error } = await supabase
-      .from("agent_sources")
-      .select("content, chars")
-      .eq("id", sourceId)
-      .single();
-      
-    if (error) throw error;
-    return { data, error: null };
-  } catch (error: any) {
-    console.log(`Fetch attempt failed for source ${sourceId}:`, error);
-    
-    if (retries <= 0) {
-      console.error(`All retries failed for source ${sourceId}`);
-      return { data: null, error };
-    }
-    
-    // Wait with exponential backoff
-    await new Promise(resolve => setTimeout(resolve, backoff));
-    
-    // Recursive retry with increased backoff
-    console.log(`Retrying fetch for source ${sourceId}. Retries left: ${retries-1}`);
-    return fetchWithRetry(sourceId, retries - 1, backoff * 2);
-  }
-};
 
 export const useCrawlStatusChecker = ({
   includedLinks,
@@ -74,73 +42,11 @@ export const useCrawlStatusChecker = ({
         
         if (link.status === 'crawling' && link.sourceId && !deletedSourceIds.has(link.sourceId)) {
           try {
-            // Use retry mechanism
-            const { data, error } = await fetchWithRetry(link.sourceId);
+            const result = await checkSourceStatus(link.sourceId, link);
             
-            if (error) {
-              console.error("Error checking crawl status after retries:", error);
-              continue;
-            }
-
-            if (data) {
-              let content;
-              try {
-                content = JSON.parse(data.content);
-              } catch (e) {
-                console.error("Error parsing content:", e);
-                continue;
-              }
-
-              // Check if status changed
-              if (content.status && content.status !== link.status) {
-                // Log the full content for debugging
-                console.log(`Status change for source ${link.sourceId} (${link.url}):`, content);
-                
-                // Extract and save crawl report if available
-                const crawlReport = content.crawl_report || null;
-                
-                // Extract logs if they exist
-                const sourceLogs = content.logs || [];
-                
-                // Check if we've already shown a notification for this status
-                // to avoid duplicate notifications
-                const alreadyNotified = updatedLinks[i].notificationShown || false;
-                
-                updatedLinks[i] = {
-                  ...link,
-                  status: content.status,
-                  error: content.error,
-                  count: content.pages_crawled || link.count,
-                  chars: data.chars || link.chars,
-                  crawlReport: crawlReport,
-                  notificationShown: alreadyNotified,
-                  debugLogs: sourceLogs  // Store the logs from Supabase
-                };
-                hasChanges = true;
-
-                // Only show notification if it hasn't been shown yet and status is completed or error
-                if (content.status === 'completed' && !alreadyNotified) {
-                  updatedLinks[i].notificationShown = true; // Mark as shown
-                  const limitInfo = link.requestedLimit 
-                    ? ` (got ${content.pages_crawled || 0} of ${link.requestedLimit} pages)`
-                    : '';
-                  toast.success(`Crawl completed for ${link.url}${limitInfo}`);
-                  console.log(`Crawl completed for ${link.url}${limitInfo}`);
-                } else if (content.status === 'error' && !alreadyNotified) {
-                  updatedLinks[i].notificationShown = true; // Mark as shown
-                  toast.error(`Crawl failed for ${link.url}: ${content.error}`);
-                  console.error(`Crawl failed for ${link.url}: ${content.error}`);
-                }
-              } else {
-                // Even if status didn't change, we want to capture any new logs
-                if (content.logs && Array.isArray(content.logs)) {
-                  updatedLinks[i] = {
-                    ...link,
-                    debugLogs: content.logs
-                  };
-                  hasChanges = true;
-                }
-              }
+            if (result.hasChanges && result.updatedLink) {
+              updatedLinks[i] = result.updatedLink;
+              hasChanges = true;
             }
           } catch (error) {
             console.error("Error checking source status:", error);
@@ -171,65 +77,27 @@ export const useCrawlStatusChecker = ({
     if (!sourceId) return;
     
     try {
-      console.log(`Manually checking status for source ${sourceId}`);
+      const link = includedLinks[index];
+      const result = await checkSourceStatus(sourceId, link);
       
-      // Use retry mechanism
-      const { data, error } = await fetchWithRetry(sourceId);
-
-      if (error) throw error;
-      
-      if (data && data.content) {
-        let content;
-        try {
-          content = JSON.parse(data.content);
-          console.log(`Source ${sourceId} content:`, content);
-        } catch (e) {
-          toast.error("Could not parse source content");
-          return;
-        }
-        
-        // Extract crawl report if available
-        const crawlReport = content.crawl_report || null;
-        
-        // Extract logs if they exist
-        const sourceLogs = content.logs || [];
-        
-        // Update the link with current status
+      if (result.hasChanges && result.updatedLink) {
         const newLinks = [...includedLinks];
-        newLinks[index] = {
-          ...newLinks[index],
-          status: content.status || newLinks[index].status,
-          error: content.error,
-          count: content.pages_crawled || newLinks[index].count,
-          chars: data.chars || newLinks[index].chars,
-          crawlReport: crawlReport,
-          debugLogs: sourceLogs,
-          notificationShown: true // Mark notification as shown for manual checks
-        };
+        newLinks[index] = result.updatedLink;
         
         setIncludedLinks(newLinks);
         
         // Update local storage
         localStorage.setItem(localStorageKey, JSON.stringify(newLinks));
-        
-        // Prepare detailed message
-        let detailMsg = '';
-        if (crawlReport) {
-          detailMsg = ` - ${crawlReport.pagesReceived || 0} pages received`;
-          if (newLinks[index].requestedLimit) {
-            detailMsg += ` (requested: ${newLinks[index].requestedLimit})`;
-          }
-        }
-        
-        if (content.status === 'completed') {
-          toast.success(`Crawl has completed${detailMsg}`);
-          console.log(`Crawl has completed${detailMsg}`);
-        } else if (content.status === 'error') {
-          toast.error(`Crawl error: ${content.error}`);
-          console.error(`Crawl error: ${content.error}`);
-        } else if (content.status === 'crawling') {
+      }
+      
+      // Show status message
+      if (result.message) {
+        if (result.message === 'completed') {
+          toast.success(`Crawl has completed`);
+        } else if (result.message === 'error') {
+          toast.error(`Crawl error: ${result.updatedLink?.error}`);
+        } else if (result.message === 'crawling') {
           toast.info("Crawl is still in progress");
-          console.log("Crawl is still in progress");
         }
       }
     } catch (error: any) {
