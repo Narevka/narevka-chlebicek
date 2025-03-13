@@ -25,7 +25,6 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({
   const { user } = useAuth();
   const {
     formData,
-    formErrors,
     updateFormField,
     isSubmitting,
     creationStep,
@@ -52,7 +51,6 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({
         
         <AgentCreationForm
           formData={formData}
-          formErrors={formErrors}
           updateFormField={updateFormField}
           handleSubmit={handleSubmit}
           isSubmitting={isSubmitting}
