@@ -10,7 +10,7 @@ interface WebsiteListProps {
   onDeleteAllLinks: () => void;
   onCheckStatus: (sourceId: string, index: number) => void;
   onProcessSource: (sourceId: string, index: number) => void;
-  onDownloadContent: (sourceId: string, url: string) => void;
+  onDownloadContent: (link: WebsiteSourceItem) => void;
   onShowDebug: (link: WebsiteSourceItem) => void;
   onDownloadLogs: (link: WebsiteSourceItem) => void;
 }

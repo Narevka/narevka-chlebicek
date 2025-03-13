@@ -1,4 +1,3 @@
-
 import { WebsiteSourceItem } from "../../WebsiteItem";
 import { toast } from "sonner";
 
@@ -137,5 +136,57 @@ export const showCrawlStatusNotification = (
     default:
       // No default notifications for other status types
       break;
+  }
+};
+
+/**
+ * Checks the status of a crawl source and returns updated information
+ */
+export const checkSourceStatus = async (
+  sourceId: string, 
+  currentLink: WebsiteSourceItem
+): Promise<{
+  hasChanges: boolean,
+  updatedLink?: WebsiteSourceItem,
+  message?: 'error' | 'crawling' | 'completed'
+}> => {
+  try {
+    const response = await fetch(`/api/sources/${sourceId}/status`);
+    
+    if (!response.ok) {
+      throw new Error(`Failed to check status: ${response.statusText}`);
+    }
+    
+    const data: StatusResponse = await response.json();
+    
+    // If status hasn't changed and other metrics are the same, no need to update
+    if (
+      data.status === currentLink.status &&
+      data.count === currentLink.count &&
+      data.chars === currentLink.chars
+    ) {
+      return { hasChanges: false };
+    }
+    
+    // Create updated link object with new data
+    const updatedLink: WebsiteSourceItem = {
+      ...currentLink,
+      status: data.status,
+      count: data.count,
+      chars: data.chars,
+      error: data.error,
+      crawlReport: data.crawl_report,
+      debugLogs: data.debug_logs,
+      timestamp: data.timestamp || currentLink.timestamp
+    };
+    
+    return {
+      hasChanges: true,
+      updatedLink,
+      message: data.status
+    };
+  } catch (error) {
+    console.error("Error checking source status:", error);
+    return { hasChanges: false };
   }
 };

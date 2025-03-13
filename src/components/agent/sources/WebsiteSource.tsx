@@ -9,6 +9,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 import { useWebsiteLogs } from "./website/hooks/useWebsiteLogs";
 import WebsiteDebugDialog from "./website/components/WebsiteDebugDialog";
+import { WebsiteSourceItem } from "./website/WebsiteItem";
 
 const WebsiteSource = () => {
   const { id: agentId } = useParams<{ id: string }>();
@@ -40,6 +41,17 @@ const WebsiteSource = () => {
     handleDownloadWebsiteLogs
   } = useWebsiteLogs(includedLinks);
 
+  // Create adapter functions to handle type mismatches
+  const handleDownloadContentAdapter = (link: WebsiteSourceItem) => {
+    if (link.sourceId) {
+      handleDownloadContent(link.sourceId, link.url);
+    }
+  };
+
+  const handleDownloadLogsAdapter = (link: WebsiteSourceItem) => {
+    handleDownloadWebsiteLogs(link);
+  };
+
   return (
     <div>
       <h2 className="text-2xl font-bold mb-4">Website</h2>
@@ -66,9 +78,9 @@ const WebsiteSource = () => {
         onDeleteAllLinks={handleDeleteAllLinks}
         onCheckStatus={handleCheckStatus}
         onProcessSource={handleProcessSource}
-        onDownloadContent={handleDownloadContent}
+        onDownloadContent={handleDownloadContentAdapter}
         onShowDebug={showWebsiteDebugInfo}
-        onDownloadLogs={handleDownloadWebsiteLogs}
+        onDownloadLogs={handleDownloadLogsAdapter}
       />
       
       <WebsiteDebugDialog

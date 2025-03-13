@@ -1,10 +1,5 @@
 
 import React from "react";
-import { Calendar, RefreshCw, Download, Trash2, MoreVertical, AlertCircle, Eye, FileText } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import StatusBadge from "./components/StatusBadge";
 import WebsiteItemDetails from "./components/WebsiteItemDetails";
 import WebsiteItemActions from "./components/WebsiteItemActions";
 
@@ -33,7 +28,7 @@ interface WebsiteItemProps {
   onDelete: (index: number) => void;
   onCheckStatus: (sourceId: string, index: number) => void;
   onProcessSource: (sourceId: string, index: number) => void;
-  onDownloadContent: (sourceId: string, url: string) => void;
+  onDownloadContent: (link: WebsiteSourceItem) => void;
   onShowDebug: (link: WebsiteSourceItem) => void;
   onDownloadLogs: (link: WebsiteSourceItem) => void;
 }
