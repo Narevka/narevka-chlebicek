@@ -32,7 +32,7 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [instructions, setInstructions] = useState("");
-  const [isPublic, setIsPublic] = useState(false);
+  const [isPublic, setIsPublic] = useState(true); // Set default to true to avoid issues
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [creationStep, setCreationStep] = useState<'idle' | 'creating_agent' | 'creating_assistant'>('idle');
 
@@ -101,7 +101,7 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({
       setName("");
       setDescription("");
       setInstructions("");
-      setIsPublic(false);
+      setIsPublic(true);
       setCreationStep('idle');
     } catch (error: any) {
       console.error("Error creating agent:", error);

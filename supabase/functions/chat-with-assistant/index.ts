@@ -45,6 +45,8 @@ serve(async (req) => {
       language: requestLanguage // Optional language parameter
     } = await req.json();
     
+    console.log(`Processing request with agentId: ${agentId}, userId: ${userId || 'anonymous'}`);
+    
     // Detect language from headers or use provided language
     const userLanguage = requestLanguage || detectLanguage(req);
     console.log(`Detected/provided language: ${userLanguage}`);
