@@ -36,6 +36,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(session?.user ?? null);
       if (session?.user) {
         checkUserRole().then((role) => {
+          console.log("Initial role check:", role);
           setIsAdmin(role === 'admin');
         });
       }
@@ -50,6 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(session?.user ?? null);
       if (session?.user) {
         const role = await checkUserRole();
+        console.log("Auth state change role check:", role);
         setIsAdmin(role === 'admin');
       } else {
         setIsAdmin(false);
@@ -63,15 +65,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!user) return 'user';
     
     try {
-      // Use the security definer function to check the user's role
+      console.log("Checking role for user ID:", user.id);
+      
+      // First try direct query to user_roles (more reliable)
+      const { data: roleData, error: roleError } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      
+      if (roleData && roleData.role === 'admin') {
+        console.log("Direct query found admin role");
+        return 'admin';
+      }
+      
+      if (roleError) {
+        console.error("Error in direct role query:", roleError);
+      }
+      
+      // Fallback to RPC function
       const { data, error } = await supabase
         .rpc('get_user_role', { user_id: user.id });
       
       if (error) {
-        console.error("Error checking user role:", error);
+        console.error("Error checking user role via RPC:", error);
         return 'user';
       }
       
+      console.log("RPC returned role:", data);
       return (data as UserRole) || 'user';
     } catch (error) {
       console.error("Exception checking user role:", error);
@@ -87,6 +108,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (!error) {
       const role = await checkUserRole();
+      console.log("Sign in role check:", role);
       setIsAdmin(role === 'admin');
     }
 

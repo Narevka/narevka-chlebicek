@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -12,9 +12,29 @@ const AdminAuth = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const { signIn, signOut, checkUserRole } = useAuth();
+  const { signIn, signOut, checkUserRole, isAdmin, user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  // Check if user is already authenticated and is admin
+  useEffect(() => {
+    const checkAdminStatus = async () => {
+      if (user) {
+        const role = await checkUserRole();
+        console.log("Admin page - user role:", role);
+        
+        if (role === 'admin') {
+          toast({
+            title: "Already authenticated",
+            description: "You are already signed in as admin",
+          });
+          navigate("/shesh/dashboard");
+        }
+      }
+    };
+    
+    checkAdminStatus();
+  }, [user, checkUserRole, navigate, toast]);
 
   const handleAdminSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,6 +47,7 @@ const AdminAuth = () => {
       
       // Check if user is admin after sign in
       const userRole = await checkUserRole();
+      console.log("Sign in attempt - user role:", userRole);
       
       if (userRole === 'admin') {
         toast({

@@ -8,25 +8,44 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 
 const AdminDashboard = () => {
-  const { isAdmin, loading, signOut } = useAuth();
+  const { isAdmin, loading, signOut, user, checkUserRole } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
   useEffect(() => {
-    // Redirect non-admin users
-    if (!loading && !isAdmin) {
-      toast({
-        title: "Access Denied",
-        description: "You do not have permission to access the admin area",
-        variant: "destructive",
-      });
-      navigate("/admin/login");
-    }
-  }, [isAdmin, loading, navigate, toast]);
+    const verifyAdmin = async () => {
+      if (!loading) {
+        // Double-check the role
+        if (user) {
+          const role = await checkUserRole();
+          console.log("Dashboard - current user role:", role);
+          console.log("Dashboard - isAdmin state:", isAdmin);
+          
+          if (role !== 'admin') {
+            toast({
+              title: "Access Denied",
+              description: "You do not have permission to access the admin area",
+              variant: "destructive",
+            });
+            navigate("/shesh/login");
+          }
+        } else if (!isAdmin) {
+          toast({
+            title: "Access Denied",
+            description: "You do not have permission to access the admin area",
+            variant: "destructive",
+          });
+          navigate("/shesh/login");
+        }
+      }
+    };
+    
+    verifyAdmin();
+  }, [isAdmin, loading, navigate, toast, user, checkUserRole]);
 
   const handleSignOut = async () => {
     await signOut();
-    navigate("/admin/login");
+    navigate("/shesh/login");
   };
 
   if (loading) {
@@ -60,6 +79,15 @@ const AdminDashboard = () => {
         <div className="mb-6">
           <h2 className="text-2xl font-bold text-gray-900">Welcome to Admin Dashboard</h2>
           <p className="text-gray-600">Manage your application settings and data</p>
+          
+          <div className="mt-4 p-4 bg-gray-200 rounded">
+            <div className="text-sm font-mono">
+              <p>Debug Info:</p>
+              <p>User ID: {user?.id || 'Not signed in'}</p>
+              <p>Email: {user?.email || 'N/A'}</p>
+              <p>isAdmin state: {isAdmin ? 'true' : 'false'}</p>
+            </div>
+          </div>
         </div>
 
         <Tabs defaultValue="overview" className="w-full">
