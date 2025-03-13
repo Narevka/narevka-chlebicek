@@ -20,6 +20,7 @@ type AuthContextType = {
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
   checkUserRole: () => Promise<UserRole>;
+  refreshAdminStatus: () => Promise<boolean>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -116,6 +117,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // Add a method to force refresh admin status
+  const refreshAdminStatus = async (): Promise<boolean> => {
+    if (!user) return false;
+    return await checkAndSetAdminStatus(user.id);
+  };
+
   const signIn = async (email: string, password: string) => {
     console.log("Signing in with email:", email);
     const { error } = await supabase.auth.signInWithPassword({
@@ -131,11 +138,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data: { user: currentUser } } = await supabase.auth.getUser();
     
     if (currentUser) {
-      const role = await checkUserRole();
-      console.log("Sign in role check:", role);
-      const adminStatus = role === 'admin';
-      setIsAdmin(adminStatus);
-      return { error: null, adminVerified: adminStatus };
+      try {
+        // Wait a bit to ensure the user role is available in the database
+        await new Promise(resolve => setTimeout(resolve, 300));
+        const role = await checkUserRole();
+        console.log("Sign in role check:", role);
+        const adminStatus = role === 'admin';
+        setIsAdmin(adminStatus);
+        return { error: null, adminVerified: adminStatus };
+      } catch (err) {
+        console.error("Error verifying admin status:", err);
+        return { error: null, adminVerified: false };
+      }
     }
 
     return { error: null };
@@ -174,6 +188,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     signInWithGoogle,
     signOut,
     checkUserRole,
+    refreshAdminStatus,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

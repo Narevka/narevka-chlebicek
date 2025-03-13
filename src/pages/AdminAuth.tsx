@@ -13,7 +13,7 @@ const AdminAuth = () => {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [checkingStatus, setCheckingStatus] = useState(true);
-  const { signIn, user, isAdmin } = useAuth();
+  const { signIn, user, isAdmin, refreshAdminStatus } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -23,23 +23,31 @@ const AdminAuth = () => {
       try {
         setCheckingStatus(true);
         
-        if (user && isAdmin) {
-          console.log("User is already authenticated as admin");
-          toast({
-            title: "Already authenticated",
-            description: "You are already signed in as admin",
-          });
-          navigate("/shesh/dashboard");
+        // If user exists, explicitly refresh admin status
+        if (user) {
+          const isUserAdmin = await refreshAdminStatus();
+          
+          if (isUserAdmin) {
+            console.log("User is already authenticated as admin");
+            toast({
+              title: "Already authenticated",
+              description: "You are already signed in as admin",
+            });
+            navigate("/shesh/dashboard");
+          } else {
+            setCheckingStatus(false);
+          }
+        } else {
+          setCheckingStatus(false);
         }
       } catch (error) {
         console.error("Error checking admin status:", error);
-      } finally {
         setCheckingStatus(false);
       }
     };
     
     checkAdminStatus();
-  }, [user, isAdmin, navigate, toast]);
+  }, [user, isAdmin, navigate, toast, refreshAdminStatus]);
 
   const handleAdminSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,19 +61,12 @@ const AdminAuth = () => {
       
       console.log("Sign in attempt - user role:", adminVerified ? "admin" : "user");
       
-      if (adminVerified) {
-        toast({
-          title: "Success",
-          description: "You have successfully signed in as admin",
-        });
-        navigate("/shesh/dashboard");
-        setLoading(false);
-        return;
-      }
-      
-      // If we get here, check one more time after a brief delay
+      // Add a short delay to ensure state is updated
       setTimeout(async () => {
-        if (isAdmin) {
+        // Force refresh admin status from the database
+        const isUserAdmin = await refreshAdminStatus();
+        
+        if (adminVerified || isUserAdmin) {
           toast({
             title: "Success",
             description: "You have successfully signed in as admin",
@@ -77,10 +78,10 @@ const AdminAuth = () => {
             description: "You do not have admin privileges",
             variant: "destructive",
           });
-          // Sign out if not admin - we'll handle this in AdminRoute
         }
+        
         setLoading(false);
-      }, 1000); // Longer delay to ensure state updates
+      }, 500);
       
     } catch (error: any) {
       toast({

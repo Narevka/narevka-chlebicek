@@ -9,7 +9,7 @@ interface AdminRouteProps {
 }
 
 const AdminRoute = ({ children }: AdminRouteProps) => {
-  const { isAdmin, loading, user, checkUserRole, signOut } = useAuth();
+  const { isAdmin, loading, user, checkUserRole, signOut, refreshAdminStatus } = useAuth();
   const [isChecking, setIsChecking] = useState(true);
   const [hasAccess, setHasAccess] = useState(false);
   const location = useLocation();
@@ -21,20 +21,29 @@ const AdminRoute = ({ children }: AdminRouteProps) => {
         try {
           setIsChecking(true);
           if (user) {
-            // Double-check admin status
-            const role = await checkUserRole();
-            console.log("Admin page - user role:", role);
-            const adminAccess = role === 'admin';
-            setHasAccess(adminAccess);
+            // Force refresh admin status from the database
+            const adminAccess = await refreshAdminStatus();
             
+            // Double-check with a direct role check if needed
             if (!adminAccess) {
-              toast({
-                title: "Access Denied",
-                description: "You do not have admin privileges",
-                variant: "destructive",
-              });
-              // Sign out since they shouldn't be here
-              await signOut();
+              const role = await checkUserRole();
+              console.log("Admin page - user role:", role);
+              const secondCheck = role === 'admin';
+              setHasAccess(secondCheck);
+              
+              if (!secondCheck) {
+                toast({
+                  title: "Access Denied",
+                  description: "You do not have admin privileges",
+                  variant: "destructive",
+                });
+                // Sign out since they shouldn't be here
+                await signOut();
+              } else {
+                setHasAccess(true);
+              }
+            } else {
+              setHasAccess(true);
             }
           } else {
             setHasAccess(false);
@@ -49,7 +58,7 @@ const AdminRoute = ({ children }: AdminRouteProps) => {
     };
     
     verifyAdminAccess();
-  }, [loading, user, checkUserRole, isAdmin, toast, signOut]);
+  }, [loading, user, checkUserRole, isAdmin, toast, signOut, refreshAdminStatus]);
 
   // If still loading or checking, show loading indicator
   if (loading || isChecking) {
