@@ -26,6 +26,8 @@ serve(async (req) => {
       throw new Error('Invalid agent data provided');
     }
 
+    console.log(`Creating OpenAI assistant for agent: ${agentData.id} with name: ${agentData.name}`);
+
     // Create OpenAI Assistant
     const openaiResponse = await fetch('https://api.openai.com/v1/assistants', {
       method: 'POST',
@@ -50,6 +52,7 @@ serve(async (req) => {
     }
 
     const assistantData = await openaiResponse.json();
+    console.log(`Successfully created OpenAI assistant with ID: ${assistantData.id}`);
     
     // Get Supabase client from request auth header
     const authHeader = req.headers.get('Authorization');
@@ -73,6 +76,8 @@ serve(async (req) => {
       console.error("Error updating agent:", updateError);
       throw new Error(`Error updating agent: ${updateError.message}`);
     }
+
+    console.log(`Updated agent ${agentData.id} with OpenAI assistant ID: ${assistantData.id}`);
 
     return new Response(
       JSON.stringify({

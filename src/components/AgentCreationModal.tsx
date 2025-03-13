@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Globe, Info } from "lucide-react";
+import { Globe, Info, Loader2 } from "lucide-react";
 import { 
   Dialog,
   DialogContent,
@@ -34,6 +34,7 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({
   const [instructions, setInstructions] = useState("");
   const [isPublic, setIsPublic] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [creationStep, setCreationStep] = useState<'idle' | 'creating_agent' | 'creating_assistant'>('idle');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,6 +50,7 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({
     }
 
     setIsSubmitting(true);
+    setCreationStep('creating_agent');
 
     try {
       // Create agent in database
@@ -74,8 +76,10 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({
       }
 
       const agentData = data[0];
+      console.log("Agent created successfully:", agentData);
 
       // Call edge function to create OpenAI Assistant
+      setCreationStep('creating_assistant');
       const createAssistantResponse = await supabase.functions.invoke('create-openai-assistant', {
         body: { agentData }
       });
@@ -95,11 +99,23 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({
       setDescription("");
       setInstructions("");
       setIsPublic(false);
+      setCreationStep('idle');
     } catch (error: any) {
       console.error("Error creating agent:", error);
       toast.error(error.message || "Failed to create agent");
+      setCreationStep('idle');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const renderSubmitButtonText = () => {
+    if (creationStep === 'creating_agent') {
+      return "Creating agent...";
+    } else if (creationStep === 'creating_assistant') {
+      return "Setting up OpenAI assistant...";
+    } else {
+      return "Create Agent";
     }
   };
 
@@ -196,8 +212,9 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({
             <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
               Cancel
             </Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? "Creating..." : "Create Agent"}
+            <Button type="submit" disabled={isSubmitting} className="min-w-[120px]">
+              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {renderSubmitButtonText()}
             </Button>
           </DialogFooter>
         </form>
