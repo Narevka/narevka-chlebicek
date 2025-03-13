@@ -63,20 +63,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!user) return 'user';
     
     try {
-      // Check if the user_roles record exists
+      // Use the security definer function to check the user's role
       const { data, error } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', user.id)
-        .maybeSingle();
+        .rpc('get_user_role', { user_id: user.id });
       
       if (error) {
         console.error("Error checking user role:", error);
         return 'user';
       }
       
-      // If no role found, default to 'user'
-      return (data?.role as UserRole) || 'user';
+      return (data as UserRole) || 'user';
     } catch (error) {
       console.error("Exception checking user role:", error);
       return 'user';

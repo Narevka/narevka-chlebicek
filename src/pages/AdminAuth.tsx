@@ -12,7 +12,7 @@ const AdminAuth = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const { signIn, checkUserRole } = useAuth();
+  const { signIn, signOut, checkUserRole } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -41,7 +41,7 @@ const AdminAuth = () => {
           variant: "destructive",
         });
         // Sign out if not admin
-        await signIn("", ""); // This will trigger an error and effectively log them out
+        await signOut();
       }
     } catch (error: any) {
       toast({
