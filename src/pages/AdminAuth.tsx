@@ -12,68 +12,84 @@ const AdminAuth = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const { signIn, signOut, checkUserRole, isAdmin, user } = useAuth();
+  const [checkingStatus, setCheckingStatus] = useState(true);
+  const { signIn, signOut, user, isAdmin } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
   // Check if user is already authenticated and is admin
   useEffect(() => {
     const checkAdminStatus = async () => {
-      if (user) {
-        const role = await checkUserRole();
-        console.log("Admin page - user role:", role);
+      try {
+        setCheckingStatus(true);
         
-        if (role === 'admin') {
+        if (user && isAdmin) {
+          console.log("User is already authenticated as admin");
           toast({
             title: "Already authenticated",
             description: "You are already signed in as admin",
           });
           navigate("/shesh/dashboard");
         }
+      } catch (error) {
+        console.error("Error checking admin status:", error);
+      } finally {
+        setCheckingStatus(false);
       }
     };
     
     checkAdminStatus();
-  }, [user, checkUserRole, navigate, toast]);
+  }, [user, isAdmin, navigate, toast]);
 
   const handleAdminSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
+      console.log("Attempting admin sign in with:", email);
       const { error } = await signIn(email, password);
       
       if (error) throw error;
       
-      // Check if user is admin after sign in
-      const userRole = await checkUserRole();
-      console.log("Sign in attempt - user role:", userRole);
+      // Wait briefly to ensure isAdmin state is updated
+      setTimeout(async () => {
+        console.log("Checking admin status after login, isAdmin:", isAdmin);
+        
+        if (isAdmin) {
+          toast({
+            title: "Success",
+            description: "You have successfully signed in as admin",
+          });
+          navigate("/shesh/dashboard");
+        } else {
+          toast({
+            title: "Access Denied",
+            description: "You do not have admin privileges",
+            variant: "destructive",
+          });
+          // Sign out if not admin
+          await signOut();
+        }
+        setLoading(false);
+      }, 500); // Short delay to allow state to update
       
-      if (userRole === 'admin') {
-        toast({
-          title: "Success",
-          description: "You have successfully signed in as admin",
-        });
-        navigate("/shesh/dashboard");
-      } else {
-        toast({
-          title: "Access Denied",
-          description: "You do not have admin privileges",
-          variant: "destructive",
-        });
-        // Sign out if not admin
-        await signOut();
-      }
     } catch (error: any) {
       toast({
         title: "Error signing in",
         description: error.message || "An unknown error occurred",
         variant: "destructive",
       });
-    } finally {
       setLoading(false);
     }
   };
+
+  if (checkingStatus) {
+    return (
+      <div className="min-h-screen w-full flex items-center justify-center bg-gradient-to-br from-gray-900 to-gray-800">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen w-full flex items-center justify-center bg-gradient-to-br from-gray-900 to-gray-800">

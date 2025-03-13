@@ -35,10 +35,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
-        checkUserRole().then((role) => {
-          console.log("Initial role check:", role);
-          setIsAdmin(role === 'admin');
-        });
+        checkAndSetAdminStatus(session.user.id);
       }
       setLoading(false);
     });
@@ -47,12 +44,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      console.log("Auth state changed", _event, session?.user?.id);
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
-        const role = await checkUserRole();
-        console.log("Auth state change role check:", role);
-        setIsAdmin(role === 'admin');
+        await checkAndSetAdminStatus(session.user.id);
       } else {
         setIsAdmin(false);
       }
@@ -61,13 +57,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Dedicated function to check and set admin status
+  const checkAndSetAdminStatus = async (userId: string) => {
+    try {
+      console.log("Checking admin status for user ID:", userId);
+      const role = await checkUserRole();
+      console.log("Role check result:", role);
+      const adminStatus = role === 'admin';
+      console.log("Setting isAdmin to:", adminStatus);
+      setIsAdmin(adminStatus);
+      return adminStatus;
+    } catch (error) {
+      console.error("Error checking admin status:", error);
+      setIsAdmin(false);
+      return false;
+    }
+  };
+
   const checkUserRole = async (): Promise<UserRole> => {
     if (!user) return 'user';
     
     try {
       console.log("Checking role for user ID:", user.id);
       
-      // First try direct query to user_roles (more reliable)
+      // Direct query to user_roles (more reliable)
       const { data: roleData, error: roleError } = await supabase
         .from('user_roles')
         .select('role')
@@ -101,15 +114,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signIn = async (email: string, password: string) => {
+    console.log("Signing in with email:", email);
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
 
-    if (!error) {
-      const role = await checkUserRole();
-      console.log("Sign in role check:", role);
-      setIsAdmin(role === 'admin');
+    if (!error && user) {
+      console.log("Sign in successful, checking admin status");
+      await checkAndSetAdminStatus(user.id);
     }
 
     return { error };

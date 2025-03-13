@@ -1,5 +1,5 @@
 
-import { ReactNode, useEffect } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 
@@ -8,11 +8,38 @@ interface AdminRouteProps {
 }
 
 const AdminRoute = ({ children }: AdminRouteProps) => {
-  const { isAdmin, loading } = useAuth();
+  const { isAdmin, loading, user, checkUserRole } = useAuth();
+  const [isChecking, setIsChecking] = useState(true);
+  const [hasAccess, setHasAccess] = useState(false);
   const location = useLocation();
 
-  // If still loading, show loading indicator
-  if (loading) {
+  useEffect(() => {
+    const verifyAdminAccess = async () => {
+      if (!loading) {
+        try {
+          setIsChecking(true);
+          if (user) {
+            // Double-check admin status
+            const role = await checkUserRole();
+            console.log("AdminRoute - Verified user role:", role);
+            setHasAccess(role === 'admin');
+          } else {
+            setHasAccess(false);
+          }
+        } catch (error) {
+          console.error("Error verifying admin access:", error);
+          setHasAccess(false);
+        } finally {
+          setIsChecking(false);
+        }
+      }
+    };
+    
+    verifyAdminAccess();
+  }, [loading, user, checkUserRole, isAdmin]);
+
+  // If still loading or checking, show loading indicator
+  if (loading || isChecking) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
@@ -21,7 +48,7 @@ const AdminRoute = ({ children }: AdminRouteProps) => {
   }
 
   // If not admin, redirect to admin login
-  if (!isAdmin) {
+  if (!hasAccess) {
     return <Navigate to="/shesh/login" state={{ from: location }} replace />;
   }
 
