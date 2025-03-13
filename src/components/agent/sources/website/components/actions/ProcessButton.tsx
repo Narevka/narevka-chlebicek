@@ -22,6 +22,7 @@ const ProcessButton: React.FC<ProcessButtonProps> = ({
         disabled={true}
         variant="default"
         className="animate-pulse"
+        onClick={() => {}} // Add empty onClick handler to satisfy TypeScript
       />
     );
   }
@@ -34,6 +35,7 @@ const ProcessButton: React.FC<ProcessButtonProps> = ({
         disabled={true}
         variant="default"
         className="bg-green-600 hover:bg-green-700"
+        onClick={() => {}} // Add empty onClick handler to satisfy TypeScript
       />
     );
   }

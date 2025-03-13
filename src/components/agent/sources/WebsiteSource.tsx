@@ -41,7 +41,7 @@ const WebsiteSource = () => {
     handleDownloadWebsiteLogs
   } = useWebsiteLogs(includedLinks);
 
-  // Create adapter functions to handle type mismatches
+  // Ensure types match properly by fixing the adapter function
   const handleDownloadContentAdapter = (link: WebsiteSourceItem) => {
     if (link.sourceId) {
       handleDownloadContent(link.sourceId, link.url);
@@ -50,6 +50,15 @@ const WebsiteSource = () => {
 
   const handleDownloadLogsAdapter = (link: WebsiteSourceItem) => {
     handleDownloadWebsiteLogs(link);
+  };
+
+  // Create adapter functions to match expected types for WebsiteList
+  const handleCheckStatusAdapter = (sourceId: string, index: number) => {
+    handleCheckStatus(sourceId, index);
+  };
+
+  const handleProcessSourceAdapter = (sourceId: string, index: number) => {
+    handleProcessSource(sourceId, index);
   };
 
   return (
@@ -76,8 +85,8 @@ const WebsiteSource = () => {
         downloadingId={downloadingId}
         onDeleteLink={handleDeleteLink}
         onDeleteAllLinks={handleDeleteAllLinks}
-        onCheckStatus={handleCheckStatus}
-        onProcessSource={handleProcessSource}
+        onCheckStatus={handleCheckStatusAdapter}
+        onProcessSource={handleProcessSourceAdapter}
         onDownloadContent={handleDownloadContentAdapter}
         onShowDebug={showWebsiteDebugInfo}
         onDownloadLogs={handleDownloadLogsAdapter}
