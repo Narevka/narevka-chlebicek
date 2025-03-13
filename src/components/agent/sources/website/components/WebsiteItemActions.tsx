@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Calendar, RefreshCw, Download, Trash2, MoreVertical, AlertCircle, Eye, FileText, CheckCircle, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -13,7 +12,7 @@ interface WebsiteItemActionsProps {
   onDelete: (index: number) => void;
   onCheckStatus: (sourceId: string, index: number) => void;
   onProcessSource: (sourceId: string, index: number) => void;
-  onDownloadContent: (sourceId: string, url: string) => void;
+  onDownloadContent: (link: WebsiteSourceItem) => void;
   onShowDebug: (link: WebsiteSourceItem) => void;
   onDownloadLogs: (link: WebsiteSourceItem) => void;
 }
@@ -48,9 +47,7 @@ const WebsiteItemActions: React.FC<WebsiteItemActionsProps> = ({
   };
 
   const handleDownloadContent = () => {
-    if (link.sourceId) {
-      onDownloadContent(link.sourceId, link.url);
-    }
+    onDownloadContent(link);
   };
 
   const handleDelete = () => {
