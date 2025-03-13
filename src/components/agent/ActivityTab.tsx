@@ -1,6 +1,7 @@
 
 import React, { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { useParams } from "react-router-dom";
 import "../ui/scrollbar.css";
 import SubTabs from "./activity/SubTabs";
 import ChatLogsSection from "./activity/ChatLogsSection";
@@ -9,6 +10,7 @@ import LeadsSection from "./activity/LeadsSection";
 const ActivityTab = () => {
   const [activeTab, setActiveTab] = useState<string>("chatLogs");
   const { user } = useAuth();
+  const { id: agentId } = useParams<{ id: string }>();
 
   if (!user) {
     return (
@@ -29,7 +31,7 @@ const ActivityTab = () => {
       {/* Main content area */}
       <div className="flex-1">
         {activeTab === "chatLogs" ? (
-          <ChatLogsSection />
+          <ChatLogsSection agentId={agentId} />
         ) : (
           <LeadsSection />
         )}

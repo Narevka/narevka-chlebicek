@@ -55,7 +55,8 @@ export const saveMessageToDb = async (params: MessageParams) => {
 export const createConversation = async (
   userId: string, 
   source: string = 'Playground',
-  metadata: ConversationMetadata = {}
+  metadata: ConversationMetadata = {},
+  agentId?: string
 ) => {
   try {
     const title = 'New Conversation';
@@ -67,6 +68,7 @@ export const createConversation = async (
         user_id: userId,
         title,
         source,
+        agent_id: agentId, // Add agent_id to conversation
         metadata // Przekaż metadane zawierające język
       })
       .select('id')
@@ -76,7 +78,7 @@ export const createConversation = async (
       throw error;
     }
     
-    console.log(`Created new conversation with ID: ${data.id}, source: ${source}, metadata:`, metadata);
+    console.log(`Created new conversation with ID: ${data.id}, source: ${source}, agent_id: ${agentId}, metadata:`, metadata);
     return data.id;
   } catch (error: any) {
     console.error("Error creating conversation:", error);

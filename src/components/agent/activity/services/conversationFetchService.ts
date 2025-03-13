@@ -11,13 +11,19 @@ import {
 
 export const fetchConversations = async (
   pagination: PaginationState,
-  filters: FilterState
+  filters: FilterState,
+  agentId?: string
 ) => {
   try {
     // Build the count query first to get total items
     let countQuery = supabase
       .from('conversations')
       .select('*', { count: 'exact' });
+    
+    // Apply agent ID filter if provided
+    if (agentId) {
+      countQuery = countQuery.eq('agent_id', agentId);
+    }
     
     // Apply filters to count query
     countQuery = applyFiltersToQuery(countQuery, filters);
@@ -37,6 +43,11 @@ export const fetchConversations = async (
         (pagination.currentPage - 1) * pagination.pageSize, 
         pagination.currentPage * pagination.pageSize - 1
       );
+    
+    // Apply agent ID filter if provided
+    if (agentId) {
+      conversationsQuery = conversationsQuery.eq('agent_id', agentId);
+    }
     
     // Apply same filters to main query
     conversationsQuery = applyFiltersToQuery(conversationsQuery, filters);

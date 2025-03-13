@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from "react";
 import { Conversation, Message, FilterState, PaginationState } from "../types";
 import { useAuth } from "@/context/AuthContext";
@@ -10,7 +9,7 @@ import {
 import { deleteConversation } from "../services/conversationDeleteService";
 import { fetchMessagesForConversation } from "../services/messageService";
 
-export const useChatLogs = () => {
+export const useChatLogs = (agentId?: string) => {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -49,7 +48,8 @@ export const useChatLogs = () => {
     
     try {
       // Fetch conversations with the current pagination and filters
-      const result = await fetchFilteredConversations(userId, pagination, filterOptions);
+      // Add agentId to the filter parameters
+      const result = await fetchFilteredConversations(userId, pagination, filterOptions, agentId);
       
       setConversations(result.conversations);
       setTotalItems(result.totalItems);
@@ -76,7 +76,7 @@ export const useChatLogs = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [userId, pagination, filterOptions]);
+  }, [userId, pagination, filterOptions, agentId]);
 
   // Function to fetch messages for a specific conversation
   const loadMessages = useCallback(async (conversationId: string) => {
@@ -115,10 +115,11 @@ export const useChatLogs = () => {
       setIsLoading(true);
       
       try {
-        // Pass the filter options but handle searchTerm separately
+        // Pass the filter options and agentId
         const result = await fetchConversations(
           pagination, 
-          filterOptions // Only pass filterOptions here, not searchTerm
+          filterOptions,
+          agentId
         );
         
         // Apply search term filtering on the client side if needed
@@ -168,7 +169,7 @@ export const useChatLogs = () => {
     };
     
     fetchFilteredData();
-  }, [userId, pagination, filterOptions, searchTerm]);
+  }, [userId, pagination, filterOptions, searchTerm, agentId]);
 
   // Handler functions for the ChatLogsSection component
   const handleSelectConversation = useCallback((conversation: Conversation) => {

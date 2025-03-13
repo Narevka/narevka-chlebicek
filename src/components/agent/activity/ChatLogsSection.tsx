@@ -4,7 +4,11 @@ import { useChatLogs } from "./chat-logs/useChatLogs";
 import ConversationListPanel from "./chat-logs/ConversationListPanel";
 import ConversationDetailPanel from "./chat-logs/ConversationDetailPanel";
 
-const ChatLogsSection = () => {
+interface ChatLogsSectionProps {
+  agentId?: string;
+}
+
+const ChatLogsSection = ({ agentId }: ChatLogsSectionProps) => {
   const {
     conversations,
     selectedConversation,
@@ -26,7 +30,7 @@ const ChatLogsSection = () => {
     handleExport,
     loadConversations,
     setSelectedConversation
-  } = useChatLogs();
+  } = useChatLogs(agentId);
 
   return (
     <div className="flex h-full">

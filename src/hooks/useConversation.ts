@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from "react";
 import { v4 as uuidv4 } from 'uuid';
 import { toast } from "sonner";
@@ -69,8 +68,8 @@ export const useConversation = (userId: string | undefined, agentId: string | un
       if (!userId || initialized) return;
 
       // Use the source parameter passed to the hook
-      console.log("Initializing conversation with source:", source, "language:", language);
-      const newConversationId = await createConversation(userId, source, { language });
+      console.log("Initializing conversation with source:", source, "language:", language, "agentId:", agentId);
+      const newConversationId = await createConversation(userId, source, { language }, agentId);
       
       if (newConversationId) {
         setConversationId(newConversationId);
@@ -87,7 +86,7 @@ export const useConversation = (userId: string | undefined, agentId: string | un
     };
 
     initConversation();
-  }, [userId, source, initialized, language]);
+  }, [userId, source, initialized, language, agentId]);
 
   const handleSendMessage = useCallback(async (message: string) => {
     if (!message.trim() || !conversationId || !agentId) return;
@@ -159,8 +158,8 @@ export const useConversation = (userId: string | undefined, agentId: string | un
     setInitialized(false);
 
     // Create a new conversation with the same source
-    console.log("Resetting conversation with source:", source, "language:", language);
-    const newConversationId = await createConversation(userId, source, { language });
+    console.log("Resetting conversation with source:", source, "language:", language, "agentId:", agentId);
+    const newConversationId = await createConversation(userId, source, { language }, agentId);
     
     if (newConversationId) {
       setConversationId(newConversationId);
@@ -190,7 +189,7 @@ export const useConversation = (userId: string | undefined, agentId: string | un
         toast.error("Failed to reset conversation");
       }
     }
-  }, [userId, source, language]);
+  }, [userId, source, language, agentId]);
 
   // Add function to change language
   const changeLanguage = useCallback((newLanguage: 'pl' | 'en') => {
