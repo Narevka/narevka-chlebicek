@@ -45,32 +45,18 @@ export const deleteAllAgentConversations = async (agentId: string, userId: strin
     // Second attempt: Force delete any remaining messages and conversations
     console.warn("Some conversations failed to delete properly, attempting forced deletion");
     
-    // Check which conversations remain
-    const { data: remainingConversations } = await supabase
-      .from("conversations")
-      .select("id")
-      .eq("agent_id", agentId);
-      
-    if (!remainingConversations || remainingConversations.length === 0) {
-      console.log("No conversations remain after first deletion attempt");
-      return true;
-    }
-    
-    console.warn(`${remainingConversations.length} conversations remain, force deleting messages`);
-    
-    // Force delete all messages for these conversations
-    const conversationIds = remainingConversations.map(c => c.id);
+    // Directly delete all messages for this agent's conversations
+    const conversationIds = conversations.map(c => c.id);
     await supabase
       .from("messages")
       .delete()
       .in("conversation_id", conversationIds);
       
-    // Then force delete the conversations
+    // Then delete the conversations
     const { error: forcedDeleteError } = await supabase
       .from("conversations")
       .delete()
-      .in("id", conversationIds)
-      .eq("user_id", userId);
+      .eq("agent_id", agentId);
       
     if (forcedDeleteError) {
       console.error("Error in forced conversation deletion:", forcedDeleteError);

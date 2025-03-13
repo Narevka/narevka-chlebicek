@@ -16,7 +16,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { deleteConversation } from "../activity/services/conversationDeleteService";
+import { deleteAllAgentConversations } from "../activity/services";
 
 interface DeleteAgentDialogProps {
   agentId: string;
@@ -68,62 +68,11 @@ export const DeleteAgentDialog = ({
       }
       
       // Step 2: Delete all related conversations and their messages
-      setDeletionStatus("Finding related conversations...");
-      let { data: relatedConversations, error: conversationsError } = await supabase
-        .from("conversations")
-        .select("id")
-        .eq("agent_id", agentId);
-        
-      if (conversationsError) {
-        console.error("Error fetching related conversations:", conversationsError);
-        throw new Error("Failed to fetch related conversations. Please try again.");
-      }
+      setDeletionStatus("Deleting conversations and messages...");
+      const conversationsDeleted = await deleteAllAgentConversations(agentId, userId);
       
-      if (relatedConversations?.length) {
-        setDeletionStatus(`Deleting ${relatedConversations.length} conversations...`);
-        
-        // Delete conversations one by one to ensure all messages get deleted first
-        for (const conversation of relatedConversations) {
-          console.log("Deleting conversation:", conversation.id);
-          const success = await deleteConversation(conversation.id);
-          if (!success) {
-            console.error(`Failed to delete conversation: ${conversation.id}`);
-            // Instead of throwing an error, log it and continue
-            toast.warning(`Failed to delete some conversations. Will try to continue with agent deletion.`);
-          }
-        }
-        
-        // Double-check that all conversations are deleted
-        const { data: remainingConversations } = await supabase
-          .from("conversations")
-          .select("id")
-          .eq("agent_id", agentId);
-          
-        if (remainingConversations?.length) {
-          console.warn(`${remainingConversations.length} conversations still exist. Trying forced deletion.`);
-          
-          // Try one more time to delete all messages first
-          setDeletionStatus("Force deleting remaining messages...");
-          await supabase
-            .from("messages")
-            .delete()
-            .eq("user_id", userId)
-            .filter("conversation_id", "in", remainingConversations.map(c => c.id));
-          
-          // Then try to delete conversations again
-          setDeletionStatus("Force deleting remaining conversations...");
-          const { error: forcedConvDeleteError } = await supabase
-            .from("conversations")
-            .delete()
-            .eq("agent_id", agentId)
-            .eq("user_id", userId);
-            
-          if (forcedConvDeleteError) {
-            console.error("Error in forced conversation deletion:", forcedConvDeleteError);
-          }
-        }
-      } else {
-        console.log("No related conversations found for this agent");
+      if (!conversationsDeleted) {
+        toast.warning("Some conversations could not be deleted. Trying to proceed anyway.");
       }
       
       // Step 3: Delete all related sources
@@ -135,7 +84,6 @@ export const DeleteAgentDialog = ({
         
       if (sourcesDeleteError) {
         console.error("Error deleting agent sources:", sourcesDeleteError);
-        // Continue with agent deletion even if source deletion fails
         toast.warning("Failed to delete some agent sources, but will continue with agent deletion");
       }
       
