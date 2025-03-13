@@ -22,6 +22,8 @@ export interface WebsiteSourceItem {
   notificationShown?: boolean;
   isProcessing?: boolean;
   isProcessed?: boolean;
+  createdAt?: string;
+  crawlOptions?: any;
 }
 
 interface WebsiteItemProps {
@@ -50,7 +52,16 @@ const WebsiteItem: React.FC<WebsiteItemProps> = ({
   return (
     <div className="flex flex-col gap-2 p-4 border rounded-lg mb-4">
       {/* Details section */}
-      <WebsiteItemDetails link={link} />
+      <WebsiteItemDetails 
+        sourceId={link.sourceId}
+        status={link.status}
+        requestedLimit={link.requestedLimit}
+        count={link.count}
+        chars={link.chars}
+        error={link.error}
+        crawlOptions={link.crawlOptions}
+        crawlReport={link.crawlReport}
+      />
       
       {/* Actions section */}
       <WebsiteItemActions 

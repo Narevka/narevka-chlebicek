@@ -33,7 +33,7 @@ export const useWebsiteLogs = (includedLinks: WebsiteSourceItem[]) => {
       `--- DEBUG LOGS FOR ${url} ---`,
       `Source ID: ${sourceId}`,
       `Status: ${link.status || "Unknown"}`,
-      `Created: ${link.createdAt || "Unknown"}`,
+      `Created: ${link.timestamp || "Unknown"}`,
       `Pages: ${link.count || 0}`,
       `Size: ${link.chars ? Math.round(link.chars / 1024) + 'KB' : 'Unknown'}`,
       `Average Page Size: ${(link.chars && link.count) ? Math.round(link.chars / link.count / 1024) + 'KB/page' : 'Unknown'}`,
@@ -122,19 +122,22 @@ export const useWebsiteLogs = (includedLinks: WebsiteSourceItem[]) => {
     return formattedLogs;
   };
 
-  const showWebsiteDebugInfo = (sourceId: string, url: string) => {
-    setCurrentDebugSite({ id: sourceId, url });
-    setShowDebugDialog(true);
+  const showWebsiteDebugInfo = (link: WebsiteSourceItem) => {
+    if (link.sourceId) {
+      setCurrentDebugSite({ id: link.sourceId, url: link.url });
+      setShowDebugDialog(true);
+    }
   };
 
-  const handleDownloadWebsiteLogs = (sourceId: string, url: string) => {
-    const logs = formatSourceLogs(sourceId, url);
+  const handleDownloadWebsiteLogs = (link: WebsiteSourceItem) => {
+    if (!link.sourceId) return;
+    
+    const logs = formatSourceLogs(link.sourceId, link.url);
     
     if (logs.length === 0) {
-      const link = includedLinks.find(l => l.sourceId === sourceId);
-      logs.push(`No logs available for ${url} (Source ID: ${sourceId})`);
-      logs.push(`Status: ${link?.status || "Unknown"}`);
-      logs.push(`Pages crawled: ${link?.count || 0}`);
+      logs.push(`No logs available for ${link.url} (Source ID: ${link.sourceId})`);
+      logs.push(`Status: ${link.status || "Unknown"}`);
+      logs.push(`Pages crawled: ${link.count || 0}`);
     }
     
     const logText = logs.join('\n');
@@ -144,7 +147,7 @@ export const useWebsiteLogs = (includedLinks: WebsiteSourceItem[]) => {
     a.href = downloadUrl;
     
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const sanitizedUrl = url.replace(/[^a-zA-Z0-9]/g, '-').substring(0, 30);
+    const sanitizedUrl = link.url.replace(/[^a-zA-Z0-9]/g, '-').substring(0, 30);
     a.download = `crawl-logs-${sanitizedUrl}-${timestamp}.txt`;
     
     document.body.appendChild(a);

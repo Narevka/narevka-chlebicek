@@ -61,9 +61,9 @@ export const useCrawlWebsite = ({
         status: 'crawling',
         chars: 0,
         requestedLimit: crawlOptions.limit,
-        crawlOptions: crawlOptions,
+        timestamp: new Date().toISOString(),
         notificationShown: false, // Flag to track if completion notification was shown
-        createdAt: new Date().toISOString() // Using the newly added property
+        crawlOptions: crawlOptions
       };
       
       const updatedLinks = [newLink, ...includedLinks];

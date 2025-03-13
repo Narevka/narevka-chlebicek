@@ -1,166 +1,141 @@
 
 import { WebsiteSourceItem } from "../../WebsiteItem";
-import { fetchSourceWithRetry } from "./fetchUtils";
 import { toast } from "sonner";
 
-/**
- * Process source content after fetching
- */
-export const processSourceContent = (
-  sourceContent: any,
-  link: WebsiteSourceItem
-): {
-  status?: "error" | "crawling" | "completed";
+type StatusResponse = {
+  source_id: string;
+  status: 'error' | 'crawling' | 'completed';
+  url: string;
+  count: number;
+  chars: number;
   error?: string;
-  count?: number;
-  chars?: number;
-  crawlReport?: any;
-  debugLogs?: any[];
-  hasChanges: boolean;
-  notificationShown?: boolean;
-} => {
-  let content;
-  try {
-    content = JSON.parse(sourceContent);
-  } catch (e) {
-    console.error("Error parsing content:", e);
-    return { hasChanges: false };
-  }
-
-  // Check if status changed
-  if (content.status && content.status !== link.status) {
-    // Log the full content for debugging
-    console.log(`Status change for source ${link.sourceId} (${link.url}):`, content);
-    
-    // Extract and save crawl report if available
-    const crawlReport = content.crawl_report || null;
-    
-    // Extract logs if they exist
-    const sourceLogs = content.logs || [];
-    
-    // Ensure status is one of the allowed values
-    const status = content.status === "error" || content.status === "crawling" || content.status === "completed" 
-      ? content.status 
-      : "error";
-    
-    return {
-      status,
-      error: content.error,
-      count: content.pages_crawled || link.count,
-      crawlReport: crawlReport,
-      debugLogs: sourceLogs,
-      hasChanges: true
-    };
-  } else if (content.logs && Array.isArray(content.logs)) {
-    // Even if status didn't change, we want to capture any new logs
-    return {
-      debugLogs: content.logs,
-      hasChanges: true
-    };
-  }
-  
-  return { hasChanges: false };
+  crawl_report?: any;
+  debug_logs?: any[];
+  timestamp?: string;
 };
 
-/**
- * Show appropriate notifications based on crawl status
- */
-export const showStatusNotifications = (
-  status: string,
-  url: string,
-  error?: string,
-  pagesInfo?: string,
-  notificationShown?: boolean
-): boolean => {
-  // Only show notification if it hasn't been shown yet and status is completed or error
-  if (status === 'completed' && !notificationShown) {
-    toast.success(`Crawl completed for ${url}${pagesInfo || ''}`);
-    console.log(`Crawl completed for ${url}${pagesInfo || ''}`);
-    return true;
-  } else if (status === 'error' && !notificationShown) {
-    toast.error(`Crawl failed for ${url}: ${error}`);
-    console.error(`Crawl failed for ${url}: ${error}`);
-    return true;
-  }
-  
-  return false;
-};
-
-/**
- * Check status for a specific source
- */
-export const checkSourceStatus = async (
+export const processCrawlStatus = (
   sourceId: string,
-  link: WebsiteSourceItem
-): Promise<{
-  updatedLink?: WebsiteSourceItem;
-  hasChanges: boolean;
-  message?: "error" | "crawling" | "completed";
-}> => {
-  try {
-    console.log(`Checking status for source ${sourceId}`);
-    
-    // Use retry mechanism
-    const { data, error } = await fetchSourceWithRetry(sourceId);
+  statusData: StatusResponse | null,
+  includedLinks: WebsiteSourceItem[],
+  deletedSourceIds: Set<string>,
+  index: number
+): { 
+  updatedLinks: WebsiteSourceItem[], 
+  shouldShowNotification: boolean,
+  notificationType: 'error' | 'crawling' | 'completed' | null,
+  notificationMessage: string,
+} => {
+  // Initialize return values
+  let updatedLinks = [...includedLinks];
+  let shouldShowNotification = false;
+  let notificationType: 'error' | 'crawling' | 'completed' | null = null;
+  let notificationMessage = '';
 
-    if (error) {
-      return { 
-        hasChanges: false,
-        message: "error" as const
-      };
-    }
-    
-    if (!data || !data.content) {
-      return { hasChanges: false };
-    }
-    
-    // Process the content
-    const processingResult = processSourceContent(data.content, link);
-    
-    if (!processingResult.hasChanges) {
-      return { hasChanges: false };
-    }
-    
-    // Prepare detailed message
-    let detailMsg = '';
-    if (processingResult.crawlReport) {
-      detailMsg = ` - ${processingResult.crawlReport.pagesReceived || 0} pages received`;
-      if (link.requestedLimit) {
-        detailMsg += ` (requested: ${link.requestedLimit})`;
-      }
-    }
-    
-    // Show notifications
-    const notificationShown = showStatusNotifications(
-      processingResult.status || link.status,
-      link.url,
-      processingResult.error,
-      detailMsg,
-      link.notificationShown
-    );
-    
-    // Update the link with current status
-    const updatedLink: WebsiteSourceItem = {
-      ...link,
-      status: processingResult.status || link.status,
-      error: processingResult.error,
-      count: processingResult.count || link.count,
-      chars: data.chars || link.chars,
-      crawlReport: processingResult.crawlReport || link.crawlReport,
-      debugLogs: processingResult.debugLogs || link.debugLogs,
-      notificationShown: notificationShown || link.notificationShown
-    };
-    
-    return {
-      updatedLink,
-      hasChanges: true,
-      message: processingResult.status
-    };
-  } catch (error: any) {
-    console.error("Error checking status:", error);
+  // If this is a deleted source, don't process it
+  if (deletedSourceIds.has(sourceId)) {
+    console.log(`Source ${sourceId} has been deleted, skipping status update`);
     return { 
-      hasChanges: false,
-      message: "error" as const
+      updatedLinks, 
+      shouldShowNotification, 
+      notificationType, 
+      notificationMessage
     };
+  }
+
+  // If we don't have the source in our list anymore, don't process it
+  if (index === -1) {
+    console.log(`Source ${sourceId} not found in includedLinks, skipping status update`);
+    return { 
+      updatedLinks, 
+      shouldShowNotification, 
+      notificationType, 
+      notificationMessage
+    };
+  }
+
+  // If we don't have a status response (e.g. network error), don't update
+  if (!statusData) {
+    return { 
+      updatedLinks, 
+      shouldShowNotification, 
+      notificationType, 
+      notificationMessage 
+    };
+  }
+
+  // Get current link data
+  const currentLink = includedLinks[index];
+  const oldStatus = currentLink.status;
+  
+  console.log(`Processing status update for ${statusData.url}: ${statusData.status}, old status: ${oldStatus}`);
+
+  // Create updated link object
+  const updatedLink: WebsiteSourceItem = {
+    ...currentLink,
+    status: statusData.status,
+    count: statusData.count,
+    chars: statusData.chars,
+    error: statusData.error,
+    crawlReport: statusData.crawl_report,
+    debugLogs: statusData.debug_logs,
+    timestamp: statusData.timestamp || currentLink.timestamp
+  };
+
+  // Check for status changes that need notifications
+  if (oldStatus !== statusData.status) {
+    console.log(`Status changed from ${oldStatus} to ${statusData.status}`);
+    
+    // If the site completed crawling and we haven't shown a notification yet
+    if (statusData.status === 'completed' && !currentLink.notificationShown) {
+      shouldShowNotification = true;
+      notificationType = 'completed';
+      notificationMessage = `${statusData.url} crawl completed: ${statusData.count} pages, ${Math.round(statusData.chars / 1024)} KB`;
+      
+      // Mark notification as shown
+      updatedLink.notificationShown = true;
+    }
+    
+    // If the site encountered an error and we haven't shown an error notification
+    if (statusData.status === 'error' && !currentLink.notificationShown) {
+      shouldShowNotification = true;
+      notificationType = 'error';
+      notificationMessage = `Error crawling ${statusData.url}: ${statusData.error || 'Unknown error'}`;
+      
+      // Mark notification as shown
+      updatedLink.notificationShown = true;
+    }
+  }
+  
+  // Update the link in our array
+  updatedLinks[index] = updatedLink;
+  
+  return {
+    updatedLinks,
+    shouldShowNotification,
+    notificationType,
+    notificationMessage
+  };
+};
+
+export const showCrawlStatusNotification = (
+  notificationType: 'error' | 'crawling' | 'completed' | null,
+  notificationMessage: string,
+  sourceId: string
+): void => {
+  if (!notificationType || !notificationMessage) return;
+  
+  const toastId = `status-update-${sourceId}-${Date.now()}`;
+  
+  switch(notificationType) {
+    case 'completed':
+      toast.success(notificationMessage, { id: toastId });
+      break;
+    case 'error':
+      toast.error(notificationMessage, { id: toastId });
+      break;
+    default:
+      // No default notifications for other status types
+      break;
   }
 };
