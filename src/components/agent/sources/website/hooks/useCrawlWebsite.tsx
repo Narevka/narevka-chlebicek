@@ -72,7 +72,7 @@ export const useCrawlWebsite = ({
       // Store in local storage to persist across page refreshes
       localStorage.setItem(localStorageKey, JSON.stringify(updatedLinks));
       
-      // Use a discrete toast ID to prevent duplicate toasts
+      // Pokazujemy tylko powiadomienie o rozpoczęciu crawlowania, bez sugestii o zakończeniu
       toast.success("Website crawl started", { id: `crawl-started-${sourceId}` });
       console.log(`Website crawl started for ${url} with limit ${crawlOptions.limit}`);
       

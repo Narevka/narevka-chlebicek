@@ -50,7 +50,8 @@ export const addWebsiteSource = async (
       throw new Error("Failed to get source ID from crawl response");
     }
     
-    toast.success("Website crawled successfully. You can process it with OpenAI using the process button.");
+    // Usuwamy powiadomienie sukcesu stąd, bo będzie ono wyświetlane tylko po faktycznym zakończeniu crawlowania
+    // przez useCrawlStatusChecker
     
     return sourceId;
   } catch (error: any) {
@@ -59,4 +60,3 @@ export const addWebsiteSource = async (
     throw error;
   }
 };
-

@@ -160,7 +160,7 @@ export const useCrawlStatusChecker = ({
     checkCrawlStatus();
     
     // Then set up the interval for future checks
-    const intervalId = setInterval(checkCrawlStatus, 8000); // Increased to 8 seconds to reduce request frequency
+    const intervalId = setInterval(checkCrawlStatus, 8000); // Pozostawiamy 8 sekund
     
     // Clean up interval on unmount
     return () => clearInterval(intervalId);
