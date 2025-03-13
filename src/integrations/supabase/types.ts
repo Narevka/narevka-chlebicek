@@ -184,6 +184,7 @@ export type Database = {
           has_thumbs_up: boolean | null
           id: string
           is_bot: boolean
+          metadata: Json | null
         }
         Insert: {
           confidence?: number | null
@@ -194,6 +195,7 @@ export type Database = {
           has_thumbs_up?: boolean | null
           id?: string
           is_bot?: boolean
+          metadata?: Json | null
         }
         Update: {
           confidence?: number | null
@@ -204,6 +206,7 @@ export type Database = {
           has_thumbs_up?: boolean | null
           id?: string
           is_bot?: boolean
+          metadata?: Json | null
         }
         Relationships: [
           {

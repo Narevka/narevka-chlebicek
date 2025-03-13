@@ -69,6 +69,9 @@ export async function saveMessageToDatabase(
       return false;
     }
     
+    // Create metadata object if language is provided
+    const messageMetadata = language ? { language } : {};
+    
     await supabaseClient
       .from('messages')
       .insert({
@@ -76,7 +79,7 @@ export async function saveMessageToDatabase(
         content,
         is_bot: isBot,
         confidence,
-        metadata: language ? { language } : undefined
+        metadata: messageMetadata
       });
     
     console.log(`Saved ${isBot ? 'bot' : 'user'} message to database`);
