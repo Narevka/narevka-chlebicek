@@ -10,7 +10,7 @@ export const processSourceContent = (
   sourceContent: any,
   link: WebsiteSourceItem
 ): {
-  status?: string;
+  status?: "error" | "crawling" | "completed";
   error?: string;
   count?: number;
   chars?: number;
@@ -38,8 +38,13 @@ export const processSourceContent = (
     // Extract logs if they exist
     const sourceLogs = content.logs || [];
     
+    // Ensure status is one of the allowed values
+    const status = content.status === "error" || content.status === "crawling" || content.status === "completed" 
+      ? content.status 
+      : "error";
+    
     return {
-      status: content.status,
+      status,
       error: content.error,
       count: content.pages_crawled || link.count,
       crawlReport: crawlReport,
@@ -90,7 +95,7 @@ export const checkSourceStatus = async (
 ): Promise<{
   updatedLink?: WebsiteSourceItem;
   hasChanges: boolean;
-  message?: string;
+  message?: "error" | "crawling" | "completed";
 }> => {
   try {
     console.log(`Checking status for source ${sourceId}`);
@@ -101,7 +106,7 @@ export const checkSourceStatus = async (
     if (error) {
       return { 
         hasChanges: false,
-        message: `Failed to check status: ${error.message}`
+        message: "error" as const
       };
     }
     
@@ -155,7 +160,7 @@ export const checkSourceStatus = async (
     console.error("Error checking status:", error);
     return { 
       hasChanges: false,
-      message: `Error: ${error.message}`
+      message: "error" as const
     };
   }
 };
