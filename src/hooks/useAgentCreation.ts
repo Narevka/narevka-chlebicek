@@ -12,6 +12,12 @@ export interface AgentFormData {
   isPublic: boolean;
 }
 
+export interface AgentFormErrors {
+  name?: string;
+  description?: string;
+  instructions?: string;
+}
+
 export interface UseAgentCreationProps {
   userId: string | undefined;
   onAgentCreated: () => void;
@@ -25,18 +31,53 @@ export const useAgentCreation = ({ userId, onAgentCreated, onClose }: UseAgentCr
     instructions: "",
     isPublic: true
   });
+  const [formErrors, setFormErrors] = useState<AgentFormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [creationStep, setCreationStep] = useState<CreationStep>('idle');
 
   const updateFormField = (field: keyof AgentFormData, value: string | boolean) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+    
+    // Clear error when user updates the field
+    if (formErrors[field as keyof AgentFormErrors]) {
+      setFormErrors(prev => ({ ...prev, [field]: undefined }));
+    }
+  };
+
+  const validateForm = (): boolean => {
+    const errors: AgentFormErrors = {};
+    let isValid = true;
+
+    if (!formData.name.trim()) {
+      errors.name = "Agent name is required";
+      isValid = false;
+    } else if (formData.name.trim().length < 3) {
+      errors.name = "Name must be at least 3 characters";
+      isValid = false;
+    } else if (formData.name.trim().length > 50) {
+      errors.name = "Name must be less than 50 characters";
+      isValid = false;
+    }
+
+    if (formData.description && formData.description.length > 200) {
+      errors.description = "Description must be less than 200 characters";
+      isValid = false;
+    }
+
+    if (formData.instructions && formData.instructions.length > 1000) {
+      errors.instructions = "Instructions must be less than 1000 characters";
+      isValid = false;
+    }
+
+    setFormErrors(errors);
+    return isValid;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.name.trim()) {
-      toast.error("Agent name is required");
+    if (!validateForm()) {
+      toast.error("Please fix the form errors");
       return;
     }
 
@@ -100,6 +141,7 @@ export const useAgentCreation = ({ userId, onAgentCreated, onClose }: UseAgentCr
         instructions: "",
         isPublic: true
       });
+      setFormErrors({});
       setCreationStep('idle');
     } catch (error: any) {
       console.error("Error creating agent:", error);
@@ -122,6 +164,7 @@ export const useAgentCreation = ({ userId, onAgentCreated, onClose }: UseAgentCr
 
   return {
     formData,
+    formErrors,
     updateFormField,
     isSubmitting,
     creationStep,
