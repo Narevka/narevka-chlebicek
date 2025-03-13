@@ -2,16 +2,18 @@
 import { ReactNode, useEffect, useState } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
+import { useToast } from "@/hooks/use-toast";
 
 interface AdminRouteProps {
   children: ReactNode;
 }
 
 const AdminRoute = ({ children }: AdminRouteProps) => {
-  const { isAdmin, loading, user, checkUserRole } = useAuth();
+  const { isAdmin, loading, user, checkUserRole, signOut } = useAuth();
   const [isChecking, setIsChecking] = useState(true);
   const [hasAccess, setHasAccess] = useState(false);
   const location = useLocation();
+  const { toast } = useToast();
 
   useEffect(() => {
     const verifyAdminAccess = async () => {
@@ -21,8 +23,19 @@ const AdminRoute = ({ children }: AdminRouteProps) => {
           if (user) {
             // Double-check admin status
             const role = await checkUserRole();
-            console.log("AdminRoute - Verified user role:", role);
-            setHasAccess(role === 'admin');
+            console.log("Admin page - user role:", role);
+            const adminAccess = role === 'admin';
+            setHasAccess(adminAccess);
+            
+            if (!adminAccess) {
+              toast({
+                title: "Access Denied",
+                description: "You do not have admin privileges",
+                variant: "destructive",
+              });
+              // Sign out since they shouldn't be here
+              await signOut();
+            }
           } else {
             setHasAccess(false);
           }
@@ -36,7 +49,7 @@ const AdminRoute = ({ children }: AdminRouteProps) => {
     };
     
     verifyAdminAccess();
-  }, [loading, user, checkUserRole, isAdmin]);
+  }, [loading, user, checkUserRole, isAdmin, toast, signOut]);
 
   // If still loading or checking, show loading indicator
   if (loading || isChecking) {

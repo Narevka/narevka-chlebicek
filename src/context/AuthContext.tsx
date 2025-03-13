@@ -12,6 +12,7 @@ type AuthContextType = {
   isAdmin: boolean;
   signIn: (email: string, password: string) => Promise<{
     error: Error | null;
+    adminVerified?: boolean;
   }>;
   signUp: (email: string, password: string) => Promise<{
     error: Error | null;
@@ -62,7 +63,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       console.log("Checking admin status for user ID:", userId);
       const role = await checkUserRole();
-      console.log("Role check result:", role);
+      console.log("Auth state change role check:", role);
       const adminStatus = role === 'admin';
       console.log("Setting isAdmin to:", adminStatus);
       setIsAdmin(adminStatus);
@@ -80,33 +81,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       console.log("Checking role for user ID:", user.id);
       
-      // Direct query to user_roles (more reliable)
+      // First try the RPC function (most reliable)
+      const { data, error } = await supabase
+        .rpc('get_user_role', { user_id: user.id });
+      
+      if (error) {
+        console.error("Error checking user role via RPC:", error);
+      } else {
+        console.log("RPC returned role:", data);
+        return (data as UserRole) || 'user';
+      }
+      
+      // Fallback to direct query if RPC fails
       const { data: roleData, error: roleError } = await supabase
         .from('user_roles')
         .select('role')
         .eq('user_id', user.id)
         .maybeSingle();
       
+      if (roleError) {
+        console.error("Error in direct role query:", roleError);
+        return 'user';
+      }
+      
       if (roleData && roleData.role === 'admin') {
         console.log("Direct query found admin role");
         return 'admin';
       }
       
-      if (roleError) {
-        console.error("Error in direct role query:", roleError);
-      }
-      
-      // Fallback to RPC function
-      const { data, error } = await supabase
-        .rpc('get_user_role', { user_id: user.id });
-      
-      if (error) {
-        console.error("Error checking user role via RPC:", error);
-        return 'user';
-      }
-      
-      console.log("RPC returned role:", data);
-      return (data as UserRole) || 'user';
+      return 'user';
     } catch (error) {
       console.error("Exception checking user role:", error);
       return 'user';
@@ -120,12 +123,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       password,
     });
 
-    if (!error && user) {
-      console.log("Sign in successful, checking admin status");
-      await checkAndSetAdminStatus(user.id);
+    if (error) {
+      return { error };
     }
 
-    return { error };
+    // Get the latest user after sign in
+    const { data: { user: currentUser } } = await supabase.auth.getUser();
+    
+    if (currentUser) {
+      const role = await checkUserRole();
+      console.log("Sign in role check:", role);
+      const adminStatus = role === 'admin';
+      setIsAdmin(adminStatus);
+      return { error: null, adminVerified: adminStatus };
+    }
+
+    return { error: null };
   };
 
   const signUp = async (email: string, password: string) => {

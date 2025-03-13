@@ -13,7 +13,7 @@ const AdminAuth = () => {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [checkingStatus, setCheckingStatus] = useState(true);
-  const { signIn, signOut, user, isAdmin } = useAuth();
+  const { signIn, user, isAdmin } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -47,14 +47,24 @@ const AdminAuth = () => {
 
     try {
       console.log("Attempting admin sign in with:", email);
-      const { error } = await signIn(email, password);
+      const { error, adminVerified } = await signIn(email, password);
       
       if (error) throw error;
       
-      // Wait briefly to ensure isAdmin state is updated
+      console.log("Sign in attempt - user role:", adminVerified ? "admin" : "user");
+      
+      if (adminVerified) {
+        toast({
+          title: "Success",
+          description: "You have successfully signed in as admin",
+        });
+        navigate("/shesh/dashboard");
+        setLoading(false);
+        return;
+      }
+      
+      // If we get here, check one more time after a brief delay
       setTimeout(async () => {
-        console.log("Checking admin status after login, isAdmin:", isAdmin);
-        
         if (isAdmin) {
           toast({
             title: "Success",
@@ -67,11 +77,10 @@ const AdminAuth = () => {
             description: "You do not have admin privileges",
             variant: "destructive",
           });
-          // Sign out if not admin
-          await signOut();
+          // Sign out if not admin - we'll handle this in AdminRoute
         }
         setLoading(false);
-      }, 500); // Short delay to allow state to update
+      }, 1000); // Longer delay to ensure state updates
       
     } catch (error: any) {
       toast({
