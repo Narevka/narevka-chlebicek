@@ -188,41 +188,53 @@ export async function getLatestAssistantMessage(apiKey: string, threadId: string
  * @returns The agent data including the OpenAI assistant ID
  */
 export async function getAgentData(agentId: string): Promise<{ openai_assistant_id: string, name: string }> {
-  // Create anonymous Supabase client for public access
-  const supabaseClient = createClient(
-    Deno.env.get('SUPABASE_URL') || '',
-    Deno.env.get('SUPABASE_ANON_KEY') || '',
-  );
+  try {
+    // Create anonymous Supabase client for public access
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') || '',
+      Deno.env.get('SUPABASE_ANON_KEY') || '',
+    );
 
-  console.log(`Looking for agent with ID: ${agentId}`);
+    console.log(`Looking for agent with ID: ${agentId}`);
 
-  // Get agent data without requiring any authentication
-  const { data: agentData, error: agentError } = await supabaseClient
-    .from('agents')
-    .select('openai_assistant_id, name, is_public')
-    .eq('id', agentId)
-    .maybeSingle();
-  
-  if (agentError) {
-    console.error("Database error when fetching agent:", agentError);
-    throw new Error(`Database error when fetching agent: ${agentError.message}`);
-  }
-  
-  if (!agentData) {
-    console.error(`No agent found with ID: ${agentId}`);
-    throw new Error(`No agent found with ID: ${agentId}`);
-  }
+    // Get agent data without requiring any authentication
+    const { data: agentData, error: agentError } = await supabaseClient
+      .from('agents')
+      .select('openai_assistant_id, name, is_public')
+      .eq('id', agentId)
+      .maybeSingle();
+    
+    if (agentError) {
+      console.error("Database error when fetching agent:", agentError);
+      throw new Error(`Database error when fetching agent: ${agentError.message}`);
+    }
+    
+    if (!agentData) {
+      console.error(`No agent found with ID: ${agentId}`);
+      throw new Error(`No agent found with ID: ${agentId}. The agent may have been deleted or not properly configured.`);
+    }
 
-  // Check if agent is public
-  if (!agentData.is_public) {
-    console.error(`Agent exists but is not public. Agent ID: ${agentId}`);
-    throw new Error(`No public agent found with ID: ${agentId}. Make sure the agent is set to public in your dashboard.`);
-  }
-  
-  if (!agentData.openai_assistant_id) {
-    console.error(`Agent found but no OpenAI assistant ID is configured. Agent name: ${agentData.name}`);
-    throw new Error(`Agent "${agentData.name}" exists but does not have an OpenAI assistant configured.`);
-  }
+    // Check if agent is public
+    if (!agentData.is_public) {
+      console.error(`Agent exists but is not public. Agent ID: ${agentId}`);
+      throw new Error(`Agent with ID: ${agentId} exists but is not public. Make sure the agent is set to public in your dashboard.`);
+    }
+    
+    if (!agentData.openai_assistant_id) {
+      console.error(`Agent found but no OpenAI assistant ID is configured. Agent name: ${agentData.name}, Agent ID: ${agentId}`);
+      throw new Error(`Agent "${agentData.name}" exists but does not have an OpenAI assistant configured. Please go to settings and set up the OpenAI assistant for this agent.`);
+    }
 
-  return agentData;
+    return agentData;
+  } catch (error) {
+    // Improve error handling with more contextual information
+    console.error(`Error while getting agent data: ${error.message}`);
+    
+    // Rethrow with improved error message
+    if (error.message.includes('No agent found')) {
+      throw new Error(`Agent with ID ${agentId} was not found. Please check if this agent exists or create a new one.`);
+    }
+    
+    throw error; // rethrow the original error if it wasn't handled above
+  }
 }
