@@ -12,7 +12,7 @@ const AdminAuth = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const { signIn, isAdmin } = useAuth();
+  const { signIn, checkUserRole } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -26,7 +26,9 @@ const AdminAuth = () => {
       if (error) throw error;
       
       // Check if user is admin after sign in
-      if (isAdmin) {
+      const userRole = await checkUserRole();
+      
+      if (userRole === 'admin') {
         toast({
           title: "Success",
           description: "You have successfully signed in as admin",
@@ -39,7 +41,7 @@ const AdminAuth = () => {
           variant: "destructive",
         });
         // Sign out if not admin
-        await fetch("/api/auth/signout", { method: "POST" });
+        await signIn("", ""); // This will trigger an error and effectively log them out
       }
     } catch (error: any) {
       toast({

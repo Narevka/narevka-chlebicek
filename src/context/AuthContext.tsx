@@ -18,7 +18,7 @@ type AuthContextType = {
   }>;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
-  checkUserRole: () => Promise<UserRole | null>;
+  checkUserRole: () => Promise<UserRole>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -59,17 +59,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  const checkUserRole = async (): Promise<UserRole | null> => {
-    if (!user) return null;
+  const checkUserRole = async (): Promise<UserRole> => {
+    if (!user) return 'user';
     
-    const { data, error } = await supabase
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', user.id)
-      .single();
-    
-    if (error || !data) return 'user';
-    return data.role as UserRole;
+    try {
+      // Check if the user_roles record exists
+      const { data, error } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      
+      if (error) {
+        console.error("Error checking user role:", error);
+        return 'user';
+      }
+      
+      // If no role found, default to 'user'
+      return (data?.role as UserRole) || 'user';
+    } catch (error) {
+      console.error("Exception checking user role:", error);
+      return 'user';
+    }
   };
 
   const signIn = async (email: string, password: string) => {
