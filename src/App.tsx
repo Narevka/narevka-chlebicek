@@ -39,10 +39,10 @@ const App = () => (
             <Route path="/blog" element={<Blog />} />
             <Route path="/docs" element={<Docs />} />
             
-            {/* Admin routes */}
-            <Route path="/admin/login" element={<AdminAuth />} />
+            {/* Admin routes with more obscure paths */}
+            <Route path="/shesh/login" element={<AdminAuth />} />
             <Route 
-              path="/admin/dashboard" 
+              path="/shesh/dashboard" 
               element={
                 <AdminRoute>
                   <AdminDashboard />

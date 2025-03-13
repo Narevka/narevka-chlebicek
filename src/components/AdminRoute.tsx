@@ -22,7 +22,7 @@ const AdminRoute = ({ children }: AdminRouteProps) => {
 
   // If not admin, redirect to admin login
   if (!isAdmin) {
-    return <Navigate to="/admin/login" state={{ from: location }} replace />;
+    return <Navigate to="/shesh/login" state={{ from: location }} replace />;
   }
 
   // If admin, render the protected route

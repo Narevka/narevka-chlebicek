@@ -33,7 +33,7 @@ const AdminAuth = () => {
           title: "Success",
           description: "You have successfully signed in as admin",
         });
-        navigate("/admin/dashboard");
+        navigate("/shesh/dashboard");
       } else {
         toast({
           title: "Access Denied",
