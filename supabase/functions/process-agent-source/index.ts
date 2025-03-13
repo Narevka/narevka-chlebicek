@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
 
@@ -320,17 +321,107 @@ serve(async (req) => {
       
       result = addToVectorStoreData;
     } else if (sourceData.type === 'website') {
-      // Parse the content to get the crawled text
+      console.log(`Processing website source: ${sourceId}`);
+      
       try {
-        const contentObj = JSON.parse(sourceData.content);
-        if (contentObj.crawled_content) {
-          // Use the crawled content
-          return contentObj.crawled_content;
-        } else {
-          throw new Error('No crawled content found in website source');
+        // Parse website content
+        const websiteContent = JSON.parse(sourceData.content);
+        
+        if (!websiteContent) {
+          throw new Error('Failed to parse website content');
         }
-      } catch (e) {
-        throw new Error('Failed to parse website source content');
+        
+        // Extract the website URL for the filename
+        const websiteUrl = websiteContent.url || 'website';
+        const sanitizedUrl = websiteUrl.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 40);
+        const fileName = `website_${sanitizedUrl}_${new Date().toISOString()}.txt`;
+        
+        // Prepare the content to be stored
+        // First check if there's a crawl_report with pages_content
+        let textContent = '';
+        
+        if (websiteContent.crawl_report && Array.isArray(websiteContent.crawl_report.pages_content)) {
+          // Process each page content
+          websiteContent.crawl_report.pages_content.forEach((page: any, index: number) => {
+            if (page.url && page.content) {
+              textContent += `--- Page ${index + 1}: ${page.url} ---\n\n`;
+              textContent += `${page.content}\n\n`;
+            }
+          });
+        } else if (typeof websiteContent.crawled_content === 'string') {
+          // Use the crawled_content field if available
+          textContent = websiteContent.crawled_content;
+        } else {
+          // Create a summary if detailed content is not available
+          textContent = `Crawled website: ${websiteUrl}\n\n`;
+          if (websiteContent.status) {
+            textContent += `Status: ${websiteContent.status}\n`;
+          }
+          if (websiteContent.pages_crawled) {
+            textContent += `Pages crawled: ${websiteContent.pages_crawled}\n`;
+          }
+          
+          // Add any other available metadata
+          Object.entries(websiteContent).forEach(([key, value]) => {
+            if (typeof value === 'string' || typeof value === 'number') {
+              if (key !== 'url' && key !== 'status' && key !== 'pages_crawled') {
+                textContent += `${key}: ${value}\n`;
+              }
+            }
+          });
+        }
+        
+        // Create a file with OpenAI if we have content
+        if (textContent.trim().length === 0) {
+          throw new Error('No content extracted from website crawl');
+        }
+        
+        console.log(`Creating file for website with ${textContent.length} characters`);
+        
+        const formData = new FormData();
+        formData.append('purpose', 'assistants');
+        formData.append('file', new Blob([textContent], { type: 'text/plain' }), fileName);
+        
+        const fileResponse = await fetch('https://api.openai.com/v1/files', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${OPENAI_API_KEY}`,
+          },
+          body: formData
+        });
+        
+        if (!fileResponse.ok) {
+          throw new Error(`Error uploading website file to OpenAI: ${await fileResponse.text()}`);
+        }
+        
+        const fileData = await fileResponse.json();
+        const fileId = fileData.id;
+        console.log(`Created website file in OpenAI: ${fileId}`);
+        
+        // Add the file to the vector store
+        const addToVectorStoreResponse = await fetch(`https://api.openai.com/v1/vector_stores/${vectorStoreId}/files`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${OPENAI_API_KEY}`,
+            'Content-Type': 'application/json',
+            'OpenAI-Beta': 'assistants=v2'
+          },
+          body: JSON.stringify({
+            file_id: fileId
+          })
+        });
+        
+        if (!addToVectorStoreResponse.ok) {
+          throw new Error(`Error adding website file to vector store: ${await addToVectorStoreResponse.text()}`);
+        }
+        
+        const addToVectorStoreData = await addToVectorStoreResponse.json();
+        console.log(`Added website file to vector store: ${JSON.stringify(addToVectorStoreData)}`);
+        
+        result = addToVectorStoreData;
+      } catch (error) {
+        console.error("Error processing website source:", error);
+        throw new Error(`Failed to process website source: ${error.message}`);
       }
     } else {
       throw new Error(`Unsupported source type: ${sourceData.type}`);

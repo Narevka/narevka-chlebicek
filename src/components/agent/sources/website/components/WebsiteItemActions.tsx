@@ -1,178 +1,215 @@
 
 import React from "react";
+import { Calendar, RefreshCw, Download, Trash2, MoreVertical, AlertCircle, Eye, FileText, CheckCircle, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { 
-  Trash2, 
-  Download, 
-  RotateCw, 
-  RefreshCw, 
-  Info, 
-  Bug, 
-  ChevronDown, 
-  ChevronUp 
-} from "lucide-react";
-import { 
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { WebsiteSourceItem } from "../WebsiteItem";
 
 interface WebsiteItemActionsProps {
-  sourceId: string | undefined;
-  url: string;
-  status?: string;
+  link: WebsiteSourceItem;
   index: number;
-  downloadingId: string | null;
-  isProcessing?: boolean;
-  showDetails: boolean;
+  isDownloading?: boolean;
   onDelete: (index: number) => void;
   onCheckStatus: (sourceId: string, index: number) => void;
-  onProcess: (sourceId: string, index: number) => void;
-  onDownload: (sourceId: string, url: string) => void;
-  onShowDebug?: (sourceId: string, url: string) => void;
-  onDownloadLogs?: (sourceId: string, url: string) => void;
-  onToggleDetails: () => void;
-  crawlReport?: any;
-  chars?: number;
+  onProcessSource: (sourceId: string, index: number) => void;
+  onDownloadContent: (sourceId: string, url: string) => void;
+  onShowDebug: (link: WebsiteSourceItem) => void;
+  onDownloadLogs: (link: WebsiteSourceItem) => void;
 }
 
-const formatSize = (chars?: number): string => {
-  if (!chars) return "0 KB";
-  
-  const kb = Math.round(chars / 1024);
-  if (kb < 1024) return `${kb} KB`;
-  
-  const mb = (kb / 1024).toFixed(1);
-  return `${mb} MB`;
-};
-
 const WebsiteItemActions: React.FC<WebsiteItemActionsProps> = ({
-  sourceId,
-  url,
-  status,
+  link,
   index,
-  downloadingId,
-  isProcessing,
-  showDetails,
+  isDownloading,
   onDelete,
   onCheckStatus,
-  onProcess,
-  onDownload,
+  onProcessSource,
+  onDownloadContent,
   onShowDebug,
-  onDownloadLogs,
-  onToggleDetails,
-  crawlReport,
-  chars
+  onDownloadLogs
 }) => {
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return "Unknown date";
+    const date = new Date(dateString);
+    return date.toLocaleString();
+  };
+
+  const handleCheckStatus = () => {
+    if (link.sourceId) {
+      onCheckStatus(link.sourceId, index);
+    }
+  };
+
+  const handleProcessSource = () => {
+    if (link.sourceId) {
+      onProcessSource(link.sourceId, index);
+    }
+  };
+
+  const handleDownloadContent = () => {
+    if (link.sourceId) {
+      onDownloadContent(link.sourceId, link.url);
+    }
+  };
+
+  const handleDelete = () => {
+    onDelete(index);
+  };
+
+  const handleShowDebug = () => {
+    onShowDebug(link);
+  };
+
+  const handleDownloadLogs = () => {
+    onDownloadLogs(link);
+  };
+
   return (
-    <div className="flex items-center gap-2">
-      <Button 
-        variant="ghost" 
-        size="sm" 
-        className="text-blue-500 p-1 h-auto"
-        onClick={() => sourceId && onCheckStatus(sourceId, index)}
-        disabled={!sourceId}
-        title="Check status"
-      >
-        <RefreshCw className="h-4 w-4" />
-      </Button>
+    <div className="flex justify-between items-center mt-2 pt-2 border-t">
+      <div className="flex items-center text-xs text-gray-500">
+        <Calendar className="h-3 w-3 mr-1" />
+        {link.timestamp ? formatDate(link.timestamp) : "Just now"}
+      </div>
       
-      {sourceId && status === 'completed' && (
-        <>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-blue-500 p-1 h-auto"
-                title="View crawl details"
+      <div className="flex gap-2">
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleCheckStatus}
+                disabled={!link.sourceId || link.isProcessing}
               >
-                <Info className="h-4 w-4" />
+                <RefreshCw className="h-4 w-4" />
               </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-80">
-              <div className="space-y-1">
-                <h4 className="font-medium">Crawl Details</h4>
-                <div className="text-sm">
-                  <p><span className="font-medium">URL:</span> {url}</p>
-                  {crawlReport && (
-                    <>
-                      <p><span className="font-medium">Pages Received:</span> {crawlReport.pagesReceived || "N/A"}</p>
-                      <p><span className="font-medium">Completed At:</span> {new Date(crawlReport.completedAt).toLocaleString()}</p>
-                    </>
-                  )}
-                  <p><span className="font-medium">Size:</span> {formatSize(chars)}</p>
-                </div>
-              </div>
-            </PopoverContent>
-          </Popover>
-          
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            className="text-blue-500 p-1 h-auto"
-            onClick={() => sourceId && onProcess(sourceId, index)}
-            disabled={isProcessing}
-            title="Process with OpenAI"
-          >
-            <RotateCw className={`h-4 w-4 ${isProcessing ? 'animate-spin' : ''}`} />
-          </Button>
-          
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            className="text-blue-500 p-1 h-auto"
-            onClick={() => sourceId && onDownload(sourceId, url)}
-            disabled={downloadingId === sourceId}
-            title="Download content"
-          >
-            <Download className="h-4 w-4" />
-          </Button>
-        </>
-      )}
-      
-      {onShowDebug && sourceId && (
-        <Button
-          variant="ghost"
-          size="sm"
-          className="text-blue-500 p-1 h-auto"
-          onClick={() => onShowDebug(sourceId, url)}
-          title="Show Debug Info"
-        >
-          <Bug className="h-4 w-4" />
-        </Button>
-      )}
-      
-      {onDownloadLogs && sourceId && (
-        <Button
-          variant="ghost"
-          size="sm"
-          className="text-blue-500 p-1 h-auto"
-          onClick={() => onDownloadLogs(sourceId, url)}
-          title="Download Debug Logs"
-        >
-          <Download className="h-4 w-4 text-gray-600" />
-        </Button>
-      )}
-      
-      <Button 
-        variant="ghost" 
-        size="sm" 
-        className="text-red-500 p-1 h-auto"
-        onClick={() => onDelete(index)}
-        title="Delete website"
-      >
-        <Trash2 className="h-4 w-4" />
-      </Button>
-      
-      <Button
-        variant="ghost"
-        size="sm"
-        className="p-1 h-auto text-gray-500"
-        onClick={onToggleDetails}
-      >
-        {showDetails ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-      </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Check status</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+        
+        {link.status === 'completed' && link.sourceId && (
+          <>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={handleDownloadContent}
+                    disabled={isDownloading}
+                  >
+                    <Download className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Download content</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            
+            {link.isProcessing ? (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      variant="default" 
+                      size="sm"
+                      disabled={true}
+                    >
+                      <Upload className="h-4 w-4 animate-pulse" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Processing...</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            ) : link.isProcessed ? (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      variant="default" 
+                      size="sm"
+                      className="bg-green-600 hover:bg-green-700"
+                      disabled={true}
+                    >
+                      <CheckCircle className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Processed and added to agent</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            ) : (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      variant="default" 
+                      size="sm"
+                      onClick={handleProcessSource}
+                    >
+                      <Upload className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Process and add to agent</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+          </>
+        )}
+        
+        <DropdownMenu>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    <MoreVertical className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>More options</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          <DropdownMenuContent>
+            {link.status === 'error' && (
+              <DropdownMenuItem onClick={handleShowDebug} disabled={!link.error}>
+                <AlertCircle className="h-4 w-4 mr-2" />
+                View error
+              </DropdownMenuItem>
+            )}
+            
+            {link.debugLogs && link.debugLogs.length > 0 && (
+              <>
+                <DropdownMenuItem onClick={handleShowDebug}>
+                  <Eye className="h-4 w-4 mr-2" />
+                  View logs
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleDownloadLogs}>
+                  <FileText className="h-4 w-4 mr-2" />
+                  Download logs
+                </DropdownMenuItem>
+              </>
+            )}
+            
+            <DropdownMenuItem onClick={handleDelete} className="text-red-600">
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
     </div>
   );
 };

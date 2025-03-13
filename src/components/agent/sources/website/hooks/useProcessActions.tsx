@@ -2,6 +2,7 @@
 import { WebsiteSourceItem } from "../WebsiteItem";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { processSourceWithOpenAI } from "@/services/sourceProcessingService";
 
 interface UseProcessActionsProps {
   includedLinks: WebsiteSourceItem[];
@@ -31,24 +32,18 @@ export const useProcessActions = ({
     localStorage.setItem(localStorageKey, JSON.stringify(newLinks));
     
     try {
-      // Process the source using the process-agent-source function
-      const { data: processResponse, error: processError } = await supabase.functions.invoke('process-agent-source', {
-        body: { 
-          sourceId, 
-          agentId,
-          operation: 'add'
-        }
-      });
+      // Process the source using the sourceProcessingService
+      const processResponse = await processSourceWithOpenAI(sourceId, agentId);
       
-      if (processError) {
-        throw new Error(processError.message || "Failed to process source");
+      if (!processResponse.success) {
+        throw new Error(processResponse.error || "Failed to process source");
       }
       
       toast.success("Website content processed successfully");
       
       // Update state to show processing complete
       const updatedLinks = [...includedLinks];
-      updatedLinks[index] = {...updatedLinks[index], isProcessing: false};
+      updatedLinks[index] = {...updatedLinks[index], isProcessing: false, isProcessed: true};
       setIncludedLinks(updatedLinks);
       
       // Update local storage
