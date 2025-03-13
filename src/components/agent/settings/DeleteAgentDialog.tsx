@@ -33,21 +33,27 @@ export const DeleteAgentDialog = ({
   const navigate = useNavigate();
   const [isDeleting, setIsDeleting] = useState(false);
   const [deletionStatus, setDeletionStatus] = useState<string>("");
+  const [open, setOpen] = useState(false);
 
   const handleDelete = async () => {
     setIsDeleting(true);
     
     try {
-      // Step 1: Delete the OpenAI assistant
+      // Step 1: Delete the OpenAI assistant if it exists
       setDeletionStatus("Deleting OpenAI assistant...");
       if (openaiAssistantId) {
-        const deleteAssistantResponse = await supabase.functions.invoke('delete-openai-assistant', {
-          body: { assistantId: openaiAssistantId }
-        });
-        
-        if (deleteAssistantResponse.error) {
-          console.error("Error deleting OpenAI assistant:", deleteAssistantResponse.error);
-          toast.warning("OpenAI Assistant deletion failed, but will continue with database deletion");
+        try {
+          const deleteAssistantResponse = await supabase.functions.invoke('delete-openai-assistant', {
+            body: { assistantId: openaiAssistantId }
+          });
+          
+          if (deleteAssistantResponse.error) {
+            console.error("Error deleting OpenAI assistant:", deleteAssistantResponse.error);
+            toast.warning("OpenAI Assistant deletion failed, but will continue with database deletion");
+          }
+        } catch (error) {
+          console.error("Error calling delete-openai-assistant function:", error);
+          toast.warning("OpenAI Assistant deletion attempt failed, but will continue with database deletion");
         }
       }
       
@@ -74,18 +80,18 @@ export const DeleteAgentDialog = ({
           console.error("Error deleting messages:", messagesDeleteError);
           toast.warning("Failed to delete all conversation messages");
         }
+      }
+      
+      // Step 3: Delete all related conversations
+      setDeletionStatus("Deleting conversations...");
+      const { error: conversationsDeleteError } = await supabase
+        .from("conversations")
+        .delete()
+        .eq("agent_id", agentId);
         
-        // Step 3: Delete all related conversations
-        setDeletionStatus("Deleting conversations...");
-        const { error: conversationsDeleteError } = await supabase
-          .from("conversations")
-          .delete()
-          .eq("agent_id", agentId);
-          
-        if (conversationsDeleteError) {
-          console.error("Error deleting conversations:", conversationsDeleteError);
-          toast.warning("Failed to delete related conversations");
-        }
+      if (conversationsDeleteError) {
+        console.error("Error deleting conversations:", conversationsDeleteError);
+        throw new Error("Failed to delete related conversations. Please try again.");
       }
       
       // Step 4: Delete all related sources
@@ -111,22 +117,25 @@ export const DeleteAgentDialog = ({
       if (agentDeleteError) throw agentDeleteError;
       
       toast.success("Agent and all related data deleted successfully");
+      setOpen(false);
       navigate("/dashboard");
     } catch (error: any) {
       console.error("Error deleting agent:", error);
       toast.error(error.message || "Failed to delete agent");
+    } finally {
       setIsDeleting(false);
       setDeletionStatus("");
     }
   };
 
   return (
-    <AlertDialog>
+    <AlertDialog open={open} onOpenChange={setOpen}>
       <AlertDialogTrigger asChild>
         <Button 
           variant="destructive"
           disabled={disabled || isDeleting}
           className="flex gap-2"
+          onClick={() => setOpen(true)}
         >
           <Trash2 size={16} />
           {isDeleting ? "Deleting..." : "Delete Agent"}
