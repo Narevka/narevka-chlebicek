@@ -1,1 +1,25 @@
 project_id = "xjqippzovggcklllwnan"
+
+[functions.chat-with-assistant]
+verify_jwt = false
+
+[functions.crawl-website]
+verify_jwt = false
+
+[functions.create-openai-assistant]
+verify_jwt = true
+
+[functions.delete-openai-assistant]
+verify_jwt = true
+
+[functions.process-agent-source]
+verify_jwt = false
+
+[functions.retrain-agent]
+verify_jwt = true
+
+[functions.retry-assistant-creation]
+verify_jwt = false
+
+[functions.update-openai-assistant]
+verify_jwt = true

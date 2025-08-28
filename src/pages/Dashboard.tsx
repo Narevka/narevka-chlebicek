@@ -38,7 +38,8 @@ const Dashboard = () => {
         <DashboardTabs 
           agents={agents} 
           isLoading={isLoading} 
-          onOpenModal={() => setIsAgentModalOpen(true)} 
+          onOpenModal={() => setIsAgentModalOpen(true)}
+          onRefresh={refreshAgents}
         />
 
         <AgentCreationModal 
