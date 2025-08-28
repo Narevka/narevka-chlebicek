@@ -40,7 +40,7 @@ serve(async (req) => {
         name: agentData.name,
         description: agentData.description || `Agent for ${agentData.name}`,
         instructions: agentData.instructions || "You are a helpful assistant. Answer questions accurately and concisely.",
-        model: "gpt-4o-mini",
+        model: "gpt-4.1-2025-04-14", // Updated to newer model
         tools: [] // No tools by default, can be configured later
       })
     });
