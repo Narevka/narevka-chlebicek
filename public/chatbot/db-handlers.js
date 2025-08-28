@@ -7,8 +7,8 @@ async function initSupabase() {
   if (supabaseClient) return supabaseClient;
   
   try {
-    const supabaseUrl = window.chatbaseConfig?.supabaseUrl || 'https://qaopcduyhmweewrcwkoy.supabase.co';
-    const supabaseKey = window.chatbaseConfig?.supabaseKey || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFhb3BjZHV5aG13ZWV3cmN3a295Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDA4MzM3MjQsImV4cCI6MjA1NjQwOTcyNH0.-IBnucBUA_FMYpx7xKebNhYIXqaems-du5KUvG5T04A';
+    const supabaseUrl = window.chatbaseConfig?.supabaseUrl || 'https://xjqippzovggcklllwnan.supabase.co';
+    const supabaseKey = window.chatbaseConfig?.supabaseKey || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhqcWlwcHpvdmdnY2tsbGx3bmFuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYzNjY3OTIsImV4cCI6MjA3MTk0Mjc5Mn0.1fGn4fiG3RPmEyln4CxSWN8UavAO4mGb-0ujcZW5oOg';
     
     logDebug('Initializing Supabase client', { url: supabaseUrl });
     
