@@ -14,7 +14,177 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      agent_sources: {
+        Row: {
+          agent_id: string | null
+          chars: number | null
+          content: string
+          created_at: string
+          id: string
+          status: string | null
+          type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          agent_id?: string | null
+          chars?: number | null
+          content: string
+          created_at?: string
+          id?: string
+          status?: string | null
+          type: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          agent_id?: string | null
+          chars?: number | null
+          content?: string
+          created_at?: string
+          id?: string
+          status?: string | null
+          type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_sources_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agents: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          instructions: string | null
+          is_public: boolean | null
+          name: string
+          openai_assistant_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          instructions?: string | null
+          is_public?: boolean | null
+          name: string
+          openai_assistant_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          instructions?: string | null
+          is_public?: boolean | null
+          name?: string
+          openai_assistant_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      conversations: {
+        Row: {
+          agent_id: string | null
+          confidence: number | null
+          content: string | null
+          created_at: string
+          has_thumbs_down: boolean | null
+          has_thumbs_up: boolean | null
+          id: string
+          source: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          agent_id?: string | null
+          confidence?: number | null
+          content?: string | null
+          created_at?: string
+          has_thumbs_down?: boolean | null
+          has_thumbs_up?: boolean | null
+          id?: string
+          source?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          agent_id?: string | null
+          confidence?: number | null
+          content?: string | null
+          created_at?: string
+          has_thumbs_down?: boolean | null
+          has_thumbs_up?: boolean | null
+          id?: string
+          source?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversations_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      messages: {
+        Row: {
+          confidence: number | null
+          content: string
+          conversation_id: string | null
+          created_at: string
+          has_thumbs_down: boolean | null
+          has_thumbs_up: boolean | null
+          id: string
+          is_bot: boolean | null
+          updated_at: string
+        }
+        Insert: {
+          confidence?: number | null
+          content: string
+          conversation_id?: string | null
+          created_at?: string
+          has_thumbs_down?: boolean | null
+          has_thumbs_up?: boolean | null
+          id?: string
+          is_bot?: boolean | null
+          updated_at?: string
+        }
+        Update: {
+          confidence?: number | null
+          content?: string
+          conversation_id?: string | null
+          created_at?: string
+          has_thumbs_down?: boolean | null
+          has_thumbs_up?: boolean | null
+          id?: string
+          is_bot?: boolean | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
